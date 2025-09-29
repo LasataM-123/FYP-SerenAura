@@ -5,9 +5,20 @@ const cors = require('cors');
 const cookieParser = require("cookie-parser");
 const app = express();
 const morgan = require("morgan");
+const {connection} = require('./config/dbConfig');
+connection();
+app.use(cors({
+    origin: 'http://localhost:3000',
+    credentials: true,
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 app.use(morgan("dev"));
+app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/counselors', require('./routes/counselorRoutes'));
+app.use(errorHandler);
 const port = process.env.PORT || 5000;
-connectDB();
 
 app.listen(port , () => {
     console.log(`Server is running on port ${port}`);
