@@ -8,7 +8,7 @@ const morgan = require("morgan");
 const {connection} = require('./config/dbConfig');
 connection();
 app.use(cors({
-    origin: 'http://localhost:3000',
+    origin: true,
     credentials: true,
 }));
 app.use(express.json());

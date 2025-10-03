@@ -1,5 +1,5 @@
 const Patient = require('../models/patientModel');
-const Counselor = require('../models/counselorModel'); // you missed this import in your snippet
+const Counselor = require('../models/counselorModel');
 const asyncHandler = require('express-async-handler');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -22,25 +22,29 @@ const sendOTPEmail = async (email, otp) => {
     subject: "🔒 Verify your email for SerenAura",
     html: `
       <div style="font-family: Arial, sans-serif; background-color: #f5f5f5; padding: 40px 0;">
-        <div style="max-width: 500px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center;">
-          <h1 style="color: #553434; font-size: 28px; margin-bottom: 10px;">Welcome to SerenAura!</h1>
-          <p style="color: #555; font-size: 16px; margin-bottom: 30px;">
-            Thank you for signing up. Use the OTP below to verify your email:
-          </p>
-          <div style="font-size: 32px; font-weight: bold; color: #74CEE2; margin: 20px 0; letter-spacing: 4px; background-color: #f0f8ff; padding: 15px 0; border-radius: 8px;">
-            ${otp}
-          </div>
-          <p style="color: #555; font-size: 14px;">
-            This OTP will expire in <strong>5 minutes</strong>.
-          </p>
-          <p style="color: #999; font-size: 12px; margin-top: 30px;">
-            If you did not create an account, you can safely ignore this email.
-          </p>
-          <p style="color: #999; font-size: 12px; margin-top: 10px;">
-            &copy; ${new Date().getFullYear()} SerenAura
-          </p>
-        </div>
-      </div>
+  <div style="max-width: 500px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center;">
+    <h1 style="color: #553434; font-size: 28px; margin-bottom: 10px;">
+      Welcome to SerenAura!
+    </h1>
+    <p style="color: #555; font-size: 16px; margin-bottom: 30px;">
+      Thank you for signing up. Use the OTP below to verify your email:
+    </p>
+    <div style="font-size: 32px; font-weight: bold; color: #74CEE2; margin: 20px 0; letter-spacing: 4px; background-color: #f0f8ff; padding: 15px 0; border-radius: 8px;">
+      ${otp}
+    </div>
+    <p style="color: #555; font-size: 14px;">
+      This OTP will expire in <strong>5 minutes</strong>.
+    </p>
+    <p style="color: #999; font-size: 12px; margin-top: 30px;">
+      If you did not create an account, you can safely ignore this email.
+    </p>
+    <p style="color: #999; font-size: 12px; margin-top: 10px;">
+      &copy; ${new Date().getFullYear()} SerenAura
+    </p>
+  </div>
+</div>
+
+
     `,
   });
 };
@@ -77,20 +81,17 @@ const loginController = asyncHandler(async (req, res) => {
 
     // Check Patient first
     let user = await Patient.findOne({ email });
-    let role = "patient";
-
     // If not found in Patient, check Counselor
     if (!user) {
       user = await Counselor.findOne({ email });
-      role = "counselor";
     }
 
     if (!user)
       return res.status(400).json({ message: "Invalid email or password" });
 
     // If patient, check verified
-    if (role === "patient" && !user.verified) {
-      return res.status(403).json({ message: "Please verify your email first." });
+    if (user.role === "patient" && !user.verified) {
+      return res.status(400).json({ message: "Please verify your email first." });
     }
 
     // Verify password
@@ -127,33 +128,23 @@ const register = asyncHandler(async (req, res) => {
     if (existing) {
       return res.status(400).json({ message: "User already exists" });
     }
-
-    const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
-
-    if (!passwordRegex.test(password)) {
-      return res.status(400).json({
-        message:
-          "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character",
-      });
-    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; 
+    if (!emailRegex.test(email)) {
+       return res.status(400).json({ message: "Invalid email format" }); 
+      } 
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+    if (!passwordRegex.test(password)) { 
+      return res.status(400).json({ message: "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character", }); }
 
     const passwordHash = await bcrypt.hash(password, 10);
     const otp = generateOTP();
 
-    // Create unverified patient
-    const newPatient = await Patient.create({
-      name,
-      dateOfBirth,
-      email,
-      password: passwordHash,
-      verified: false,
-    });
-
-    // JWT with OTP (stateless, no DB for OTP)
-    const otpToken = jwt.sign({ email, otp }, JWT_SECRET, {
-      expiresIn: `${OTP_EXPIRY}s`,
-    });
+    // Put user info in token payload (not saved yet in DB)
+    const otpToken = jwt.sign(
+      { email, otp, name, dateOfBirth, passwordHash },
+      JWT_SECRET,
+      { expiresIn: `${OTP_EXPIRY}s` }
+    );
 
     await sendOTPEmail(email, otp);
 
@@ -163,10 +154,11 @@ const register = asyncHandler(async (req, res) => {
   }
 });
 
+
 //@ROUTE POST /verify-otp
-//@DESC Verify OTP
+//@DESC Verify OTP and create account
 //@ACCESS Public
-const verifyOTP = asyncHandler(async (req, res) => {
+const verifyOTPAndCreate = asyncHandler(async (req, res) => {
   const { otp, otpToken } = req.body;
 
   try {
@@ -176,22 +168,24 @@ const verifyOTP = asyncHandler(async (req, res) => {
       return res.status(400).json({ message: "Invalid OTP" });
     }
 
-    // Mark patient verified
-    const patient = await Patient.findOneAndUpdate(
-      { email: decoded.email },
-      { verified: true },
-      { new: true }
+    // Create patient in DB only now
+    const patient = await Patient.create({
+      name: decoded.name,
+      dateOfBirth: decoded.dateOfBirth,
+      email: decoded.email,
+      password: decoded.passwordHash,
+      verified: true,
+    });
+
+    // Generate access/refresh tokens
+    const { accessToken, refreshToken } = generateTokens(
+      patient._id,
+      decoded.email,
+      "patient"
     );
 
-    if (!patient) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Return tokens after verification
-    const { accessToken, refreshToken } = generateTokens(patient._id, decoded.email, "patient");
-
     res.json({
-      message: "OTP verified successfully",
+      message: "OTP verified and account created successfully",
       accessToken,
       refreshToken,
       userId: patient._id,
@@ -256,10 +250,63 @@ const refreshTokenController = asyncHandler(async (req, res) => {
   });
 });
 
+//@route DELETE /users/delete-account
+//@desc Delete unverified account after OTP expiry
+//@access Public
+const deleteAccount =asyncHandler( async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(401).json({ message: "No token" });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
+
+   await Patient.findOneAndDelete({ email: decoded.email });
+
+
+    return res.json({ message: "Account deleted due to OTP expiry" });
+  } catch (err) {
+    return res.status(400).json({ message: "Invalid token" });
+  }
+});
+
+//@route POST /users/forgot-password
+//@desc Enter email of user to send OTP code
+//@access public
+const forgotPassword = asyncHandler(async(req,res)=>{
+  try{
+    const {email} = req.body;
+    if(!email){
+      return res.status(400).json("Please enter your email");
+    }
+    let user = await Patient.findOne({email});
+    if(!user){
+      user = await Counselor.findOne({email});
+    }
+    if(!user) return res.status(400).json("Please enter a valid email of your SerenAura account");
+    const otp = generateOTP();
+
+    // Put user info in token payload (not saved yet in DB)
+    const otpToken = jwt.sign(
+      { email, otp, name, dateOfBirth, passwordHash },
+      JWT_SECRET,
+      { expiresIn: `${OTP_EXPIRY}s` }
+    );
+
+    await sendOTPEmail(email, otp);
+
+  }catch(err){
+    return res.status(400).json({message:err.message});
+  }
+})
+
+
 module.exports = {
   loginController,
   register,
-  verifyOTP,
+  verifyOTPAndCreate,
   resendOTP,
   refreshTokenController,
+  deleteAccount,
+  forgotPassword
 };
+
