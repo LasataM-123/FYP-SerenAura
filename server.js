@@ -17,6 +17,7 @@ app.use(cookieParser());
 app.use(morgan("dev"));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/counselors', require('./routes/counselorRoutes'));
+app.use('/api/onboarding', require('./routes/onboardingRoutes'));
 app.use(errorHandler);
 const port = process.env.PORT || 5000;
 

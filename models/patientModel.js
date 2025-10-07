@@ -12,11 +12,9 @@ const patientSchema = new mongoose.Schema({
     },
     password:{
         type: String,
-        required: true
     },
     dateOfBirth:{
         type: Date,
-        required: true
     },
     profileUrl:{
         type: String,

@@ -81,9 +81,11 @@ const loginController = asyncHandler(async (req, res) => {
 
     // Check Patient first
     let user = await Patient.findOne({ email });
+    let role = "patient";
     // If not found in Patient, check Counselor
     if (!user) {
       user = await Counselor.findOne({ email });
+      role = "counselor";
     }
 
     if (!user)
@@ -120,39 +122,95 @@ const loginController = asyncHandler(async (req, res) => {
 const register = asyncHandler(async (req, res) => {
   try {
     const { name, dateOfBirth, email, password } = req.body;
+
+    // Check all fields are provided
     if (!name || !dateOfBirth || !email || !password) {
-      return res.status(400).json({ error: "Please fill all fields" });
+      return res.status(400).json({ message: "Please fill all fields" });
     }
 
+    // Validate date format YYYY-MM-DD
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(dateOfBirth)) {
+      return res.status(400).json({ message: "Date of Birth must be in YYYY-MM-DD format" });
+    }
+
+    // Split into parts
+    const [yearStr, monthStr, dayStr] = dateOfBirth.split("-");
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10);
+    const day = parseInt(dayStr, 10);
+
+    // Check month
+    if (month < 1 || month > 12) {
+      return res.status(400).json({ message: "Month must be between 01 and 12" });
+    }
+
+    // Days per month (handle leap year for February)
+    const daysInMonth = [
+      31,
+      (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 29 : 28,
+      31,
+      30,
+      31,
+      30,
+      31,
+      31,
+      30,
+      31,
+      30,
+      31,
+    ];
+    if (day < 1 || day > daysInMonth[month - 1]) {
+      return res.status(400).json({
+        message: `Day must be between 01 and ${daysInMonth[month - 1]} for month ${monthStr}`,
+      });
+    }
+
+    // Check if user already exists
     const existing = await Patient.findOne({ email });
     if (existing) {
       return res.status(400).json({ message: "User already exists" });
     }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/; 
-    if (!emailRegex.test(email)) {
-       return res.status(400).json({ message: "Invalid email format" }); 
-      } 
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
-    if (!passwordRegex.test(password)) { 
-      return res.status(400).json({ message: "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character", }); }
 
+    // Validate email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+
+    // Validate password
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        message:
+          "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character",
+      });
+    }
+
+    // Hash password
     const passwordHash = await bcrypt.hash(password, 10);
+
+    //  Generate OTP
     const otp = generateOTP();
 
-    // Put user info in token payload (not saved yet in DB)
+    //  Create OTP token (user info not saved yet)
     const otpToken = jwt.sign(
       { email, otp, name, dateOfBirth, passwordHash },
       JWT_SECRET,
       { expiresIn: `${OTP_EXPIRY}s` }
     );
 
+    // Send OTP email
     await sendOTPEmail(email, otp);
 
+    //  Respond with OTP token
     res.json({ otpToken, message: "OTP sent to email. Please verify." });
   } catch (e) {
     res.status(500).json({ message: e.message });
   }
 });
+
 
 
 //@ROUTE POST /verify-otp
@@ -162,6 +220,9 @@ const verifyOTPAndCreate = asyncHandler(async (req, res) => {
   const { otp, otpToken } = req.body;
 
   try {
+    if (!otp || !otpToken) {
+      return res.status(400).json({ message: "Please enter the OTP first" });
+    }
     const decoded = jwt.verify(otpToken, JWT_SECRET);
 
     if (decoded.otp !== otp) {
@@ -196,13 +257,16 @@ const verifyOTPAndCreate = asyncHandler(async (req, res) => {
   }
 });
 
-//@ROUTE GET /resend-otp/:otpToken
+//@ROUTE POST /resend-otp/:otpToken
 //@DESC Resend OTP
 //@ACCESS Public
 const resendOTP = asyncHandler(async (req, res) => {
-  const { otpToken } = req.params;
+  const { otpToken } = req.body;
 
   try {
+    if (!otpToken) {
+      return res.status(400).json({ message: "No OTP token provided" });
+    }
     // Decode the old token to get the email
     const decoded = jwt.verify(otpToken, JWT_SECRET);
     const email = decoded.email;
@@ -210,10 +274,6 @@ const resendOTP = asyncHandler(async (req, res) => {
     const patient = await Patient.findOne({ email });
     if (!patient) {
       return res.status(404).json({ message: "Patient not found" });
-    }
-
-    if (patient.verified) {
-      return res.status(400).json({ message: "Patient already verified" });
     }
 
     // Generate new OTP + token
@@ -276,29 +336,139 @@ const forgotPassword = asyncHandler(async(req,res)=>{
   try{
     const {email} = req.body;
     if(!email){
-      return res.status(400).json("Please enter your email");
+      return res.status(400).json({message:"Please enter your email"});
     }
     let user = await Patient.findOne({email});
     if(!user){
       user = await Counselor.findOne({email});
     }
-    if(!user) return res.status(400).json("Please enter a valid email of your SerenAura account");
+    if(!user) return res.status(400).json({message:"Please enter a valid email of your SerenAura account"});
     const otp = generateOTP();
 
-    // Put user info in token payload (not saved yet in DB)
+    // Put user info in token 
     const otpToken = jwt.sign(
-      { email, otp, name, dateOfBirth, passwordHash },
+      { email, otp },
       JWT_SECRET,
       { expiresIn: `${OTP_EXPIRY}s` }
     );
 
     await sendOTPEmail(email, otp);
+    res.json({ otpToken, message: "OTP sent to email. Please verify." });
 
   }catch(err){
     return res.status(400).json({message:err.message});
   }
 })
 
+//@route POST /users/verify
+//@desc Verify OTP code for password reset
+//@access public
+const verifyOTP = asyncHandler(async(req,res)=>{
+  const { otp, otpToken } = req.body;
+  try{
+    if(!otp || !otpToken){
+      return res.status(400).json({message:"Please enter the OTP first"});
+    }
+    const decoded = jwt.verify(otpToken, JWT_SECRET);
+    if (decoded.otp !== otp) {
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+    res.json({ message: "OTP verified. You may now reset your password.", email: decoded.email });
+  }catch(err){
+    return res.status(400).json({message:err.message});
+  }
+});
+
+//@route POST /users/reset-password
+//@desc Reset password after OTP verification
+//@access public
+const resetPassword = asyncHandler(async(req,res)=>{
+  try{
+    const { email, newPassword, confirmPassword } = req.body;
+    if (!email || !newPassword || !confirmPassword) {
+      return res.status(400).json({ message: "Please fill all fields" });
+    }
+    if(newPassword !== confirmPassword){
+      return res.status(400).json({message:"Passwords do not match"});
+    }
+    const user = await Patient.findOne({ email });
+    if (!user) {
+     user = await Counselor.findOne({ email });
+    }
+    if(!user) return res.status(400).json({message:"User not found"});
+
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({ message: "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character"});
+    }
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    user.password = hashedPassword;
+    await user.save();
+
+    return res.status(200).json({ success: "Password reset successful" });
+  }catch(err){
+    return res.status(400).json({message:err.message});
+  }
+});
+
+// @route /add/dob
+// @desc Add date of birth for patients registered via Google
+// @access private
+const addDOB = asyncHandler(async (req, res) => {
+  try{
+    const { dateOfBirth } = req.body;
+    if(!dateOfBirth){
+      return res.status(400).json({message:"Please provide your date of birth"});
+    }
+    // Validate date format YYYY-MM-DD
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(dateOfBirth)) {
+      return res.status(400).json({ message: "Date of Birth must be in YYYY-MM-DD format" });
+    }
+
+    // Split into parts
+    const [yearStr, monthStr, dayStr] = dateOfBirth.split("-");
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10);
+    const day = parseInt(dayStr, 10);
+
+    // Check month
+    if (month < 1 || month > 12) {
+      return res.status(400).json({ message: "Month must be between 01 and 12" });
+    }
+
+    // Days per month (handle leap year for February)
+    const daysInMonth = [
+      31,
+      (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 29 : 28,
+      31,
+      30,
+      31,
+      30,
+      31,
+      31,
+      30,
+      31,
+      30,
+      31,
+    ];
+    if (day < 1 || day > daysInMonth[month - 1]) {
+      return res.status(400).json({
+        message: `Day must be between 01 and ${daysInMonth[month - 1]} for month ${monthStr}`,
+      });
+    }
+    const patient = await Patient.findById(req.user.id);
+    if(!patient) return res.status(404).json({message:"Patient not found"});
+    patient.dateOfBirth = dateOfBirth;
+    await patient.save();
+    return res.status(200).json({message:"Date of birth added successfully", patient});
+  }catch(err){
+    return res.status(400).json({message:err.message});
+  }
+});
 
 module.exports = {
   loginController,
@@ -307,6 +477,9 @@ module.exports = {
   resendOTP,
   refreshTokenController,
   deleteAccount,
-  forgotPassword
+  forgotPassword,
+  verifyOTP,
+  resetPassword,
+  addDOB
 };
 

@@ -1,6 +1,7 @@
 const Counselor = require('../models/counselorModel');
 const asyncHandler = require('express-async-handler');
 const bcrypt = require('bcrypt');
+const cloudinary = require('../config/cloudinaryConfig');
 
 const deleteUploadedFile = async (file) => {
     if (!file || !file.path) return;
