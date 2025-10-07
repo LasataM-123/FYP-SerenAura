@@ -1,10 +1,24 @@
 import welcomeImage from '@/assets/images/Welcome.png';
 import ribbon from '@/assets/images/ribbon.png';
 import google from '@/assets/images/Google.png';
-import tick from '@/assets/images/Tick.png';
-import cross from '@/assets/images/Cross.png';
-import arrowBack from '@/assets/images/ArrowBack.png';
-import passwordUpdated from '@/assets/images/PasswordUpdated.png';
+import tick from '@/assets/icons/Tick.png';
+import cross from '@/assets/icons/Cross.png';
+import arrowBack from '@/assets/icons/ArrowBack.png';
+import passwordUpdated from '@/assets/icons/PasswordUpdated.png';
+import onboardingScreen from '@/assets/images/Onboarding/OnboardingScreen.png';
+import onboarding1Image1 from '@/assets/images/Onboarding/Property1=Image1.png';
+import onboarding1Image2 from '@/assets/images/Onboarding/Property1=Image2.png';
+import onboarding1Image3 from '@/assets/images/Onboarding/Property1=Image3.png';
+import onboarding1Image4 from '@/assets/images/Onboarding/Property1=Image4.png';
+import onboarding2Image1 from '@/assets/images/Onboarding/Property2=Image1.png';
+import onboarding2Image2 from '@/assets/images/Onboarding/Property2=Image2.png';
+import onboarding2Image3 from '@/assets/images/Onboarding/Property2=Image3.png';
+import onboarding2Image4 from '@/assets/images/Onboarding/Property2=Image4.png';
+import onboarding3Image1 from '@/assets/images/Onboarding/Property3=Image1.png';
+import onboarding3Image2 from '@/assets/images/Onboarding/Property3=Image2.png';
+import onboarding3Image3 from '@/assets/images/Onboarding/Property3=Image3.png';
+import onboarding3Image4 from '@/assets/images/Onboarding/Property3=Image4.png';
+import success from '@/assets/images/Onboarding/Success.png';
 export const images={
     welcomeImage,
     ribbon,
@@ -12,5 +26,20 @@ export const images={
     tick,
     cross,
     arrowBack,
-    passwordUpdated
+    passwordUpdated,
+    onboardingScreen,
+    onboarding1Image1,
+    onboarding1Image2,
+    onboarding1Image3,
+    onboarding1Image4,
+    onboarding2Image1,
+    onboarding2Image2,
+    onboarding2Image3,
+    onboarding2Image4,
+    onboarding3Image1,
+    onboarding3Image2,
+    onboarding3Image3,
+    onboarding3Image4,
+    success
+
 }

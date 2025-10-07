@@ -3,32 +3,31 @@ import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link, router } from "expo-router";
 import Button from "@/components/Button";
+import { useAuthStore } from "@/store/authStore";
 import { images } from "@/constants";
 
-const OnboardingScreen = () => {
+const Final = () => {
+    const {completeOnboarding} = useAuthStore();
+    const handleSubmit = () => {
+        completeOnboarding();
+        router.push('/home');
+    }
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top bar with skip */}
-      <View style={styles.topBar}>
-        <Text />
-        <Link href="/final-onboarding" asChild>
-        <Text style={styles.skipText}>SKIP</Text>
-        </Link>
-      </View>
 
       {/* Progress indicator */}
       <View style={styles.progressContainer}>
         <View style={[styles.progressDot, styles.activeDot]} />
-        <View style={styles.progressDot} />
-        <View style={styles.progressDot} />
-        <View style={styles.progressDot} />
-        <View style={styles.progressDot} />
+        <View style={[styles.progressDot, styles.activeDot]} />
+        <View style={[styles.progressDot, styles.activeDot]} />
+        <View style={[styles.progressDot, styles.activeDot]} />
+        <View style={[styles.progressDot, styles.activeDot]} />
       </View>
       <View style={styles.main}>
         {/* Illustration */}
       <View style={styles.imageContainer}>
         <Image
-          source={images.onboardingScreen}
+          source={images.success}
           style={styles.image}
           resizeMode="contain"
         />
@@ -37,7 +36,7 @@ const OnboardingScreen = () => {
       {/* Text */}
       <View style={styles.textContainer}>
         <Text style={styles.description}>
-          Take a deep breath... your path to calm, clarity, and balance begins here.
+         You're all set! We've curated the best relaxation techniques for you. Breathe in, relax, and enjoy your personalized journey.
         </Text>
       </View>
       </View>
@@ -45,13 +44,13 @@ const OnboardingScreen = () => {
 
       {/* Button */}
       <View style={styles.buttonContainer}>
-       <Button label="Continue" onPress={()=>router.push('/next-onboarding')}/>
+       <Button label="Continue" onPress={handleSubmit}/>
       </View>
     </SafeAreaView>
   );
 };
 
-export default OnboardingScreen;
+export default Final;
 
 const styles = StyleSheet.create({
   container: {
@@ -59,26 +58,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     paddingHorizontal: 24,
   },
-  topBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 16,
-  },
-  skipText: {
-    color: "#553434", // gray-500
-    fontWeight: "600",
-    fontFamily: "KodchasanSemiBold",
-  },
   main:{
     flex :1,
     justifyContent: "center",
   },
   progressContainer: {
     flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 28,
-    gap: 8,
+    justifyContent: "space-between",
+    marginTop: 68,
   },
   progressDot: {
   height: 6,
@@ -93,19 +80,15 @@ const styles = StyleSheet.create({
   shadowRadius: 0, 
   elevation: 2, 
 },
-  activeDot: {
-    backgroundColor: "#553434", 
-    borderRadius: 3,
-  },
+  activeDot: { backgroundColor: "#553434", borderRadius: 3 },
   imageContainer: {
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 24,
   },
   image: {
-    width: 280, 
-    height: 280,
-    borderRadius: 24,
+    width: 240, 
+    height: 240,
+    borderRadius: 20,
   },
   textContainer: {
     paddingHorizontal: 32,
@@ -113,9 +96,9 @@ const styles = StyleSheet.create({
   },
   description: {
     textAlign: "center",
-    color: "#553434",
-    fontFamily: "KodchasanMedium", 
+    color: "#553434", 
     fontSize: 18,
+    fontFamily: "KodchasanSemiBold",
   },
   buttonContainer: {
     marginBottom: 32,

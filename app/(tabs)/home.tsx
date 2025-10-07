@@ -6,9 +6,11 @@ import Button from '@/components/Button';
 
 const home = () => {
      const { logout } = useAuthStore();
+     const userId = useAuthStore((state) => state.accessToken);
+     const role = useAuthStore((state) => state.role);
   const handleLogout = () => {
     logout();
-    router.replace("/login"); // Redirect to login screen
+    router.replace("/login"); 
   };
   return (
    <View
@@ -20,6 +22,7 @@ const home = () => {
     >
       <Text>Edit app/(tabs)/index.tsx to edit this screen.</Text>
       <Button label="Logout" onPress={handleLogout} />
+      <Button label="Click" onPress={() => console.log(userId, role)} />
     </View>
   )
 }

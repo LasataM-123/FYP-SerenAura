@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
     color: "#553434", // text-dark
     fontFamily: "Pacifico",
     fontSize: 40, // text-5xl
-    marginBottom: 32,
+    marginBottom: 28,
   },
   progressContainer: {
     width: "100%",

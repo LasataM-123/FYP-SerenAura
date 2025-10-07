@@ -19,7 +19,7 @@ const Welcome = () => {
       <View style={styles.bottomSection}>
         <Button
           label="Get Started"
-          onPress={() => {router.push('/signup')}}
+          onPress={() => {router.push('/onboarding')}}
           variant="solid"
         />
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, TouchableOpacity, Image, StyleSheet } from "react-native";
+import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
 import { OverlayProps } from "@/types";
 import Button from "./Button";
 import { images } from "@/constants";
@@ -11,6 +11,8 @@ const Overlay: React.FC<OverlayProps> = ({
   imageSource,
   outlineLabel,
   includeOutlinedButton = false,
+  crossIcon = false,
+  onClose,
   onPress,
 }) => {
   return (
@@ -22,7 +24,11 @@ const Overlay: React.FC<OverlayProps> = ({
         {/* Main Container */}
         <View style={styles.card}>
          
-         
+         {crossIcon && (
+            <TouchableOpacity style={styles.crossIconContainer} onPress={onClose}>
+              <Image source={images.cross} style={styles.crossIcon} resizeMode="contain" />
+            </TouchableOpacity>
+          )}
 
           {/* Icon */}
           {imageSource && (
@@ -52,6 +58,16 @@ const Overlay: React.FC<OverlayProps> = ({
 export default Overlay;
 
 const styles = StyleSheet.create({
+  crossIconContainer: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    padding: 6,
+  },
+  crossIcon: {
+    width: 20,
+    height: 20,
+  },
   overlay: {
     position: "absolute",
     inset: 0,

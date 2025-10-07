@@ -1,58 +1,133 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, FlatList, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  TouchableWithoutFeedback,
+  FlatList,
+  StyleSheet,
+  Image,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
+import AnswerCard from "@/components/AnswerCard";
+import Button from "@/components/Button";
+import { images } from "@/constants";
 
 const onboardingData = [
   {
     id: 1,
-    question: "How did you hear about us?",
-    answers: ["Friend", "Social Media", "Search Engine", "Other"],
+    question: "What brings you here today?",
+    answers: [
+      { label: "To reduce stress", image: images.onboarding1Image1 },
+      { label: "To sleep better", image: images.onboarding1Image2 },
+      { label: "To improve focus", image: images.onboarding1Image3 },
+      { label: "To feel happier", image: images.onboarding1Image4 },
+    ],
   },
   {
     id: 2,
-    question: "What’s your main goal?",
-    answers: ["Reduce stress", "Sleep better", "Track mood", "Meditation"],
+    question: "How do you prefer to relax?",
+    answers: [
+      { label: "Listening music", image: images.onboarding2Image1 },
+      { label: "Guided Meditation", image: images.onboarding2Image2 },
+      { label: "Breathing exercises", image: images.onboarding2Image3 },
+      { label: "Journaling thoughts", image: images.onboarding2Image4 },
+    ],
   },
   {
     id: 3,
-    question: "How often do you practice relaxation?",
-    answers: ["Never", "Sometimes", "Often", "Daily"],
+    question: "When do you need relaxation the most?",
+    answers: [
+      { label: "Anxious Moments", image: images.onboarding3Image1 },
+      { label: "After stress", image: images.onboarding3Image2 },
+      { label: "During work/study", image: images.onboarding3Image3 },
+      { label: "Before Bed", image: images.onboarding3Image4 },
+    ],
   },
 ];
 
 const Onboarding = () => {
   const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState<string[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
 
-  const nextStep = () => {
+//   const { refetch, loading } = useBackend("onboarding"); 
+
+  // go to next step
+  const nextStep = async () => {
+    if (!selectedAnswer) return;
+
+    // store answer
+    const updatedAnswers = [...answers];
+    updatedAnswers[step] = selectedAnswer;
+    setAnswers(updatedAnswers);
+
+    // if not last step → move to next
     if (step < onboardingData.length - 1) {
       setStep(step + 1);
       setSelectedAnswer(null);
     } else {
-      router.replace("/login");
+      // last step → submit answers to backend
+      await handleSubmit(updatedAnswers);
+    }
+  };
+   const backStep = () => {
+    if (step === 0) {
+      router.replace("/onboarding"); 
+    } else {
+      setStep(step - 1);
+      setSelectedAnswer(null);
+    }
+  };
+
+  const skipStep = () => {
+    if (step < onboardingData.length - 1) {
+      setStep(step + 1);
+      setSelectedAnswer(null);
+    } else {
+      router.replace("/final-onboarding");
+    }
+  };
+
+  const handleSubmit = async (finalAnswers: string[]) => {
+    try {
+      const payload = onboardingData.map((q, i) => ({
+        question: q.question,
+        answer: finalAnswers[i] || "Skipped",
+      }));
+
+    //   const res = await refetch({ responses: payload }); //send to backend
+      router.push("./final-onboarding"); //navigate
+    } catch (err:any) {
+      alert(err.message || "Something went wrong");
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Skip */}
+      {/* Top Bar */}
       <View style={styles.topBar}>
-        <Text style={styles.invisibleText}>.</Text>
-        <TouchableOpacity onPress={() => router.replace("/login")}>
+        <TouchableWithoutFeedback onPress={backStep}>
+          <Image source={images.arrowBack} style={styles.backImage}/>
+        </TouchableWithoutFeedback>
+        <TouchableWithoutFeedback onPress={skipStep}>
           <Text style={styles.skipText}>SKIP</Text>
-        </TouchableOpacity>
+        </TouchableWithoutFeedback>
       </View>
 
       {/* Progress Bar */}
-      <View style={styles.progressContainer}>
-        {onboardingData.map((_, index) => (
-          <View
-            key={index}
-            style={[styles.progressDot, index === step && styles.activeDot]}
-          />
-        ))}
-      </View>
+     <View style={styles.progressContainer}>
+  {[...Array(5)].map((_, index) => (
+    <View
+      key={index}
+      style={[
+        styles.progressDot,
+        index <= step + 1 && styles.activeDot, // fill all previous + current
+      ]}
+    />
+  ))}
+</View>
+
 
       {/* Question */}
       <View style={styles.questionContainer}>
@@ -60,37 +135,35 @@ const Onboarding = () => {
           {onboardingData[step].question}
         </Text>
 
-        {/* Answers */}
         <FlatList
           data={onboardingData[step].answers}
-          keyExtractor={(item) => item}
+          keyExtractor={(item) => item.label}
+          numColumns={2}
+          columnWrapperStyle={{ justifyContent: "space-between", gap:12 }}
+          contentContainerStyle={styles.answersGrid}
           renderItem={({ item }) => (
-            <TouchableOpacity
-              onPress={() => setSelectedAnswer(item)}
-              style={[
-                styles.answerButton,
-                selectedAnswer === item && styles.selectedAnswerButton,
-              ]}
-            >
-              <Text style={styles.answerText}>{item}</Text>
-            </TouchableOpacity>
+            <AnswerCard
+              item={item}
+              selectedAnswer={selectedAnswer}
+              setSelectedAnswer={setSelectedAnswer}
+            />
           )}
         />
       </View>
 
       {/* Continue Button */}
-      <TouchableOpacity
-        disabled={!selectedAnswer}
-        onPress={nextStep}
-        style={[
-          styles.continueButton,
-          selectedAnswer ? styles.continueButtonActive : styles.continueButtonDisabled,
-        ]}
-      >
-        <Text style={styles.continueButtonText}>
-          {step === onboardingData.length - 1 ? "Get Started" : "Continue"}
-        </Text>
-      </TouchableOpacity>
+      <TouchableWithoutFeedback
+  // disabled={!selectedAnswer || loading} // disable press
+  onPress={nextStep}
+>
+  {/* <View style={{ opacity: !selectedAnswer || loading ? 0.6 : 1 }}> */}
+  <View style={styles.buttonContaner}>
+    <Button
+      label="Continue"
+      onPress={nextStep}
+    />
+  </View>
+</TouchableWithoutFeedback>
     </SafeAreaView>
   );
 };
@@ -103,19 +176,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     paddingHorizontal: 24,
   },
+  backImage: {
+    width: 30,
+    height: 30,
+    resizeMode: "contain",
+  },
   topBar: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 16,
   },
-  invisibleText: {
-    color: "transparent",
-  },
-  skipText: {
-    color: "#6B7280", // gray-500
-    fontWeight: "600",
-  },
+  skipText: { color: "#553434", fontWeight: "600", fontFamily: "KodchasanSemiBold" },
   progressContainer: {
     flexDirection: "row",
     justifyContent: "center",
@@ -123,63 +195,35 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   progressDot: {
-    height: 6, // 1.5 * 4
-    width: 40, // 10 * 4
-    borderRadius: 3,
-    backgroundColor: "#D1D5DB", // gray-300
-    marginHorizontal: 4,
-  },
-  activeDot: {
-    backgroundColor: "#5C3A21", // brown-800
-  },
+  height: 6,
+  width: 55,
+  borderRadius: 10,
+  borderWidth: 1,
+  borderColor: "#553434",
+  marginHorizontal: 4,
+  shadowColor: "#553434",
+  shadowOffset: { width: 2, height: 0 }, 
+  shadowOpacity: 1, 
+  shadowRadius: 0, 
+  elevation: 2, 
+},
+  activeDot: { backgroundColor: "#553434", borderRadius: 3 },
   questionContainer: {
     flex: 1,
     justifyContent: "center",
-    marginTop: 32,
+    alignItems: "center",
+    marginTop: 24,
   },
   questionText: {
     textAlign: "center",
     fontSize: 20,
     fontWeight: "600",
-    color: "#1F2937", // gray-800
-    marginBottom: 32,
+    color: "#553434",
+    marginBottom: 48,
+    fontFamily: "KodchasanSemiBold",
   },
-  answerButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#9CA3AF", // gray-400
-    backgroundColor: "#F3F4F6", // gray-100
-  },
-  selectedAnswerButton: {
-    backgroundColor: "#BBF7D0", // green-200
-    borderColor: "#15803D", // green-700
-  },
-  answerText: {
-    textAlign: "center",
-    color: "#1F2937", // gray-800
-    fontSize: 16,
-  },
-  continueButton: {
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 32,
-  },
-  continueButtonActive: {
-    backgroundColor: "#BBF7D0", // green-200
-    borderColor: "#000000",
-  },
-  continueButtonDisabled: {
-    backgroundColor: "#D1D5DB", // gray-300
-    borderColor: "#9CA3AF", // gray-400
-  },
-  continueButtonText: {
-    textAlign: "center",
-    color: "#000000",
-    fontWeight: "600",
-    fontSize: 16,
-  },
+  answersGrid: { alignItems: "center", justifyContent: "center" },
+  buttonContaner:{
+    marginBottom :32,
+  }
 });

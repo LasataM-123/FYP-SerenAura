@@ -12,6 +12,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.lasata.serenaura",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -44,9 +45,12 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-
     "extra": {
-      "API_URL": "http://192.168.1.7:5000/api"
+      "API_URL": "http://192.168.1.7:5000/api",
+      "router": {},
+      "eas": {
+        "projectId": "acf35f13-3425-45a6-8693-c5cb1b13c627"
+      }
     }
   }
 }

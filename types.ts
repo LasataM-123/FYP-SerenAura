@@ -1,4 +1,4 @@
-import { StyleProp, TextStyle, ViewStyle, GestureResponderEvent, ImageSourcePropType } from "react-native";
+import { StyleProp, TextStyle, ViewStyle, GestureResponderEvent, ImageSourcePropType, Image } from "react-native";
 
 export interface CustomButtonProps {
   onPress?: (event: GestureResponderEvent) => void;
@@ -39,7 +39,14 @@ export interface OverlayProps {
   label: string;
   imageSource: ImageSourcePropType;
   includeOutlinedButton?:boolean;
+  crossIcon?:boolean;
   outlineLabel?:string;
   onPress: () => void;
   onClose?: () => void;
 }
+
+export type AnswerCardProps = {
+  item: { label: string; image: any };
+  selectedAnswer: string | null;
+  setSelectedAnswer: (label: string) => void;
+};
