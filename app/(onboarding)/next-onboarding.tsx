@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { use, useState } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,9 @@ import { router } from "expo-router";
 import AnswerCard from "@/components/AnswerCard";
 import Button from "@/components/Button";
 import { images } from "@/constants";
+import { useBackend } from "@/lib/useBackend";
+import { createOnboarding } from "@/lib/api/onboarding";
+import { useAuthStore } from "@/store/authStore";
 
 const onboardingData = [
   {
@@ -50,8 +53,10 @@ const Onboarding = () => {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
-
-//   const { refetch, loading } = useBackend("onboarding"); 
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const {refetch, loading} = useBackend({
+    fn: createOnboarding
+  })
 
   // go to next step
   const nextStep = async () => {
@@ -96,8 +101,10 @@ const Onboarding = () => {
         answer: finalAnswers[i] || "Skipped",
       }));
 
-    //   const res = await refetch({ responses: payload }); //send to backend
-      router.push("./final-onboarding"); //navigate
+    const res = await refetch({ responses: payload , accessToken}); //send to backend
+    if(res?.onboarding){
+      router.push("/final-onboarding");
+    }
     } catch (err:any) {
       alert(err.message || "Something went wrong");
     }
@@ -153,15 +160,16 @@ const Onboarding = () => {
 
       {/* Continue Button */}
       <TouchableWithoutFeedback
-  // disabled={!selectedAnswer || loading} // disable press
+  disabled={!selectedAnswer || loading} // disable press
   onPress={nextStep}
 >
-  {/* <View style={{ opacity: !selectedAnswer || loading ? 0.6 : 1 }}> */}
+  <View style={{ opacity: !selectedAnswer || loading ? 0.6 : 1 }}>
   <View style={styles.buttonContaner}>
     <Button
       label="Continue"
       onPress={nextStep}
     />
+  </View>
   </View>
 </TouchableWithoutFeedback>
     </SafeAreaView>

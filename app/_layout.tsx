@@ -24,7 +24,7 @@ export default function RootLayout() {
 
     // Current route group
     const inAuthGroup = segments[0] === "(auth)";
-    const inOnboarding = segments[0] === "onboarding";
+    const inOnboarding = segments[0] === "(onboarding)";
     const inWelcome = currentSegment === "welcome"; 
 
     if (
