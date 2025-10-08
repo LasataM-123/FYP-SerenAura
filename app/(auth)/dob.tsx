@@ -5,25 +5,23 @@ import CustomInput from "@/components/CustomInput";
 import Button from "@/components/Button";
 import { Link, router } from "expo-router";
 import { useBackend } from "@/lib/useBackend";
-import { forgotPassword } from "@/lib/api/auth";
+import { addDOB, forgotPassword } from "@/lib/api/auth";
 import { useAuthStore } from "@/store/authStore";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const Dob = () => {
-
-
-  const [form, setForm] = useState({ dateOfBirth: "" });
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const [dob, setDob] = useState("");
+  const {refetch, loading, error } = useBackend({
+    fn:addDOB
+  });
 
   const handleSubmit = async () => {
     try {
-    //   const res = await refetch(form);
-    //   if (res?.otpToken) {
-    //     setOtpToken(res.otpToken);
-    //     router.push({
-    //       pathname: "/verification-code",
-    //       params: { mode: "reset" },
-    //     });
-    //   }
+      const res = await refetch({dateOfBirth: dob, accessToken});
+      if (res?.success) {
+        router.push("/onboarding");
+      }
     } catch (err: any) {
       alert(err.message || "Failed to send code. Please try again.");
     }
@@ -31,17 +29,18 @@ const Dob = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Top label="Forgot your Password?" onBack={() => router.push("/login")} />
+      <Top label="When’s Your Birthday?" onBack={() => router.push("/login")} />
 
       <View style={styles.content}>
         <Text style={styles.instruction}>
-          Enter your registered email below, we’ll send 4 digit code to your email.
+          Your date of birth helps us create a more tailored experience just for you.
         </Text>
 
         <CustomInput
           placeholder="Date of Birth (yyyy-mm-dd)"
-          value={form.dateOfBirth}
-          onChangeText={(text) => setForm({ ...form, dateOfBirth: text })}
+          value={dob}
+          onChangeText={(text) => setDob(text)}
+          keyboardType="numeric"
         />
 
         {/* {error && <Text style={styles.errorText}>{error}</Text>} */}

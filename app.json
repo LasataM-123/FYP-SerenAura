@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "frontendui",
+    "owner":"lasatam",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -39,14 +40,17 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
     "extra": {
-      "API_URL": "http://192.168.1.4:5000/api",
+      "API_URL": "http://192.168.1.5:5000/api",
+      "GOOGLE_CLIENT_ID":"795417114491-nuqrncq7d1tjhnjldc0dua98685gbqea.apps.googleusercontent.com",
+      "WEB_CLIENT_ID":"795417114491-ktvjjmgq6q3tcnh58lca64577hohhqk3.apps.googleusercontent.com",
       "router": {},
       "eas": {
         "projectId": "acf35f13-3425-45a6-8693-c5cb1b13c627"

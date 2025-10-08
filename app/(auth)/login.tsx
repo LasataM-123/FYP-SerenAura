@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,12 @@ import { useBackend } from "@/lib/useBackend";
 import { login } from "@/lib/api/auth";
 import { useAuthStore } from "@/store/authStore";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as Google from "expo-auth-session/providers/google";
+import * as WebBrowser from "expo-web-browser";
+import { API_URL, GOOGLE_CLIENT_ID, WEB_CLIENT_ID } from "@/config";
+import * as AuthSession from "expo-auth-session";
+
+WebBrowser.maybeCompleteAuthSession();
 
 const Login = () => {
   const { setAuth, loggedIn } = useAuthStore();
@@ -22,6 +28,59 @@ const Login = () => {
   const { refetch, loading, error } = useBackend({
     fn: login,
   });
+  const [googleLoading,setGoogleLoading] = useState(false);
+ const redirectUri = AuthSession.makeRedirectUri({
+  // @ts-expect-error: useProxy is valid but missing in types
+  useProxy: true,
+});
+
+console.log(redirectUri)
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: GOOGLE_CLIENT_ID,
+    webClientId: WEB_CLIENT_ID,
+    redirectUri: redirectUri
+  });
+
+  useEffect(() => {
+    if (response?.type === "success") {
+      const { id_token } = response.params;
+      handleGoogleLogin(id_token);
+      console.log(id_token)
+    }
+  }, [response]);
+
+  const handleGoogleLogin = async (idToken:string) => {
+    try {
+      setGoogleLoading(true);
+      const res = await fetch(`${API_URL}/users/auth/google`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ idToken }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to sign in with Google");
+      }
+      setAuth({
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+          userId: data.userId,
+          role: data.role,
+        });
+      if(data?.isNewUser){
+        router.push('/dob');
+      }else{
+        
+      }
+      
+    } catch (err:any) {
+      console.error("Error logging in:", err.message);
+    }
+  };
 
   const handleLogin = async () => {
     try {
@@ -52,6 +111,7 @@ const Login = () => {
             placeholder="Email"
             value={form.email}
             onChangeText={(text) => setForm({ ...form, email: text })}
+            keyboardType="email-address"
           />
           <CustomInput
             placeholder="Password"
@@ -94,14 +154,14 @@ const Login = () => {
 
         <Button
           label="Sign In with Google"
-          onPress={() => handleLogin()}
+          onPress={() => promptAsync()}
           variant="outline"
           imageSource={images.google}
         />
       </View>
 
       {/* Loading Overlay */}
-    {loading && (
+    {(loading || googleLoading) && (
   <View style={styles.overlay}>
     <View style={styles.cardWrapper}>
       {/* Shadow Layer */}
@@ -115,8 +175,6 @@ const Login = () => {
     </View>
   </View>
 )}
-
-
 
     </SafeAreaView>
   );
@@ -167,6 +225,7 @@ const styles = StyleSheet.create({
 
   signupRow: {
     flexDirection: "row",
+    alignItems: "center",
     marginTop:8,
   },
 
@@ -179,7 +238,7 @@ const styles = StyleSheet.create({
   textDarkBold: {
     fontFamily: "KodchasanSemiBold",
     color: "#553434",
-    fontSize: 16,
+    fontSize: 18,
   },
 
   dividerContainer: {

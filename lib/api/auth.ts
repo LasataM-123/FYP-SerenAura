@@ -89,3 +89,17 @@ export async function forgotPassword(params?: { email: string }): Promise<OTPRes
   if (!res.ok) throw new Error((await res.json()).message);
   return res.json();
 }
+
+export async function addDOB(params?: { dateOfBirth: string, accessToken: string | null}): Promise<{ success: string }> {
+  const res = await fetch(`${API_URL}/users/add-dob`, {
+    method: "POST",
+    headers: { 
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${params?.accessToken}`
+    },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw new Error((await res.json()).message || "Adding date of birth failed");
+  return res.json();
+}
+

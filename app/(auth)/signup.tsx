@@ -59,12 +59,14 @@ const Signup = () => {
           placeholder="Email"
           value={form.email}
           onChangeText={(text) => setForm({ ...form, email: text })}
+          keyboardType="email-address"
           
         />
         <CustomInput
           placeholder="Date of Birth (yyyy-mm-dd)"
           value={form.dateOfBirth}
           onChangeText={(text) => setForm({ ...form, dateOfBirth: text })}
+          keyboardType="numeric"
         
         />
         <CustomInput
@@ -140,7 +142,7 @@ const styles = StyleSheet.create({
     fontFamily: "KodchasanMedium",
   },
   signInLink: {
-    fontSize: 16,
+    fontSize: 18,
     color: "#553434",
     fontFamily: "KodchasanSemiBold",
   },

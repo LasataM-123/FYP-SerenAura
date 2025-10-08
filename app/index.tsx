@@ -53,10 +53,10 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   title: {
-    color: "#553434", // text-dark
+    color: "#553434", 
     fontFamily: "Pacifico",
-    fontSize: 40, // text-5xl
-    marginBottom: 28,
+    fontSize: 40,
+    marginBottom: 24,
   },
   progressContainer: {
     width: "100%",
