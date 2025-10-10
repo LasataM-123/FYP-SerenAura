@@ -1,4 +1,4 @@
-import React from "react";
+import React, { use } from "react";
 import { View, Text, Image, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Link, router } from "expo-router";
@@ -9,8 +9,9 @@ import { images } from "@/constants";
 const Final = () => {
     const {completeOnboarding} = useAuthStore();
     const handleSubmit = () => {
-        completeOnboarding();
-        router.push('/home');
+      completeOnboarding();
+      router.replace('/home');
+        
     }
   return (
     <SafeAreaView style={styles.container}>

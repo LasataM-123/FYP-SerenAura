@@ -1,5 +1,15 @@
-import React from "react";
-import { View, Text, Image, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useEffect } from "react";
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  TouchableOpacity,
+  Keyboard
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as NavigationBar from "expo-navigation-bar";
+import { StatusBar } from "expo-status-bar";
 import { OverlayProps } from "@/types";
 import Button from "./Button";
 import { images } from "@/constants";
@@ -15,29 +25,56 @@ const Overlay: React.FC<OverlayProps> = ({
   onClose,
   onPress,
 }) => {
+  const insets = useSafeAreaInsets();
+
+  useEffect(() => {
+   Keyboard.dismiss();
+  }, []);
+
   return (
-    <View style={styles.overlay}>
+    <View
+      style={[
+        styles.overlay,
+        {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
+      ]}
+    >
+      <StatusBar backgroundColor="rgba(0,0,0,0.5)" style="light" />
+
       <View style={styles.wrapper}>
         {/* Shadow Layer */}
         <View style={styles.shadowLayer} />
 
-        {/* Main Container */}
+        {/* Main Card */}
         <View style={styles.card}>
-         
-         {crossIcon && (
-            <TouchableOpacity style={styles.crossIconContainer} onPress={onClose}>
-              <Image source={images.cross} style={styles.crossIcon} resizeMode="contain" />
+          {crossIcon && (
+            <TouchableOpacity
+              style={styles.crossIconContainer}
+              onPress={onClose}
+            >
+              <Image
+                source={images.cross}
+                style={styles.crossIcon}
+                resizeMode="contain"
+              />
             </TouchableOpacity>
           )}
 
           {/* Icon */}
           {imageSource && (
             <View style={styles.iconWrapper}>
-              <Image source={imageSource} width={88} height={88} />
+              <Image
+                source={imageSource}
+                style={{ width: 88, height: 88 }}
+                resizeMode="contain"
+              />
             </View>
           )}
-           {/* Title */}
-           <Text style={styles.title}>{title}</Text>
+
+          {/* Title */}
+          <Text style={styles.title}>{title}</Text>
 
           {/* Description */}
           <Text style={styles.description}>{description}</Text>
@@ -47,7 +84,11 @@ const Overlay: React.FC<OverlayProps> = ({
 
           {/* Optional Outlined Button */}
           {includeOutlinedButton && (
-            <Button label={outlineLabel ?? ""} onPress={() => {}} variant="outline" />
+            <Button
+              label={outlineLabel ?? ""}
+              onPress={() => {}}
+              variant="outline"
+            />
           )}
         </View>
       </View>
@@ -58,23 +99,13 @@ const Overlay: React.FC<OverlayProps> = ({
 export default Overlay;
 
 const styles = StyleSheet.create({
-  crossIconContainer: {
-    position: "absolute",
-    top: 12,
-    left: 12,
-    padding: 6,
-  },
-  crossIcon: {
-    width: 20,
-    height: 20,
-  },
   overlay: {
     position: "absolute",
     inset: 0,
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
-    zIndex: 50,
+    zIndex: 999,
     width: "100%",
     height: "100%",
   },
@@ -103,14 +134,25 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: "#553434",
   },
+  crossIconContainer: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    padding: 6,
+  },
+  crossIcon: {
+    width: 20,
+    height: 20,
+  },
+  iconWrapper: {
+    marginBottom: 24,
+  },
   title: {
     fontSize: 20,
     fontFamily: "KodchasanSemiBold",
     color: "#553434",
     textAlign: "center",
-  },
-  iconWrapper: {
-    marginBottom: 24,
+    marginBottom: 8,
   },
   description: {
     fontSize: 16,
@@ -118,13 +160,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontFamily: "KodchasanMedium",
     marginBottom: 24,
-  },
-  solidButton: {
-    backgroundColor: "#553434",
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    width: "100%",
-    marginBottom: 12,
   },
 });

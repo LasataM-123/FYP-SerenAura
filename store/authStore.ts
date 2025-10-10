@@ -24,6 +24,7 @@ interface AuthState {
   refreshToken: string | null;
   userId: string | null;
   role: "patient" | "counselor" | null;
+  name:string | null;
   isLoggedIn: boolean;
   otpToken: string | null;
   otpExpiry: number | null;
@@ -34,6 +35,7 @@ interface AuthState {
     accessToken: string;
     refreshToken: string;
     userId: string;
+    name:string;
     role: "patient" | "counselor";
   }) => void;
 
@@ -56,14 +58,15 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       userId: null,
       role: null,
+      name:null,
       isLoggedIn: false,
       otpToken: null,
       otpExpiry: null,
       hasCompletedOnboarding: false,
       refreshInterval: undefined,
 
-      setAuth: ({ accessToken, refreshToken, userId, role }) => {
-        set({ accessToken, refreshToken, userId, role});
+      setAuth: ({ accessToken, refreshToken,name, userId, role }) => {
+        set({ accessToken, refreshToken,name, userId, role});
         get().startAutoRefresh(); // start refresh loop
       },
 
@@ -91,6 +94,7 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: null,
           userId: null,
           role: null,
+          name:null,
           isLoggedIn: false,
           otpToken: null,
           otpExpiry: null,

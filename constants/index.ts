@@ -19,6 +19,8 @@ import onboarding3Image2 from '@/assets/images/Onboarding/Property3=Image2.png';
 import onboarding3Image3 from '@/assets/images/Onboarding/Property3=Image3.png';
 import onboarding3Image4 from '@/assets/images/Onboarding/Property3=Image4.png';
 import success from '@/assets/images/Onboarding/Success.png';
+import homeImage from '@/assets/images/Home.png';
+import sunMoon from '@/assets/icons/SunMoon.png';
 export const images={
     welcomeImage,
     ribbon,
@@ -40,6 +42,7 @@ export const images={
     onboarding3Image2,
     onboarding3Image3,
     onboarding3Image4,
-    success
-
+    success,
+    homeImage,
+    sunMoon
 }

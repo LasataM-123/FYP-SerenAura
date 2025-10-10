@@ -66,6 +66,7 @@ const Verification = () => {
             refreshToken: res.refreshToken,
             userId: res.userId,
             role: res.role,
+            name:res.name
           });
           router.push("/onboarding");
         } 

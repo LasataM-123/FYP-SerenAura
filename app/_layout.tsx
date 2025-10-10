@@ -2,8 +2,10 @@ import { router, SplashScreen, Stack, useSegments } from "expo-router";
 import { useFonts } from "expo-font";
 import { useEffect } from "react";
 import { useAuthStore } from "@/store/authStore";
+import { StatusBar } from "react-native";
 
 export default function RootLayout() {
+  const role = useAuthStore((state)=>state.role);
    const { isLoggedIn, hasCompletedOnboarding } = useAuthStore();
   const segments = useSegments();
 
@@ -31,7 +33,12 @@ export default function RootLayout() {
       (isLoggedIn || hasCompletedOnboarding) &&
       (inAuthGroup || inOnboarding || inWelcome)
     ) {
-      router.replace("/home");
+      if(role==="patient"){
+
+        router.replace("/home");
+      }else{
+        router.replace("/requests");
+      }
     }
   }, [segments, isLoggedIn, hasCompletedOnboarding, ready]);
    // Prevent splash screen from auto-hiding
@@ -54,5 +61,10 @@ useEffect(() => {
     return null;
   }
 
-  return <Stack screenOptions={{headerShown:false}}/>;
+ return (
+    <>
+       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      <Stack screenOptions={{ headerShown: false }} />
+    </>
+  );
 }

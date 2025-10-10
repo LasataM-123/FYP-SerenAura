@@ -4,6 +4,7 @@ export type loginResponse = {
   accessToken: string;
   refreshToken: string;
   userId: string;
+  name:string;
   role: "patient" | "counselor";
 };
 

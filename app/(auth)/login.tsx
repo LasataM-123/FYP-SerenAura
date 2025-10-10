@@ -4,6 +4,7 @@ import {
   Text,
   ActivityIndicator,
   StyleSheet,
+  Keyboard
 } from "react-native";
 import { Link, router } from "expo-router";
 
@@ -24,34 +25,37 @@ WebBrowser.maybeCompleteAuthSession();
 
 const Login = () => {
   const { setAuth, loggedIn } = useAuthStore();
+  const [isGoogleLoading, setGoogleLoading] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
   const { refetch, loading, error } = useBackend({
     fn: login,
   });
-  const [googleLoading,setGoogleLoading] = useState(false);
- const redirectUri = AuthSession.makeRedirectUri({
-  // @ts-expect-error: useProxy is valid but missing in types
-  useProxy: true,
-});
 
-console.log(redirectUri)
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: GOOGLE_CLIENT_ID,
     webClientId: WEB_CLIENT_ID,
-    redirectUri: redirectUri
   });
-
   useEffect(() => {
-    if (response?.type === "success") {
-      const { id_token } = response.params;
-      handleGoogleLogin(id_token);
-      console.log(id_token)
+    if (response) {
+      if (response.type === "success") {
+        const { id_token } = response.params;
+        handleGoogleLogin(id_token);
+      } else {
+        // Handle error or cancel
+        console.log("Google Auth Response Error:", response);
+      }
     }
   }, [response]);
+  useEffect(() => {
+    if (loading || isGoogleLoading) {
+      Keyboard.dismiss();
+    }
+  }, [loading, isGoogleLoading]);
 
   const handleGoogleLogin = async (idToken:string) => {
+    setGoogleLoading(true);
     try {
-      setGoogleLoading(true);
+     
       const res = await fetch(`${API_URL}/users/auth/google`, {
         method: "POST",
         headers: {
@@ -70,15 +74,15 @@ console.log(redirectUri)
           refreshToken: data.refreshToken,
           userId: data.userId,
           role: data.role,
+          name:data.name,
         });
       if(data?.isNewUser){
         router.push('/dob');
-      }else{
-        
-      }
-      
+      }  
     } catch (err:any) {
       console.error("Error logging in:", err.message);
+    }finally{
+      setGoogleLoading(false);
     }
   };
 
@@ -91,9 +95,14 @@ console.log(redirectUri)
           refreshToken: res.refreshToken,
           userId: res.userId,
           role: res.role,
+          name:res.name
         });
         loggedIn();
-        router.replace("../home");
+        if(res.role==='counselor'){
+          router.replace('/requests');
+        }else{
+         router.replace('/home')
+        }
       }
     } catch (err: any) {
       alert(err.message || "Failed to login. Please try again.");
@@ -161,7 +170,7 @@ console.log(redirectUri)
       </View>
 
       {/* Loading Overlay */}
-    {(loading || googleLoading) && (
+    {(loading || isGoogleLoading) && (
   <View style={styles.overlay}>
     <View style={styles.cardWrapper}>
       {/* Shadow Layer */}
