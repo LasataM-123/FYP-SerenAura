@@ -24,7 +24,7 @@ const Button: React.FC<ButtonProps> = ({
       <View
         style={[
           styles.shadow,
-          { width: buttonWidth, height: buttonHeight, top: 2, left: 3 },
+          { width: buttonWidth, height: buttonHeight, top: 2, left: 2 },
         ]}
       />
 

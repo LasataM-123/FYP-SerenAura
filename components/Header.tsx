@@ -19,7 +19,8 @@ const styles = StyleSheet.create({
         position:"fixed",
         flexDirection:"row",
         justifyContent:"space-between",
-        alignItems:"center"
+        alignItems:"center",
+        paddingHorizontal:24
 
     },
     headerText:{

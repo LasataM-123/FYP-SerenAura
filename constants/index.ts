@@ -21,6 +21,10 @@ import onboarding3Image4 from '@/assets/images/Onboarding/Property3=Image4.png';
 import success from '@/assets/images/Onboarding/Success.png';
 import homeImage from '@/assets/images/Home.png';
 import sunMoon from '@/assets/icons/SunMoon.png';
+import mood from '@/assets/icons/Mood.png';
+import chat from '@/assets/icons/Chat.png';
+import media from '@/assets/icons/Media.png';
+import breathe from '@/assets/icons/Breathe.png';
 export const images={
     welcomeImage,
     ribbon,
@@ -44,5 +48,9 @@ export const images={
     onboarding3Image4,
     success,
     homeImage,
-    sunMoon
+    sunMoon,
+    mood,
+    chat,
+    breathe,
+    media
 }

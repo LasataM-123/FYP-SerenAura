@@ -67,7 +67,7 @@ export const useAuthStore = create<AuthState>()(
 
       setAuth: ({ accessToken, refreshToken,name, userId, role }) => {
         set({ accessToken, refreshToken,name, userId, role});
-        get().startAutoRefresh(); // start refresh loop
+        get().startAutoRefresh(); 
       },
 
       setOtpToken: (otpToken) => {
@@ -109,20 +109,19 @@ export const useAuthStore = create<AuthState>()(
       startAutoRefresh: () => {
         // Clear existing interval (avoid duplicates)
         const { refreshInterval } = get();
-        if (refreshInterval) clearInterval(refreshInterval);
+       if (refreshInterval) clearInterval(refreshInterval);
 
         const interval = setInterval(async () => {
-          const { accessToken, refreshToken, updateToken, logout } = get();
-          if (!accessToken || !refreshToken) return;
+        const { accessToken, refreshToken, updateToken, logout } = get();
+        if (!accessToken || !refreshToken) return;
 
-          const expiry = getTokenExpiry(accessToken);
-          if (!expiry) return;
+        const expiry = getTokenExpiry(accessToken);
+        if (!expiry) return;
 
-          const now = Date.now();
-          const timeLeft = expiry - now;
+        const now = Date.now();
+        const timeLeft = expiry - now;
 
-          // Refresh 2 minutes before expiry
-          if (timeLeft < 2 * 60 * 1000) {
+        if (timeLeft < 2 * 60 * 1000) {
             try {
               const res = await fetch(`${API_URL}/users/refresh`, {
                 method: "POST",
