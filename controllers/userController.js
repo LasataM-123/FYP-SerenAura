@@ -4,6 +4,7 @@ const asyncHandler = require('express-async-handler');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const nodemailer = require("nodemailer");
+const axios = require('axios');
 
 const OTP_EXPIRY = 5 * 60; 
 const JWT_SECRET = process.env.JWT_SECRET_KEY;
@@ -108,6 +109,7 @@ const loginController = asyncHandler(async (req, res) => {
       message: "Logged in successfully!",
       accessToken,
       refreshToken,
+      name: user.name,
       userId: user._id,
       role,
     });
@@ -250,6 +252,7 @@ const verifyOTPAndCreate = asyncHandler(async (req, res) => {
       accessToken,
       refreshToken,
       userId: patient._id,
+      name: patient.name,
       role: "patient",
     });
   } catch (err) {
@@ -414,7 +417,7 @@ const resetPassword = asyncHandler(async(req,res)=>{
   }
 });
 
-// @route /add/dob
+// @route /users/add-dob
 // @desc Add date of birth for patients registered via Google
 // @access private
 const addDOB = asyncHandler(async (req, res) => {
@@ -464,12 +467,55 @@ const addDOB = asyncHandler(async (req, res) => {
     if(!patient) return res.status(404).json({message:"Patient not found"});
     patient.dateOfBirth = dateOfBirth;
     await patient.save();
-    return res.status(200).json({message:"Date of birth added successfully", patient});
+    return res.status(200).json({success:"Date of birth added successfully", patient});
   }catch(err){
     return res.status(400).json({message:err.message});
   }
 });
 
+// @route /users/auth/google
+// @desc Login/Register with Google OAuth
+// @access Public
+const googleAuth = asyncHandler(async (req, res) => {
+  const { idToken } = req.body;
+  try{
+    if(!idToken){
+      return res.status(400).json({message:"Missing id token"});
+    }
+    const {data:googleData} = await axios.get(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`
+    )
+
+    //Check if the user exists otherwise create a new one
+    let user = await Patient.findOne({email:googleData.email});
+    let isNewUser = false;
+    if(!user){
+      user = await Patient.create({
+        name: googleData.name,
+        email: googleData.email,
+        profileUrl: googleData.picture
+      });
+      isNewUser = true;
+    }
+     const { accessToken, refreshToken } = generateTokens(
+      user._id,
+      user.email,
+      "patient"
+    );
+
+    res.json({
+      message: "OTP verified and account created successfully",
+      accessToken,
+      refreshToken,
+      userId: user._id,
+      role: "patient",
+      isNewUser
+    });
+
+  }catch(err){
+    return res.status(400).json({message:err.message})
+  }
+});
 module.exports = {
   loginController,
   register,
@@ -480,6 +526,7 @@ module.exports = {
   forgotPassword,
   verifyOTP,
   resetPassword,
-  addDOB
+  addDOB,
+  googleAuth
 };
 
