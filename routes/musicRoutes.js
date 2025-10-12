@@ -3,7 +3,7 @@ const router = express.Router();
 const cloudinary = require('../config/cloudinaryConfig');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
-const { createMeditation } = require('../controllers/meditationController');
+const { createMusic, updateMusic } = require('../controllers/musicController');
 
 // Separate storages
 const imageStorage = new CloudinaryStorage({
@@ -11,16 +11,16 @@ const imageStorage = new CloudinaryStorage({
   params: async (req, file) => {
     if (file.fieldname === 'image') {
       return {
-        folder: 'Meditations/Images',
+        folder: 'Music/Images',
         resource_type: 'image',
         allowed_formats: ['jpg', 'jpeg', 'png'],
       };
     }
     if (file.fieldname === 'audio') {
       return {
-        folder: 'Meditations/Audio',
-        resource_type: 'video', // Cloudinary treats audio as video
-        allowed_formats: ['mp3', 'wav', 'm4a', 'aac'],
+        folder: 'Music/Audio',
+        resource_type: 'video', 
+        allowed_formats: ['mp3', 'wav', 'm4a', 'aac', 'mp4'],
       };
     }
     return null;
@@ -44,8 +44,17 @@ router.post(
       next();
     });
   },
-  createMeditation
+  createMusic
 );
 
+
+router.put(
+  '/update/:musicId',
+  upload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'audio', maxCount: 1 },
+  ]),
+  updateMusic
+);
 
 module.exports = router;

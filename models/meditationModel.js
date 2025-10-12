@@ -32,4 +32,4 @@ const meditationSchema = new mongoose.Schema({
     }
 });
 
-module.exports = mongoose.model("Meditaion",meditationSchema)
+module.exports = mongoose.model("Meditation",meditationSchema)
