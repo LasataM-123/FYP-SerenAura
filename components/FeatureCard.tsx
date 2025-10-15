@@ -23,14 +23,14 @@ const FeatureCard: React.FC<CardProps> = ({ color, image, text, description }) =
 
 const styles = StyleSheet.create({
   container: {
-    width: 158,
-    height: 158,
+    width: 159,
+    height: 159,
     position: "relative",
   },
   shadowLayer: {
     position: "absolute",
     width: "100%",
-    height: 156,
+    height: 159,
     borderRadius: 20,
     borderWidth: 4,
     borderColor: "#553434",

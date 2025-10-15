@@ -1,5 +1,5 @@
-import { Animated, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import React, { useRef } from 'react';
+import { ActivityIndicator, Animated, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { images } from '@/constants';
 import Header from '@/components/Header';
@@ -7,10 +7,12 @@ import Button from '@/components/Button';
 import { router } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
 import FeatureCard from '@/components/FeatureCard';
+import { useBackend } from '@/lib/useBackend';
+import { getRecommendations } from '@/lib/api/media';
+import MusicSection from '@/components/MusicSection';
 
-type AppRoute = '/media' | '/chat' | '/breathe';
 
-// ✅ Reusable component for each card with bounce animation
+// Reusable component for each card with bounce animation
 const AnimatedFeatureCard = ({ item }: { item: any }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -79,7 +81,12 @@ const Home = () => {
     day: 'numeric',
     year: 'numeric',
   });
-
+  const { data, refetch, error, loading } = useBackend({
+  fn: () => getRecommendations(),
+});
+useEffect(() => {
+    refetch();
+  }, []);
   return (
     <SafeAreaView style={styles.container}>
       <Header />
@@ -106,12 +113,18 @@ const Home = () => {
             keyExtractor={(item) => item.id}
             numColumns={2}
             renderItem={({ item }) => <AnimatedFeatureCard item={item} />}
-            columnWrapperStyle={{ marginBottom: 16, gap: 16 }}
+            columnWrapperStyle={{ marginBottom: 16, gap: 16}}
+            
           />
         </View>
 
         <View style={styles.recommendationContainer}>
-          <Text style={styles.featureText}>Recommendations</Text>
+          <Text style={styles.recommendationText}>Recommendations</Text>
+        </View>
+        <View>
+          {Object.entries(data?.recommendations ?? {}).map(([key, value]) => (
+        <MusicSection key={key} title={value.title} data={value.data} />
+      ))}
         </View>
         <Button label="Logout" onPress={handle} />
         <View style={{ marginBottom: 200 }} />
@@ -169,6 +182,9 @@ const styles = StyleSheet.create({
     marginTop:20
   },
   recommendationText:{
-    fontSize:20
-  }
+    fontSize:20,
+    fontFamily:"KodchasanSemiBold",
+    color:"#553434"
+  },
+
 });

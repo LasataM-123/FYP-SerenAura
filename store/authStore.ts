@@ -58,16 +58,16 @@ export const useAuthStore = create<AuthState>()(
       refreshToken: null,
       userId: null,
       role: null,
-      name:null,
+      name: null,
       isLoggedIn: false,
       otpToken: null,
       otpExpiry: null,
       hasCompletedOnboarding: false,
       refreshInterval: undefined,
 
-      setAuth: ({ accessToken, refreshToken,name, userId, role }) => {
-        set({ accessToken, refreshToken,name, userId, role});
-        get().startAutoRefresh(); 
+      setAuth: ({ accessToken, refreshToken, name, userId, role }) => {
+        set({ accessToken, refreshToken, name, userId, role, isLoggedIn: true });
+        get().startAutoRefresh();
       },
 
       setOtpToken: (otpToken) => {
@@ -94,7 +94,7 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: null,
           userId: null,
           role: null,
-          name:null,
+          name: null,
           isLoggedIn: false,
           otpToken: null,
           otpExpiry: null,
@@ -107,23 +107,21 @@ export const useAuthStore = create<AuthState>()(
       loggedIn: () => set({ isLoggedIn: true }),
 
       startAutoRefresh: () => {
-        // Clear existing interval (avoid duplicates)
         const { refreshInterval } = get();
-       if (refreshInterval) clearInterval(refreshInterval);
+        if (refreshInterval) clearInterval(refreshInterval);
 
         const interval = setInterval(async () => {
-        const { accessToken, refreshToken, updateToken, logout } = get();
-        if (!accessToken || !refreshToken) return;
+          const { accessToken, refreshToken, updateToken, logout } = get();
+          if (!accessToken || !refreshToken) return;
 
-        const expiry = getTokenExpiry(accessToken);
-        if (!expiry) return;
+          const expiry = getTokenExpiry(accessToken);
+          if (!expiry) return;
 
-        const now = Date.now();
-        const timeLeft = expiry - now;
-
-        if (timeLeft < 2 * 60 * 1000) {
+          const now = Date.now();
+          const timeLeft = expiry - now;
+          if (timeLeft < 2 * 60 * 1000) {
             try {
-              const res = await fetch(`${API_URL}/users/refresh`, {
+              const res = await fetch(`${API_URL}/auth/refresh`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ refreshToken }),
@@ -132,6 +130,7 @@ export const useAuthStore = create<AuthState>()(
               if (res.ok) {
                 const data = await res.json();
                 updateToken(data.accessToken);
+                console.log("Token refreshed automatically");
               } else {
                 logout();
               }
@@ -148,6 +147,14 @@ export const useAuthStore = create<AuthState>()(
     {
       name: "auth-storage",
       storage: createJSONStorage(() => AsyncStorage),
+
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        const { accessToken, refreshToken, startAutoRefresh } = state;
+        if (accessToken && refreshToken) {
+          startAutoRefresh();
+        }
+      },
     }
   )
 );

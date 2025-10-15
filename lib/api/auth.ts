@@ -19,7 +19,7 @@ export type ResetPasswordResponse = {
 };
 
 export async function signup(params?: { name: string; dateOfBirth: string; email: string; password: string } ): Promise<OTPResponse> {
-  const res = await fetch(`${API_URL}/users/register`, {
+  const res = await fetch(`${API_URL}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -32,7 +32,7 @@ export async function signup(params?: { name: string; dateOfBirth: string; email
 }
 
 export async function verifyOTPAndCreate(params?: { otp: string; otpToken: string }): Promise<loginResponse> {
-  const res = await fetch(`${API_URL}/users/verify-otp`, {
+  const res = await fetch(`${API_URL}/auth/verify-otp`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -42,7 +42,7 @@ export async function verifyOTPAndCreate(params?: { otp: string; otpToken: strin
 }
 
 export async function login(params?: { email: string; password: string }): Promise<loginResponse> {
-  const res = await fetch(`${API_URL}/users/login`, {
+  const res = await fetch(`${API_URL}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -52,7 +52,7 @@ export async function login(params?: { email: string; password: string }): Promi
 }
 
 export async function resendOTP(params?:{otpToken: string }): Promise<OTPResponse> {
-  const res = await fetch(`${API_URL}/users/resend-otp`, {
+  const res = await fetch(`${API_URL}/auth/resend-otp`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
@@ -72,7 +72,7 @@ export async function resetPassword(params?: {email:string, newPassword: string,
 }
 
 export async function verifyOTP(params?: { otp: string; otpToken: string }): Promise<ResetPasswordResponse> {
-  const res = await fetch(`${API_URL}/users/verify`, {
+  const res = await fetch(`${API_URL}/auth/verify`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
