@@ -1,6 +1,7 @@
 const asyncHandler = require('express-async-handler');
 const Music = require('../models/musicModel');
 const Onboarding = require('../models/onboardingModel');
+const Meditation = require('../models/meditationModel')
 const cloudinary = require('../config/cloudinaryConfig');
 const moodCategoryMap = require('../utils/moodCategoryMap');
 
@@ -236,5 +237,48 @@ const getRecommendations = asyncHandler(async(req,res)=>{
   }
 })
 
+//@route GET /api/music/filter
+//@desc filter music by category
+//@access public
+const filterByCategory = asyncHandler(async(req, res)=>{
+  try{
+    const category = req.query.category?.toLowerCase();
+    if(!category){
+      return res.status(400).json({ message: 'Category is required' });
+    }
+    let data;
 
-module.exports = { createMusic, updateMusic, getRecommendations};
+    // If "all", return mixed media
+    if (category === 'all') {
+      // Fetch 3 from each mood category in Music
+      const moodCategories = ['calm', 'stress relief', 'focus', 'sleep', 'anxiety'];
+      const musicByCategory = {};
+
+      for (const mood of moodCategories) {
+        const music = await Music.find({ moodCategory: mood }).limit(3);
+        musicByCategory[mood] = music;
+      }
+
+      // Fetch 3 meditations
+      const meditations = await Meditation.find().limit(3);
+
+      return res.status(200).json({
+        success: true,
+        type: 'all',
+        data: { musicByCategory, meditations },
+      });
+    }
+
+    //Choose model based on category
+    if(category === 'meditation'){
+      data = await Meditation.find(); 
+    }else{
+      data = await Music.find({ moodCategory: category });
+    }
+    return res.status(200).json({success:true, data})
+  }catch(err){
+    return res.status(400).json({error:err.message});
+  }
+})
+
+module.exports = { createMusic, updateMusic, getRecommendations, filterByCategory};

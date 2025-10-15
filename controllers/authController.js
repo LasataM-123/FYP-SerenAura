@@ -303,9 +303,8 @@ const refreshTokenController = asyncHandler(async (req, res) => {
 
   jwt.verify(refreshToken, JWT_REFRESH_SECRET, (err, decoded) => {
     if (err) return res.status(403).json({ message: "Invalid refresh token" });
-
     const accessToken = jwt.sign(
-      { userId: decoded.id, email: decoded.email, role: decoded.role },
+      { id: decoded.id, email: decoded.email, role: decoded.role },
       JWT_SECRET,
       { expiresIn: "15m" }
     );
