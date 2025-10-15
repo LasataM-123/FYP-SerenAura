@@ -15,6 +15,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(morgan("dev"));
+app.use('/api/auth',require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/counselors', require('./routes/counselorRoutes'));
 app.use('/api/onboarding', require('./routes/onboardingRoutes'));

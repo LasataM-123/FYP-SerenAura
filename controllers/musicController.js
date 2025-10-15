@@ -1,5 +1,6 @@
 const asyncHandler = require('express-async-handler');
 const Music = require('../models/musicModel');
+const Onboarding = require('../models/onboardingModel');
 const cloudinary = require('../config/cloudinaryConfig');
 const moodCategoryMap = require('../utils/moodCategoryMap');
 
@@ -98,7 +99,7 @@ const createMusic = asyncHandler(async (req, res) => {
   }
 });
 
-//@route /api/music/update/:musicId
+//@route PUT /api/music/update/:musicId
 //@desc update music
 //@access public
 const updateMusic = asyncHandler(async(req,res)=>{
@@ -136,36 +137,104 @@ const updateMusic = asyncHandler(async(req,res)=>{
     }
 })
 
-// @route POST /api/music/recommend-by-mood
-// @desc Get recommended music by mood
-// @access Public
-const recommendMusicByMood = asyncHandler(async (req, res) => {
-  const { mood } = req.body;
+//Helper function to get random N items
+function getRandomItems(arr,n){
+  if(!arr || arr.length === 0) return [];
+  const shuffled = [...arr].sort(()=> 0.5 - Math.random());
+  return shuffled.slice(0,n);
+}
 
-  if (!mood) {
-    return res.status(400).json({ message: 'Mood is required' });
-  }
+//Extract categories from onboarding
+function getCategoriesFromOnboarding(responses){
+  const categories = [];
+  responses.forEach(({question,answer})=>{
+    if(!question || !answer) return;
+    if (/what brings you here today/i.test(question)) {
+      if (/stress/i.test(answer)) categories.push('stress relief');
+      if (/sleep/i.test(answer)) categories.push('sleep');
+      if (/focus/i.test(answer)) categories.push('focus');
+      if (/happy/i.test(answer)) categories.push('calm');
+    }
+    if (/when do you need relaxation/i.test(question)) {
+      if (/anxious/i.test(answer)) categories.push('anxiety');
+      if (/after stress/i.test(answer)) categories.push('calm');
+      if (/work|study/i.test(answer)) categories.push('focus');
+      if (/bed/i.test(answer)) categories.push('sleep');
+    }
+  });
+  return [...new Set(categories)];
+}
 
-  // Find categories mapped to this mood
-  const categories = moodCategoryMap[mood.toLowerCase()];
+//@route GET /api/music/get-recommendations
+//@desc get personalized recommendations
+//@access public
+const getRecommendations = asyncHandler(async(req,res)=>{
+  try{
+    const mood = req.query.mood?.replace(/"/g, '').toLowerCase();
+    const userId = req.user.id;
+    let source = 'random' ;
+    let categories = [];
+  
+    //Mood-based
+    if(mood && moodCategoryMap[mood]) {
+      categories = moodCategoryMap[mood];
+      source = 'mood';
+  
+      const recommendations = {};
+      for(const category of categories){
+        const music = await Music.find({moodCategory: category});
+        recommendations[category] = {
+        title: `${category} Music`,
+        data: getRandomItems(music, 3),
+      };
+      }
+      
+    return res.status(200).json({ success: true, source, recommendations });
+    }
 
-  if (!categories) {
-    return res.status(404).json({ message: 'No mapping found for this mood' });
-  }
+    //onboarding-based
+    if(userId){
+      const onboarding = await Onboarding.findOne({userId});
+      if(onboarding){
+        categories = getCategoriesFromOnboarding(onboarding.responses);
+        if(categories.length > 0) {
+          source = 'onboarding';
+          const recommendations = {};
 
-  // Find all music where moodCategory matches one of those
-  const recommendedMusic = await Music.find({ moodCategory: { $in: categories } });
+          for (const category of categories) {
+            const musics = await Music.find({ moodCategory: category });
+            recommendations[category] = {
+              title: `${category} Music`,
+              data: getRandomItems(musics, 3),
+            };
+          }
+          return res.status(200).json({ success: true, source, recommendations });
 
-  if (recommendedMusic.length === 0) {
-    return res.status(404).json({ message: 'No music found for this mood' });
-  }
+        }
+      }
+    }
+    // random fallback
+    const randomMeditations = await Meditation.aggregate([{ $sample: { size: 3 } }]);
+  const randomMusic = await Music.aggregate([{ $sample: { size: 3 } }]);
 
   res.status(200).json({
-    mood,
-    categories,
-    count: recommendedMusic.length,
-    music: recommendedMusic,
+    success: true,
+    source,
+    recommendations: {
+      Meditation: {
+        title: 'Meditation Recommendations',
+        data: randomMeditations,
+      },
+      Music: {
+        title: 'Music Recommendations',
+        data: randomMusic,
+      },
+    },
   });
-});
+  }catch(err){
+    return res.status(400).json({error: err.message});
+  }
+})
 
-module.exports = { createMusic, updateMusic };
+
+module.exports = { createMusic, updateMusic, getRecommendations};

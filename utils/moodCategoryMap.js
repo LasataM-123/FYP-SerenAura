@@ -1,10 +1,11 @@
 const moodCategoryMap = {
-  angry: ["Calm", "Stress Relief"],
-  happy: ["Focus", "Others"],
-  anxious: ["Stress Relief", "Calm"],
-  sad: ["Sleep", "Calm"],
-  energetic: ["Focus", "Others"],
-  relaxed: ["Focus", "Calm"],
+  angry: ["calm", "stress relief"],
+  sad: ["sleep", "calm"],
+  happy: ["Focus", "Calm"],
+  ok: ["Focus", "Calm"],
+  good: ["Focus", "Calm"],
+  anxious: ["stress relief", "anxiety"],
 };
+
 
 module.exports = moodCategoryMap;

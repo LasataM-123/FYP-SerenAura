@@ -3,7 +3,9 @@ const router = express.Router();
 const cloudinary = require('../config/cloudinaryConfig');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
-const { createMusic, updateMusic } = require('../controllers/musicController');
+const { createMusic, updateMusic, getRecommendations } = require('../controllers/musicController');
+const { tokenHandler } = require('../middlewares/tokenHandler');
+const { validPatient } = require('../middlewares/validPatient');
 
 // Separate storages
 const imageStorage = new CloudinaryStorage({
@@ -56,5 +58,7 @@ router.put(
   ]),
   updateMusic
 );
+
+router.get('/get-recommendations',tokenHandler, validPatient,getRecommendations);
 
 module.exports = router;

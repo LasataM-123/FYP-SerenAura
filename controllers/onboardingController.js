@@ -43,7 +43,3 @@ const createOnboarding = asyncHandler(async (req, res) => {
 });
 
 module.exports = { createOnboarding };
-
-
-
-module.exports = { createOnboarding };

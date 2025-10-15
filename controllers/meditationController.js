@@ -99,4 +99,42 @@ const createMeditation = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = { createMeditation };
+//@route PUT /api/mediotation/update/:meditationId
+//@desc update meditation
+//@access public
+const updateMeditation = asyncHandler(async(req,res)=>{
+    try{
+
+        const {meditationId} = req.params;
+         const updateFields = { ...req.body };
+        const imageFile = req.files?.image?.[0];
+        const audioFile = req.files?.audio?.[0];
+        //If new image file is uploaded, delete the old and update field
+        if(imageFile){
+         const meditation = await Meditation.findById(meditationId);
+          if (meditation?.imageUrl) {
+            await deleteUploadedImage(meditation.imageUrl);
+          }
+          updateFields.imageUrl = imageFile.path || imageFile.secure_url;
+        }
+        
+        // If new audio uploaded, delete old and update field
+        if (audioFile) {
+          const meditation = meditation || await Meditation.findById(meditationId);
+          if (meditation?.audioUrl) await deleteUploadedAudio(meditation.audioUrl);
+          updateFields.audioUrl = audioFile.path || audioFile.secure_url;
+        }
+        const updatedMeditation = await Meditation.findByIdAndUpdate(meditationId,{$set:updateFields},{new:true} );
+        if(!updatedMeditation){
+            return res.status(404).json({message:"Meditation not found"});
+        }
+         res.status(200).json({
+          message: 'Meditation updated successfully',
+          music: updatedMeditation,
+        });
+    }catch(err){
+        res.status(400).json({ message: err.message });
+    }
+})
+
+module.exports = { createMeditation, updateMeditation };

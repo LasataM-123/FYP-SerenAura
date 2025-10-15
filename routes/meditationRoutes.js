@@ -3,7 +3,7 @@ const router = express.Router();
 const cloudinary = require('../config/cloudinaryConfig');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
-const { createMeditation } = require('../controllers/meditationController');
+const { createMeditation, updateMeditation } = require('../controllers/meditationController');
 
 // Separate storages
 const imageStorage = new CloudinaryStorage({
@@ -47,5 +47,13 @@ router.post(
   createMeditation
 );
 
+router.put(
+  '/update/:meditationId',
+  upload.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'audio', maxCount: 1 },
+  ]),
+  updateMeditation
+);
 
 module.exports = router;
