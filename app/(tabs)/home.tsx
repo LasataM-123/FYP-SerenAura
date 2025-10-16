@@ -1,5 +1,15 @@
-import { ActivityIndicator, Animated, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import React, { useEffect, useRef } from 'react';
+import { 
+  ActivityIndicator, 
+  Animated, 
+  FlatList, 
+  Image, 
+  Pressable, 
+  ScrollView, 
+  StyleSheet, 
+  Text, 
+  View 
+} from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { images } from '@/constants';
 import Header from '@/components/Header';
@@ -10,9 +20,22 @@ import FeatureCard from '@/components/FeatureCard';
 import { useBackend } from '@/lib/useBackend';
 import { getRecommendations } from '@/lib/api/media';
 import MusicSection from '@/components/MusicSection';
+import { jwtDecode } from 'jwt-decode';
+import {API_URL} from '@/config';
+interface DecodedToken {
+  exp: number;
+  [key: string]: any;
+}
 
-
-// Reusable component for each card with bounce animation
+function getTokenExpiry(token: string | null): number | null {
+  if (!token) return null;
+  try {
+    const decoded: DecodedToken = jwtDecode(token);
+    return decoded.exp * 1000;
+  } catch {
+    return null;
+  }
+}
 const AnimatedFeatureCard = ({ item }: { item: any }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -32,7 +55,64 @@ const AnimatedFeatureCard = ({ item }: { item: any }) => {
       useNativeDriver: true,
     }).start();
   };
+  const { accessToken, refreshToken, logout, startAutoRefresh, updateToken } = useAuthStore();
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
+  useEffect(() => {
+    const checkAuth = async () => {
+      const now = Date.now();
+
+      if (!refreshToken) {
+        logout();
+        router.replace("/login");
+        return;
+      }
+
+      const accessExpiry = accessToken ? getTokenExpiry(accessToken) : null;
+      const refreshExpiry = getTokenExpiry(refreshToken);
+
+      // Refresh token expired → logout
+      if (!refreshExpiry || now > refreshExpiry) {
+        logout();
+        router.replace("/login");
+        return;
+      }
+
+      // Access token expired → refresh immediately
+      if (!accessExpiry || now > accessExpiry) {
+        try {
+          const res = await fetch(`${API_URL}/auth/refresh`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ refreshToken }),
+          });
+          if (!res.ok) throw new Error("Failed to refresh token");
+
+          const data = await res.json();
+          updateToken(data.accessToken);
+        } catch (err) {
+          console.error("Token refresh failed:", err);
+          logout();
+          router.replace("/login");
+          return;
+        }
+      }
+
+      startAutoRefresh();
+
+      setIsCheckingAuth(false);
+    };
+
+    checkAuth();
+  }, []);
+
+  if (isCheckingAuth) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#553434" />
+      </View>
+    );
+  }
   return (
     <Pressable
       onPressIn={handlePressIn}
@@ -52,6 +132,8 @@ const AnimatedFeatureCard = ({ item }: { item: any }) => {
 };
 
 const Home = () => {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current; // animation ref
   const today = new Date();
   const { logout } = useAuthStore();
   const name = useAuthStore((state) => state.name);
@@ -62,11 +144,6 @@ const Home = () => {
     { id: '3', color: "#FFE37A", image: images.breathe, text: "Breathe", description: "Guided breathing exercises", route: '/breathe' },
     { id: '4', color: "#CFDAED", image: images.chat, text: "Counselor Chat", description: "Talk to someone", route: '/chat' },
   ];
-
-  const handle = () => {
-    logout();
-    router.replace('/login');
-  };
 
   const hours = today.getHours();
   const greeting =
@@ -81,15 +158,39 @@ const Home = () => {
     day: 'numeric',
     year: 'numeric',
   });
-  const { data, refetch, error, loading } = useBackend({
-  fn: () => getRecommendations(),
-});
-useEffect(() => {
+
+  const { data, refetch } = useBackend({
+    fn: () => getRecommendations(),
+  });
+
+  useEffect(() => {
     refetch();
   }, []);
+
+  // Fade animation for overlay
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: isRefreshing ? 1 : 0,
+      duration: isRefreshing ? 250 : 200,
+      useNativeDriver: true,
+    }).start();
+  }, [isRefreshing]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setTimeout(() => setIsRefreshing(false), 500); // small delay for smooth fade out
+  };
+
+  const handleLogout = () => {
+    logout();
+    router.replace('/login');
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Header />
+
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24 }}>
         <View style={styles.heroContainer}>
           <Image source={images.homeImage} style={{ height: 300, width: 316 }} />
@@ -113,78 +214,143 @@ useEffect(() => {
             keyExtractor={(item) => item.id}
             numColumns={2}
             renderItem={({ item }) => <AnimatedFeatureCard item={item} />}
-            columnWrapperStyle={{ marginBottom: 16, gap: 16}}
-            
+            columnWrapperStyle={{ marginBottom: 16, gap: 16 }}
           />
         </View>
 
         <View style={styles.recommendationContainer}>
           <Text style={styles.recommendationText}>Recommendations</Text>
         </View>
+
         <View>
           {Object.entries(data?.recommendations ?? {}).map(([key, value]) => (
-        <MusicSection key={key} title={value.title} data={value.data} />
-      ))}
+            <MusicSection key={key} title={value.title} data={value.data} />
+          ))}
         </View>
-        <Button label="Logout" onPress={handle} />
+
+        <View style={{ marginBottom: 30, marginTop: 30 }}>
+          <Button label="Refresh Recommendations" onPress={handleRefresh} />
+        </View>
+
+        <Button label="Logout" onPress={handleLogout} />
         <View style={{ marginBottom: 200 }} />
       </ScrollView>
+
+      <Animated.View
+        pointerEvents={isRefreshing ? "auto" : "none"} // blocks touches only when visible
+        style={[styles.overlay, { opacity: fadeAnim }]}
+      >
+        <View style={styles.cardWrapper}>
+          <View style={styles.cardShadowLayer} />
+          <View style={styles.cardMain}>
+            <ActivityIndicator size="large" color="#8B4B4B" />
+            <Text style={styles.loggingText}>Refreshing Recommendations...</Text>
+          </View>
+        </View>
+      </Animated.View>
     </SafeAreaView>
   );
 };
 
 export default Home;
 
-
 const styles = StyleSheet.create({
-   container: {
+  container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
   },
-  heroContainer:{
+  heroContainer: {
     flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
   },
   mainTextContainer: {
-    marginTop:12,
+    marginTop: 12,
     flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
-    gap:2,
+    gap: 2,
   },
   mainWelcomeText: {
     fontSize: 22,
     fontFamily: 'KodchasanSemiBold',
     color: '#553434',
   },
-  timeText:{
-    fontFamily:"KodchasanMedium",
-    fontSize:18,
-    color:"#553434"
+  timeText: {
+    fontFamily: "KodchasanMedium",
+    fontSize: 18,
+    color: "#553434",
   },
   subtitle: {
     marginTop: 12,
     fontSize: 16,
     color: '#553434',
-    fontFamily:"KodchasanMedium"
+    fontFamily: "KodchasanMedium",
   },
-  wellnessContainer:{
-    marginTop:20,
+  wellnessContainer: {
+    marginTop: 20,
   },
-  featureText:{
-    fontFamily:"KodchasanSemiBold",
-    fontSize:20,
-    color:"#553434",
-    marginBottom:16
+  featureText: {
+    fontFamily: "KodchasanSemiBold",
+    fontSize: 20,
+    color: "#553434",
+    marginBottom: 16,
   },
-  recommendationContainer:{
-    marginTop:20
+  recommendationContainer: {
+    marginTop: 20,
   },
-  recommendationText:{
-    fontSize:20,
-    fontFamily:"KodchasanSemiBold",
-    color:"#553434"
+  recommendationText: {
+    fontSize: 20,
+    fontFamily: "KodchasanSemiBold",
+    color: "#553434",
   },
 
+  overlay: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 9999,
+    elevation: 9999,
+  },
+  cardWrapper: {
+    position: "relative",
+    width: 255,
+    height: 180,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cardShadowLayer: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    borderRadius: 20,
+    borderWidth: 3,
+    borderColor: "#553434",
+    backgroundColor: "#553434",
+    top: 3,
+    left: 3,
+  },
+  cardMain: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 20,
+    borderWidth: 3,
+    borderColor: "#553434",
+    backgroundColor: "#FFF",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  loggingText: {
+    marginTop: 20,
+    fontFamily: "Schoolbell",
+    fontSize: 20,
+    color: "#553434",
+    textAlign: "center",
+  },
 });

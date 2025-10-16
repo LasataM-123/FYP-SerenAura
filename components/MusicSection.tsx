@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, FlatList, Dimensions, StyleSheet } from 'react-native';
+import { View, Text, FlatList, Dimensions, StyleSheet, TouchableOpacity } from 'react-native';
+import { router, usePathname } from 'expo-router'; // import router for navigation
 import MediumCard from './MediaCards/MediumCard';
 
 const { width } = Dimensions.get('window');
@@ -14,15 +15,37 @@ const MusicSection = ({ title, data }: any) => {
     }
   });
 
+  // Extract tag from title — e.g., "Calm Music" → "calm"
+  const getTagFromTitle = (title: string) => {
+    const possibleTags = ['meditation','focus', 'calm', 'stress relief', 'sleep', 'anxiety'];
+    const lowerTitle = title.toLowerCase();
+    const found = possibleTags.find(tag => lowerTitle.includes(tag));
+    return found || 'others';
+  };
+const path = usePathname();
+
+const handleSeeAll = () => {
+  const tag = getTagFromTitle(title);
+  // If already on /media, just update query params instead of pushing again
+  if (path === "/media") {
+    router.setParams({ tag });
+  } else {
+    router.push({ pathname: "/media", params: { tag } });
+  }
+};
+
+
   return (
     <View style={styles.container}>
-        <View style={{flex:1, flexDirection:"row", alignItems:"center", justifyContent:"space-between"}}>
+      <View style={styles.header}>
+        <Text style={styles.title}>
+          {title.charAt(0).toUpperCase() + title.slice(1)}
+        </Text>
 
-      <Text style={styles.title}>
-        {title.charAt(0).toUpperCase() + title.slice(1)}
-      </Text>
-      <Text style={{fontFamily:"KodchasanMedium", color:"#553434", fontSize:14}}>See All</Text>
-        </View>
+        <TouchableOpacity onPress={handleSeeAll}>
+          <Text style={styles.seeAll}>See All</Text>
+        </TouchableOpacity>
+      </View>
 
       <FlatList
         data={data}
@@ -31,7 +54,7 @@ const MusicSection = ({ title, data }: any) => {
         keyExtractor={(item) => item._id}
         onViewableItemsChanged={onViewRef.current}
         viewabilityConfig={viewConfigRef.current}
-        snapToInterval={width * 0.7 + 15} // card width + marginRight
+        snapToInterval={width * 0.7 + 15}
         decelerationRate="fast"
         bounces={false}
         renderItem={({ item }) => <MediumCard item={item} />}
@@ -41,9 +64,7 @@ const MusicSection = ({ title, data }: any) => {
       <View style={styles.dotsContainer}>
         {data.map((_: any, index: number) => (
           <View key={index} style={styles.dotWrapper}>
-            {/* Shadow layer behind the dot */}
             <View style={styles.dotShadow} />
-            {/* Foreground dot */}
             <View
               style={[
                 styles.dot,
@@ -61,14 +82,23 @@ export default MusicSection;
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 16,
-    marginBottom:20
+    marginBottom: 28,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   title: {
     fontSize: 18,
     marginBottom: 10,
     color: '#553434',
-    fontFamily:"KodchasanSemiBold"
+    fontFamily: 'KodchasanSemiBold',
+  },
+  seeAll: {
+    fontFamily: 'KodchasanMedium',
+    color: '#553434',
+    fontSize: 14,
   },
   dotsContainer: {
     flexDirection: 'row',
@@ -76,8 +106,8 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   dotWrapper: {
-    width: 12,
-    height: 12,
+    width: 10,
+    height: 10,
     marginHorizontal: 4,
     position: 'relative',
   },
@@ -95,8 +125,8 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 6,
     backgroundColor: '#F5EFFF',
-    borderBlockColor:"#553434",
-    borderWidth:1
+    borderBlockColor: '#553434',
+    borderWidth: 1,
   },
   activeDot: {
     backgroundColor: '#553434',

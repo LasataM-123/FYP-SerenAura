@@ -25,8 +25,15 @@ export type MusicItem = {
 
 export type RecommendationItem<T = MeditationItem | MusicItem> = {
   title: string;       
-  data: T[];           
+  data: T[];        
+  duration: string;   
 };
+
+export type IndividualMediaResponse<T = MeditationItem | MusicItem> = {
+  success: true;
+  media: T & { duration: string }; 
+};
+
 
 export type RecommendationsResponse = {
   success: true;
@@ -64,7 +71,7 @@ export type FilterMediaResponse =
 
 export async function getRecommendations(): Promise<RecommendationsResponse> {
       const accessToken = useAuthStore.getState().accessToken;
-    const res = await fetch(`${API_URL}/music/get-recommendations`, {
+    const res = await fetch(`${API_URL}/media/get-recommendations`, {
       method: "GET",
       headers: { 
         "Content-Type": "application/json",
@@ -81,11 +88,23 @@ export async function getRecommendations(): Promise<RecommendationsResponse> {
 
 export async function getFilteredMedia(params?:{category:string}):Promise<FilterMediaResponse>{
     const accessToken = useAuthStore.getState().accessToken;
-    const res = await fetch(`${API_URL}/music/filter?category=${params?.category ?? ""}`, {
-        headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-        },
+    const res = await fetch(`${API_URL}/media/filter?category=${params?.category ?? ""}`, {
+          headers: { "Cache-Control": "no-cache", "Authorization": `Bearer ${accessToken}` },
+
+    });
+
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to fetch media");
+    }
+    return res.json();
+}
+
+export async function getIndividualMedia(params?:{id:string}):Promise<IndividualMediaResponse>{
+    const accessToken = useAuthStore.getState().accessToken;
+    const res = await fetch(`${API_URL}/media/individual/${params?.id ?? ""}`, {
+          headers: { "Cache-Control": "no-cache", "Authorization": `Bearer ${accessToken}` },
+
     });
 
     if (!res.ok) {

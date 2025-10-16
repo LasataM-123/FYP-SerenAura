@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -67,9 +67,31 @@ const TagButton: React.FC<TagButtonProps> = ({ label, isActive, onPress }) => {
 };
 
 const TagHeader: React.FC<TagHeaderProps> = ({ tags, selectedTag, onSelect }) => {
+  const flatListRef = useRef<FlatList>(null);
+
+  const hasMounted = useRef(false);
+
+useEffect(() => {
+  if (!hasMounted.current) {
+    hasMounted.current = true;
+    return; // skip first mount
+  }
+
+  const index = tags.findIndex((tag) => tag === selectedTag);
+  if (index !== -1) {
+    flatListRef.current?.scrollToIndex({
+      index,
+      animated: true,
+      viewPosition: 0.5,
+    });
+  }
+}, [selectedTag]);
+
+
   return (
     <View style={styles.container}>
       <FlatList
+        ref={flatListRef}
         data={tags}
         horizontal
         keyExtractor={(item) => item}
@@ -82,6 +104,11 @@ const TagHeader: React.FC<TagHeaderProps> = ({ tags, selectedTag, onSelect }) =>
             onPress={() => onSelect(item)}
           />
         )}
+        getItemLayout={(_, index) => ({
+          length: 94, // approximate width of each tag including marginRight
+          offset: 94 * index,
+          index,
+        })}
       />
     </View>
   );
@@ -91,7 +118,7 @@ export default TagHeader;
 
 const styles = StyleSheet.create({
   container: { marginVertical: 12 },
-  listContent: { paddingHorizontal: 24, paddingBottom: 8 },
+  listContent: { paddingBottom: 8 },
   shadowLayer: {
     position: "absolute",
     width: "100%",
@@ -104,8 +131,8 @@ const styles = StyleSheet.create({
     left: 2,
   },
   tag: {
-    paddingHorizontal: 24,
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 4,
     borderRadius: 20,
     borderWidth: 3,
     borderColor: "#553434",
@@ -115,9 +142,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#553434",
   },
   tagText: {
-    color: "#333",
-    fontWeight: "600",
-    textTransform: "capitalize",
+    fontFamily: "KodchasanSemiBold",
+    color: "#553434",
   },
   activeTagText: {
     color: "#fff",

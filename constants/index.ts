@@ -25,6 +25,7 @@ import mood from '@/assets/icons/Mood.png';
 import chat from '@/assets/icons/Chat.png';
 import media from '@/assets/icons/Media.png';
 import breathe from '@/assets/icons/Breathe.png';
+import play from '@/assets/icons/Play.png';
 export const images={
     welcomeImage,
     ribbon,
@@ -52,5 +53,6 @@ export const images={
     mood,
     chat,
     breathe,
-    media
+    media,
+    play
 }

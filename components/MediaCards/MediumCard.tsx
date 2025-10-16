@@ -8,7 +8,6 @@ import { LockKeyhole } from 'lucide-react-native'; // import the lock icon
 
 const MediumCard = ({ item }: { item: any }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const isLocked = true; 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
       toValue: 0.95,
@@ -49,7 +48,7 @@ const MediumCard = ({ item }: { item: any }) => {
               />
 
               {/* LOCK ICON OVERLAY */}
-              {isLocked && (
+              {item.isLocked && (
                 <View style={styles.lockContainer}>
                   <LockKeyhole color="#fff" size={16} />
                 </View>
