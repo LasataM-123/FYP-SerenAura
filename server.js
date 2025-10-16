@@ -21,6 +21,7 @@ app.use('/api/counselors', require('./routes/counselorRoutes'));
 app.use('/api/onboarding', require('./routes/onboardingRoutes'));
 app.use('/api/meditation',require('./routes/meditationRoutes'));
 app.use('/api/music',require('./routes/musicRoutes'));
+app.use('/api/media',require('./routes/mediaRoutes'));
 app.use(errorHandler);
 const port = process.env.PORT || 5000;
 
