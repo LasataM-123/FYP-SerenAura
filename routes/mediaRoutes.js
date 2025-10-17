@@ -10,5 +10,5 @@ router.get('/filter', tokenHandler, validPatient, filterByCategory);
 
 router.get('/individual/:id',tokenHandler, validPatient, getIndividualMedia);
 
-router.get('/search',searchContent);
+router.get('/search',tokenHandler,validPatient,searchContent);
 module.exports = router;

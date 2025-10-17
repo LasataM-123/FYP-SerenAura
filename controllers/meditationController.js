@@ -94,8 +94,7 @@ const createMeditation = asyncHandler(async (req, res) => {
       meditation,
     });
   } catch (err) {
-    console.error('Error creating meditation:', err);
-    res.status(400).json({ message: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -133,7 +132,7 @@ const updateMeditation = asyncHandler(async(req,res)=>{
           music: updatedMeditation,
         });
     }catch(err){
-        res.status(400).json({ message: err.message });
+        res.status(500).json({ message: err.message });
     }
 })
 

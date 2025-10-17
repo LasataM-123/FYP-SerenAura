@@ -94,7 +94,7 @@ const createMusic = asyncHandler(async (req, res) => {
       music,
     });
   } catch (err) {
-    res.status(400).json({ message: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -132,7 +132,7 @@ const updateMusic = asyncHandler(async(req,res)=>{
           music: updatedMusic,
         });
     }catch(err){
-        res.status(400).json({ message: err.message });
+        res.status(500).json({ message: err.message });
     }
 })
 

@@ -257,7 +257,7 @@ const verifyOTPAndCreate = asyncHandler(async (req, res) => {
       role: "patient",
     });
   } catch (err) {
-    res.status(400).json({ message: "OTP expired or invalid" });
+   return res.status(500).json({ message: "Server error", error: err.message });
   }
 });
 
@@ -290,7 +290,7 @@ const resendOTP = asyncHandler(async (req, res) => {
 
     res.json({ otpToken: newOtpToken, message: "New OTP sent to email" });
   } catch (err) {
-    return res.status(400).json({ message: "Invalid or expired OTP token" });
+    return res.status(500).json({ message: "Invalid or expired OTP token" });
   }
 });
 
@@ -328,7 +328,7 @@ const verifyOTP = asyncHandler(async(req,res)=>{
     }
     res.json({ message: "OTP verified. You may now reset your password.", email: decoded.email });
   }catch(err){
-    return res.status(400).json({message:err.message});
+    return res.status(500).json({message:err.message});
   }
 });
 
@@ -372,7 +372,7 @@ const googleAuth = asyncHandler(async (req, res) => {
     });
 
   }catch(err){
-    return res.status(400).json({message:err.message})
+    return res.status(500).json({message:err.message})
   }
 });
 

@@ -101,13 +101,13 @@ const getRecommendations = asyncHandler(async(req,res)=>{
     },
   });
   }catch(err){
-    return res.status(400).json({error: err.message});
+    return res.status(500).json({error: err.message});
   }
 })
 
 //@route GET /api/media/filter
 //@desc filter music or meditation by category
-//@access public
+//@access private (patient only)
 const filterByCategory = asyncHandler(async (req, res) => {
   try {
     const category = req.query.category?.toLowerCase();
@@ -154,7 +154,7 @@ const filterByCategory = asyncHandler(async (req, res) => {
       data,
     });
   } catch (err) {
-    return res.status(400).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -203,11 +203,13 @@ const getIndividualMedia = asyncHandler(async (req, res) => {
       },
     });
   } catch (err) {
-    console.error(err);
     return res.status(500).json({ error: err.message });
   }
 });
 
+//@route GET /api/media/search
+//@desc Search meditation or music by keyword and tag
+//@access private (patient only)
 const searchContent = asyncHandler(async (req, res) => {
   try {
     const tag = req.query.tag?.toLowerCase();
@@ -300,7 +302,6 @@ const searchContent = asyncHandler(async (req, res) => {
       data: music,
     });
   } catch (err) {
-    console.error("Search error:", err);
     return res.status(500).json({ error: err.message });
   }
 });
