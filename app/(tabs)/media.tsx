@@ -73,7 +73,8 @@ const Library = () => {
               <View style={{ marginBottom: 100 }}>
                 <MusicSection title="Meditations" data={data.data.meditations} />
                 {Object.entries(data.data.musicByCategory).map(([category, items]) => (
-                  <MusicSection key={category} title={category} data={items} />
+                  <MusicSection key={category} title={category} data={items} 
+                  />
                 ))}
               </View>
             )}

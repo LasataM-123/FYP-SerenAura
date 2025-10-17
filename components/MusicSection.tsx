@@ -1,11 +1,11 @@
 import React, { useRef, useState } from 'react';
 import { View, Text, FlatList, Dimensions, StyleSheet, TouchableOpacity } from 'react-native';
-import { router, usePathname } from 'expo-router'; // import router for navigation
+import { router, usePathname } from 'expo-router';
 import MediumCard from './MediaCards/MediumCard';
 
 const { width } = Dimensions.get('window');
 
-const MusicSection = ({ title, data }: any) => {
+const MusicSection = ({ title, data, onTagSelect }: any) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const viewConfigRef = useRef({ viewAreaCoveragePercentThreshold: 50 });
 
@@ -15,25 +15,33 @@ const MusicSection = ({ title, data }: any) => {
     }
   });
 
-  // Extract tag from title — e.g., "Calm Music" → "calm"
   const getTagFromTitle = (title: string) => {
-    const possibleTags = ['meditation','focus', 'calm', 'stress relief', 'sleep', 'anxiety'];
+    const possibleTags = ['meditation', 'focus', 'calm', 'stress relief', 'sleep', 'anxiety'];
     const lowerTitle = title.toLowerCase();
     const found = possibleTags.find(tag => lowerTitle.includes(tag));
     return found || 'others';
   };
-const path = usePathname();
 
-const handleSeeAll = () => {
-  const tag = getTagFromTitle(title);
-  // If already on /media, just update query params instead of pushing again
-  if (path === "/media") {
-    router.setParams({ tag });
-  } else {
-    router.push({ pathname: "/media", params: { tag } });
-  }
-};
+  const path = usePathname();
 
+  const handleSeeAll = () => {
+    const tag = getTagFromTitle(title);
+
+    // ✅ If on the search screen, just call the parent-provided handler
+    if (path === '/media/search') {
+      if (onTagSelect) {
+        onTagSelect(tag);
+      }
+      return;
+    }
+
+    // ✅ If already on /media, just update params
+    if (path === '/media') {
+      router.setParams({ tag });
+    } else {
+      router.push({ pathname: '/media', params: { tag } });
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -61,19 +69,21 @@ const handleSeeAll = () => {
       />
 
       {/* Pagination Dots */}
-      <View style={styles.dotsContainer}>
-        {data.map((_: any, index: number) => (
-          <View key={index} style={styles.dotWrapper}>
-            <View style={styles.dotShadow} />
-            <View
-              style={[
-                styles.dot,
-                activeIndex === index && styles.activeDot,
-              ]}
-            />
-          </View>
-        ))}
+      {data.length > 1 && (
+  <View style={styles.dotsContainer}>
+    {data.map((_: any, index: number) => (
+      <View key={index} style={styles.dotWrapper}>
+        <View style={styles.dotShadow} />
+        <View
+          style={[
+            styles.dot,
+            activeIndex === index && styles.activeDot,
+          ]}
+        />
       </View>
+    ))}
+  </View>
+)}
     </View>
   );
 };
