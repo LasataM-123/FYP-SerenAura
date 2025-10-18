@@ -10,6 +10,9 @@ import {
   Keyboard,
   ScrollView,
   Image,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { SearchIcon, X } from "lucide-react-native";
@@ -161,9 +164,9 @@ const SearchScreen = () => {
           handleSearch("All", item.content, false);
         }}
       >
-        <View style={{flexDirection:"row", gap:4, alignItems:"center"}} >
-        <SearchIcon color="#553434" size={18} />
-        <Text style={styles.recentText}>{item.content}</Text>
+        <View style={{ flexDirection: "row", gap: 4, alignItems: "center" }}>
+          <SearchIcon color="#553434" size={18} />
+          <Text style={styles.recentText}>{item.content}</Text>
         </View>
       </TouchableOpacity>
       <TouchableOpacity onPress={() => handleDeleteRecent(item._id)}>
@@ -184,9 +187,9 @@ const SearchScreen = () => {
           handleSearch("All", item.content, true);
         }}
       >
-        <View style={{flexDirection:"row", gap:4, alignItems:"center"}} >
-        <SearchIcon color="#553434" size={18} />
-        <Text style={styles.recentText}>{item.content}</Text>
+        <View style={{ flexDirection: "row", gap: 4, alignItems: "center" }}>
+          <SearchIcon color="#553434" size={18} />
+          <Text style={styles.recentText}>{item.content}</Text>
         </View>
       </TouchableOpacity>
       <TouchableOpacity onPress={() => handleDeleteSuggestion(item._id)}>
@@ -196,127 +199,126 @@ const SearchScreen = () => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Image source={images.arrowBack} style={styles.backImage} />
-      </TouchableOpacity>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <SafeAreaView style={styles.container}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Image source={images.arrowBack} style={styles.backImage} />
+          </TouchableOpacity>
 
-      {/* --- Search Input Row --- */}
-      <View style={styles.searchRow}>
-        {/* Shadowed input only */}
-        <View style={styles.inputWrapper}>
-          <View style={styles.shadowLayer} />
-          <TextInput
-            style={styles.input}
-            placeholder="Search by keyword..."
-            value={keyword}
-            onChangeText={setKeyword}
-            returnKeyType="search"
-            onSubmitEditing={() => {
-              Keyboard.dismiss();
-              handleSearch(undefined, undefined, true);
-            }}
-          />
-        </View>
+          {/* --- Search Input Row --- */}
+          <View style={styles.searchRow}>
+            <View style={styles.inputWrapper}>
+              <View style={styles.shadowLayer} />
+              <TextInput
+                style={styles.input}
+                placeholder="Search by keyword..."
+                value={keyword}
+                onChangeText={setKeyword}
+                returnKeyType="search"
+                onSubmitEditing={() => handleSearch(undefined, undefined, true)}
+              />
+            </View>
 
-        {/* Go button stays outside */}
-        <TouchableOpacity
-          onPress={() => {
-            Keyboard.dismiss();
-            handleSearch(undefined, undefined, true);
-          }}
-          style={styles.button}
-        >
-          <Text style={styles.buttonText}>Go</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* --- Tag Filter --- */}
-      <TagHeader tags={TAGS} selectedTag={selectedTag} onSelect={setSelectedTag} />
-
-      {/* --- Live Suggestions --- */}
-      {!loadingSuggestions && suggestions.length > 0 && !hasSearched && (
-        <>
-          <Text style={styles.sectionTitle}>Suggestions</Text>
-          <FlatList
-            data={suggestions}
-            renderItem={renderSuggestionItem}
-            keyExtractor={(item) => item._id}
-            contentContainerStyle={{ paddingVertical: 8 }}
-            showsVerticalScrollIndicator={false}
-          />
-        </>
-      )}
-
-      {/* --- Recent Searches --- */}
-      {!hasSearched && !searching && suggestions.length === 0 && (
-        <View style={styles.recentContainer}>
-          <Text style={styles.sectionTitle}>Recent Searches</Text>
-          {loadingRecent ? (
-            <ActivityIndicator color="#553434" style={{ marginTop: 10 }} />
-          ) : recentSearches && recentSearches.length > 0 ? (
-            <FlatList
-              data={recentSearches}
-              renderItem={renderRecentItem}
-              keyExtractor={(item) => item._id}
-              contentContainerStyle={{ paddingBottom: 8 }}
-              showsVerticalScrollIndicator={false}
-            />
-          ) : (
-            <Text style={styles.noResults}>No recent searches yet</Text>
-          )}
-        </View>
-      )}
-
-      {/* --- Search Results --- */}
-      {searching ? (
-        <ActivityIndicator size="large" color="#553434" style={styles.loading} />
-      ) : (
-        hasSearched &&
-        searchResults && (
-          searchResults.type === "all" ? (
-            <ScrollView
-              style={styles.scrollView}
-              contentContainerStyle={styles.resultsContainer}
-              showsVerticalScrollIndicator={false}
+            <TouchableOpacity
+              onPress={() => handleSearch(undefined, undefined, true)}
+              style={styles.button}
             >
-              {searchResults.data.meditations?.length > 0 && (
-                <MusicSection
-                  title="Meditations"
-                  data={searchResults.data.meditations}
-                  onTagSelect={(tag: string) =>
-                    setSelectedTag(tag.charAt(0).toUpperCase() + tag.slice(1))
-                  }
+              <Text style={styles.buttonText}>Go</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* --- Tag Filter --- */}
+          <TagHeader tags={TAGS} selectedTag={selectedTag} onSelect={setSelectedTag} />
+
+          {/* --- Live Suggestions --- */}
+          {!loadingSuggestions && suggestions.length > 0 && !hasSearched && (
+            <>
+              <Text style={styles.sectionTitle}>Suggestions</Text>
+              <FlatList
+                data={suggestions}
+                renderItem={renderSuggestionItem}
+                keyExtractor={(item) => item._id}
+                contentContainerStyle={{ paddingVertical: 8 }}
+                showsVerticalScrollIndicator={false}
+              />
+            </>
+          )}
+
+          {/* --- Recent Searches --- */}
+          {!hasSearched && !searching && suggestions.length === 0 && (
+            <View style={styles.recentContainer}>
+              <Text style={styles.sectionTitle}>Recent Searches</Text>
+              {loadingRecent ? (
+                <ActivityIndicator color="#553434" style={{ marginTop: 10 }} />
+              ) : recentSearches && recentSearches.length > 0 ? (
+                <FlatList
+                  data={recentSearches}
+                  renderItem={renderRecentItem}
+                  keyExtractor={(item) => item._id}
+                  contentContainerStyle={{ paddingBottom: 8 }}
+                  showsVerticalScrollIndicator={false}
                 />
+              ) : (
+                <Text style={styles.noResults}>No recent searches yet</Text>
               )}
-              {Object.entries(searchResults.data.musicByCategory)
-                .filter(([_, items]) => Array.isArray(items) && items.length > 0)
-                .map(([category, items]) => (
-                  <MusicSection
-                    key={category}
-                    title={category}
-                    data={items}
-                    onTagSelect={(tag: string) =>
-                      setSelectedTag(tag.charAt(0).toUpperCase() + tag.slice(1))
-                    }
-                  />
-                ))}
-            </ScrollView>
+            </View>
+          )}
+
+          {/* --- Search Results --- */}
+          {searching ? (
+            <ActivityIndicator size="large" color="#553434" style={styles.loading} />
           ) : (
-            <FlatList
-              data={searchResults.data}
-              keyExtractor={(item) => item._id}
-              renderItem={({ item }) => <SmallCard item={item} />}
-              numColumns={2}
-              columnWrapperStyle={{ justifyContent: "space-between" }}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingVertical: 8 }}
-              ListEmptyComponent={<Text style={styles.noResults}>No results found</Text>}
-            />
-          )
-        )
-      )}
-    </SafeAreaView>
+            hasSearched &&
+            searchResults && (
+              searchResults.type === "all" ? (
+                <ScrollView
+                  style={styles.scrollView}
+                  contentContainerStyle={styles.resultsContainer}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {searchResults.data.meditations?.length > 0 && (
+                    <MusicSection
+                      title="Meditations"
+                      data={searchResults.data.meditations}
+                      onTagSelect={(tag: string) =>
+                        setSelectedTag(tag.charAt(0).toUpperCase() + tag.slice(1))
+                      }
+                    />
+                  )}
+                  {Object.entries(searchResults.data.musicByCategory)
+                    .filter(([_, items]) => Array.isArray(items) && items.length > 0)
+                    .map(([category, items]) => (
+                      <MusicSection
+                        key={category}
+                        title={category}
+                        data={items}
+                        onTagSelect={(tag: string) =>
+                          setSelectedTag(tag.charAt(0).toUpperCase() + tag.slice(1))
+                        }
+                      />
+                    ))}
+                </ScrollView>
+              ) : (
+                <FlatList
+                  data={searchResults.data}
+                  keyExtractor={(item) => item._id}
+                  renderItem={({ item }) => <SmallCard item={item} />}
+                  numColumns={2}
+                  columnWrapperStyle={{ justifyContent: "space-between" }}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ paddingVertical: 8 }}
+                  ListEmptyComponent={<Text style={styles.noResults}>No results found</Text>}
+                />
+              )
+            )
+          )}
+        </SafeAreaView>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -346,38 +348,38 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
-inputWrapper: {
-  flex: 1,
-  position: "relative",
-  height: 48,
-},
+  inputWrapper: {
+    flex: 1,
+    position: "relative",
+    height: 48,
+  },
 
-shadowLayer: {
-  position: "absolute",
-  width: "100%",
-  height: "100%",
-  borderRadius: 20,
-  borderWidth: 3,
-  borderColor: "#553434",
-  backgroundColor: "#fff",
-  top: 2,  
-  left: 2,
-  zIndex: 0,
-},
+  shadowLayer: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    borderRadius: 20,
+    borderWidth: 3,
+    borderColor: "#553434",
+    backgroundColor: "#fff",
+    top: 2,
+    left: 2,
+    zIndex: 0,
+  },
 
-input: {
-  borderRadius: 20,
-  paddingHorizontal: 12,
-  paddingVertical: 8,
-  fontFamily: "KodchasanMedium",
-  width: "100%",
-  height: "100%",
-  borderWidth: 3,
-  borderColor: "#553434",
-  backgroundColor: "#fff",
-  position: "relative",
-  zIndex: 1,
-},
+  input: {
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontFamily: "KodchasanMedium",
+    width: "100%",
+    height: "100%",
+    borderWidth: 3,
+    borderColor: "#553434",
+    backgroundColor: "#fff",
+    position: "relative",
+    zIndex: 1,
+  },
 
   button: {
     backgroundColor: "#553434",
@@ -386,7 +388,7 @@ input: {
     paddingVertical: 10,
   },
   buttonText: {
-    color: "#553434",
+    color: "#FFF",
     fontFamily: "KodchasanSemiBold",
   },
   sectionTitle: {
@@ -402,7 +404,7 @@ input: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom:16,
+    marginBottom: 16,
     borderBottomWidth: 0.5,
     borderColor: "#553434",
   },
@@ -411,7 +413,7 @@ input: {
     color: "#553434",
     fontSize: 15,
   },
-  
+
   resultsContainer: {
     paddingBottom: 40,
   },
