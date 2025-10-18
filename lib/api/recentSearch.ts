@@ -61,3 +61,19 @@ export async function deleteRecentSearch(params?:{id:string}): Promise<RecentSea
     return res.json();
 }
 
+export async function suggestRecentSearch(params?:{query:string}): Promise<RecentSearch[]> {
+      const accessToken = useAuthStore.getState().accessToken;
+    const res = await fetch(`${API_URL}/recent-search/suggest?query=${params?.query}`, {
+      method: "GET",
+      headers: { 
+         "Cache-Control": "no-cache",
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${accessToken}`
+     }
+    });
+        if (!res.ok) {
+        const errBody = await res.json();
+        throw new Error(errBody.message || "Get request failed")
+        }
+    return res.json();
+}

@@ -30,6 +30,21 @@ const Media = () => {
     refetch({ id: mediaId });
   }, []);
 
+  const handlePlay = () => {
+  if (!data) return;
+
+  router.push({
+    pathname: "./now-playing",
+    params: {
+      title: data.media.title,
+      by: data.media.by,
+      imageUrl: data.media.imageUrl,
+      audioUrl: data.media.audioUrl,
+    },
+
+});
+
+  };
   return (
     <SafeAreaView style={styles.container}>
       {/* Top Bar */}
@@ -78,7 +93,7 @@ const Media = () => {
               {data?.media?.isLocked ? (
                 <Button label='Go Premium' onPress={()=>{}} />
               ) : (
-                <Button label='Play' imageSource={images.play} onPress={()=>{}} />
+                <Button label='Play' imageSource={images.play} onPress={handlePlay} />
               )}
             </View>
           </View>

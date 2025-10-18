@@ -14,18 +14,19 @@ import Slider from "@react-native-community/slider";
 import {
   Play,
   Pause,
-  Rewind,
-  FastForward,
   Heart,
   List,
   X,
+  RotateCcw,
+  RotateCw,
 } from "lucide-react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import { useSearchParams } from "expo-router/build/hooks";
+import { images } from "@/constants";
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
 
 const NowPlayingScreen: React.FC = () => {
   const params = useSearchParams();
@@ -40,22 +41,35 @@ const NowPlayingScreen: React.FC = () => {
   const [duration, setDuration] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  // --- Animations ---
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const waveAmp = useRef(new Animated.Value(0)).current;
 
-  // --- CD Rotation + Wave Animation ---
+  // 🌀 CD Rotation Animation
   useEffect(() => {
+    let rotation: Animated.CompositeAnimation | null = null;
+
     if (isPlaying) {
-      Animated.loop(
+      rotation = Animated.loop(
         Animated.timing(rotateAnim, {
           toValue: 1,
           duration: 8000,
           easing: Easing.linear,
           useNativeDriver: true,
         })
-      ).start();
+      );
+      rotation.start();
+    } else {
+      rotateAnim.stopAnimation();
+    }
 
+    return () => {
+      rotation?.stop();
+    };
+  }, [isPlaying]);
+
+  // 🌊 Wave Animation
+  useEffect(() => {
+    if (isPlaying) {
       Animated.loop(
         Animated.sequence([
           Animated.timing(waveAmp, {
@@ -71,19 +85,16 @@ const NowPlayingScreen: React.FC = () => {
         ])
       ).start();
     } else {
-      rotateAnim.stopAnimation();
       waveAmp.stopAnimation();
     }
   }, [isPlaying]);
 
-  // --- Cleanup ---
   useEffect(() => {
     return () => {
       if (sound) sound.unloadAsync();
     };
   }, [sound]);
 
-  // --- Load and Play ---
   useEffect(() => {
     if (audioUrl) loadAndPlay();
   }, [audioUrl]);
@@ -141,28 +152,30 @@ const NowPlayingScreen: React.FC = () => {
     outputRange: ["0deg", "360deg"],
   });
 
-  // --- Generate wave path dynamically based on amplitude ---
   const generateWavePath = (amplitude: number) => {
-    const midY = 50;
-    const path = [];
-    for (let x = 0; x <= 100; x += 10) {
-      const y = midY + amplitude * Math.sin((x / 100) * Math.PI * 4);
-      path.push(`${x === 0 ? "M" : "L"}${x},${y}`);
+    const w = 120;
+    const h = 180;
+    const midY = h / 2;
+    const waveLength = w / 2;
+    const path = [`M0 ${midY}`];
+
+    for (let x = 0; x <= w; x += waveLength) {
+      const cp1x = x + waveLength / 4;
+      const cp1y = midY - amplitude;
+      const cp2x = x + (waveLength * 3) / 4;
+      const cp2y = midY + amplitude;
+      const endX = x + waveLength;
+      path.push(`C${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${midY}`);
     }
+
     return path.join(" ");
   };
 
-  const amplitude = waveAmp.interpolate({
-    inputRange: [0, 1],
-    outputRange: [5, 15],
-  });
+  const [wavePath, setWavePath] = useState(generateWavePath(20));
 
-  const [wavePath, setWavePath] = useState(generateWavePath(10));
-
-  // Update path on animation
   useEffect(() => {
     const id = waveAmp.addListener(({ value }) => {
-      setWavePath(generateWavePath(5 + value * 10));
+      setWavePath(generateWavePath(15 + value * 10));
     });
     return () => waveAmp.removeListener(id);
   }, []);
@@ -170,28 +183,30 @@ const NowPlayingScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       {/* --- Top Bar --- */}
-      <View style={styles.topBar}>
+
         <TouchableOpacity onPress={() => router.back()}>
-          <X color="#553434" size={28} />
+            <Image source={images.cross} style={{width:30,height:30}}/>
         </TouchableOpacity>
         <Text style={styles.nowPlaying}>NOW PLAYING</Text>
         <View style={{ width: 28 }} />
-      </View>
 
-      {/* --- CD + Animated Curved Waves --- */}
+      {/* --- CD + Shadow + Waves --- */}
       <View style={styles.cdContainer}>
         {/* Left Wave */}
-        <Animated.View style={[styles.waveWrapper, { left: width / 2 - 230 }]}>
-          <Svg height="100" width="100">
+        <Animated.View style={[styles.waveWrapper, { left: width / 2 - 250 }]}>
+          <Svg height="180" width="120">
             <Path
               d={wavePath}
               fill="none"
               stroke="#553434"
-              strokeWidth="3"
+              strokeWidth="2.5"
               strokeLinecap="round"
             />
           </Svg>
         </Animated.View>
+
+        {/* CD Shadow Layer */}
+        <View style={styles.cdShadowLayer} />
 
         {/* Rotating CD */}
         <Animated.View
@@ -202,13 +217,13 @@ const NowPlayingScreen: React.FC = () => {
         </Animated.View>
 
         {/* Right Wave */}
-        <Animated.View style={[styles.waveWrapper, { right: width / 2 - 230 }]}>
-          <Svg height="100" width="100">
+        <Animated.View style={[styles.waveWrapper, { right: width / 2 - 250 }]}>
+          <Svg height="180" width="120">
             <Path
               d={wavePath}
               fill="none"
               stroke="#553434"
-              strokeWidth="3"
+              strokeWidth="2.5"
               strokeLinecap="round"
             />
           </Svg>
@@ -228,13 +243,13 @@ const NowPlayingScreen: React.FC = () => {
       {/* Slider */}
       <View style={styles.sliderContainer}>
         <Slider
-          style={{ width: "100%", height: 40 }}
+          style={styles.slider}
           minimumValue={0}
           maximumValue={duration}
           value={position}
-          minimumTrackTintColor="#553434"
-          maximumTrackTintColor="#d9bebe"
-          thumbTintColor="#553434"
+          minimumTrackTintColor="#a4563b"
+          maximumTrackTintColor="#553434"
+          thumbTintColor="#a4563b"
           onSlidingComplete={handleSeek}
         />
         <View style={styles.timeRow}>
@@ -245,6 +260,7 @@ const NowPlayingScreen: React.FC = () => {
 
       {/* Main Controls */}
       <View style={styles.mainControls}>
+        {/* Rewind */}
         <TouchableOpacity
           onPress={async () => {
             if (sound) {
@@ -255,20 +271,27 @@ const NowPlayingScreen: React.FC = () => {
               }
             }
           }}
+          style={styles.skipButton}
         >
-          <Rewind size={36} color="#553434" />
+          <RotateCcw size={34} color="#553434" />
+          <Text style={styles.skipText}>10s</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={loadAndPlay} style={styles.playButton}>
-          {loading ? (
-            <Text style={{ color: "#fff" }}>...</Text>
-          ) : isPlaying ? (
-            <Pause size={36} color="#fff" />
-          ) : (
-            <Play size={36} color="#fff" />
-          )}
-        </TouchableOpacity>
+        {/* Play / Pause */}
+        <View style={styles.playButtonContainer}>
+          <View style={styles.playShadowLayer} />
+          <TouchableOpacity onPress={loadAndPlay} style={styles.playButton}>
+            {loading ? (
+              <Text style={{ color: "#fff" }}>...</Text>
+            ) : isPlaying ? (
+              <Pause size={36} color="#fff" />
+            ) : (
+              <Play size={36} color="#fff" />
+            )}
+          </TouchableOpacity>
+        </View>
 
+        {/* Forward */}
         <TouchableOpacity
           onPress={async () => {
             if (sound) {
@@ -282,8 +305,10 @@ const NowPlayingScreen: React.FC = () => {
               }
             }
           }}
+          style={styles.skipButton}
         >
-          <FastForward size={36} color="#553434" />
+          <RotateCw size={34} color="#553434" />
+          <Text style={styles.skipText}>10s</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -296,40 +321,55 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
-    alignItems: "center",
     paddingHorizontal: 24,
+    paddingVertical: 16,
   },
-  topBar: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    width: "100%",
-    marginTop: 10,
-  },
+
   nowPlaying: {
-    fontFamily: "KodchasanSemiBold",
+    fontFamily: "Schoolbell",
     color: "#553434",
     fontSize: 18,
+     textAlign: "center",
   },
   cdContainer: {
-    marginVertical: 10,
+    marginVertical: 60,
     width: "100%",
-    height: 220,
+    height: 240,
     justifyContent: "center",
     alignItems: "center",
+    position: "relative",
   },
+
+  cdShadowLayer: {
+    position: "absolute",
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    borderWidth: 4,
+    borderColor: "#553434",
+    backgroundColor: "#fff",
+    top: 32,
+    left: 80,
+    zIndex: 0,
+  },
+
   cdWrapper: {
     width: 180,
     height: 180,
     borderRadius: 90,
     overflow: "hidden",
-    borderWidth: 3,
+    borderWidth: 4,
     borderColor: "#553434",
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#fff",
+    zIndex: 1,
   },
-  cdImage: { width: 180, height: 180, borderRadius: 90 },
+  cdImage: {
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+  },
   cdCenter: {
     width: 40,
     height: 40,
@@ -341,7 +381,7 @@ const styles = StyleSheet.create({
   },
   waveWrapper: {
     position: "absolute",
-    height: 100,
+    height: 180,
   },
   title: {
     fontFamily: "KodchasanSemiBold",
@@ -356,29 +396,25 @@ const styles = StyleSheet.create({
     color: "#553434",
     marginTop: 4,
     marginBottom: 20,
+    textAlign: "center", 
   },
   controlsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: 100,
-    marginBottom: 10,
-  },
-  sliderContainer: { width: "100%", marginTop: 10 },
-  timeRow: { flexDirection: "row", justifyContent: "space-between" },
+  flexDirection: "row",
+  justifyContent: "center", // center them horizontally
+  width: "auto",            // wrap content
+  marginBottom: 20,
+  alignItems: "center",
+  gap: 20,                  // optional spacing between icons
+},
+
+  sliderContainer: { width: "100%", marginTop: 10, paddingHorizontal: 4 },
+  slider: { width: "100%", height: 18, borderRadius: 10 },
+  timeRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 4, paddingHorizontal: 2 },
   time: { color: "#553434", fontFamily: "KodchasanRegular" },
-  mainControls: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    width: 220,
-    marginTop: 30,
-  },
-  playButton: {
-    backgroundColor: "#553434",
-    borderRadius: 50,
-    width: 70,
-    height: 70,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  mainControls: { flexDirection: "row", alignItems: "center", justifyContent: "center", width: "100%", gap: 40, marginTop: 30 },
+  playButtonContainer: { width: 80, height: 80, position: "relative", alignItems: "center", justifyContent: "center" },
+  playShadowLayer: { position: "absolute", width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: "#553434", backgroundColor: "#fff", top: 2, left: 2, zIndex: 0 },
+  playButton: { width: 80, height: 80, borderRadius: 40, borderWidth: 4, borderColor: "#553434", backgroundColor: "#C76350", alignItems: "center", justifyContent: "center", zIndex: 1 },
+  skipButton: { alignItems: "center", justifyContent: "center" },
+  skipText: { fontSize: 12, color: "#553434", marginTop: 2, fontFamily: "KodchasanSemiBold" },
 });

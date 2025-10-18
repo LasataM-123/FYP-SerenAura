@@ -27,7 +27,7 @@ const MusicSection = ({ title, data, onTagSelect }: any) => {
   const handleSeeAll = () => {
     const tag = getTagFromTitle(title);
 
-    // ✅ If on the search screen, just call the parent-provided handler
+    // If on the search screen, just call the parent-provided handler
     if (path === '/media/search') {
       if (onTagSelect) {
         onTagSelect(tag);
@@ -35,7 +35,7 @@ const MusicSection = ({ title, data, onTagSelect }: any) => {
       return;
     }
 
-    // ✅ If already on /media, just update params
+    // If already on /media, just update params
     if (path === '/media') {
       router.setParams({ tag });
     } else {

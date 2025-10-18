@@ -233,7 +233,7 @@ const Home = () => {
         </View>
 
         <Button label="Logout" onPress={handleLogout} />
-        <View style={{ marginBottom: 200 }} />
+        <View style={{ marginBottom: 100 }} />
       </ScrollView>
 
       <Animated.View

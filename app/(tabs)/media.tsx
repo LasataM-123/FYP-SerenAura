@@ -37,6 +37,7 @@ const Library = () => {
   useEffect(() => {
     refetch({ category: selectedTag });
   }, [selectedTag]);
+  
 
   return (
     <SafeAreaView style={styles.container}>
