@@ -1,384 +1,431 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
+  TextInput,
   Text,
-  Image,
+  FlatList,
   TouchableOpacity,
+  ActivityIndicator,
   StyleSheet,
-  Animated,
-  Easing,
-  Dimensions,
+  Keyboard,
+  ScrollView,
+  Image,
 } from "react-native";
-import { Audio } from "expo-av";
-import Slider from "@react-native-community/slider";
-import {
-  Play,
-  Pause,
-  Rewind,
-  FastForward,
-  Heart,
-  List,
-  X,
-} from "lucide-react-native";
-import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Svg, { Path } from "react-native-svg";
-import { useSearchParams } from "expo-router/build/hooks";
+import { SearchIcon, X } from "lucide-react-native";
+import TagHeader from "@/components/TagHeader";
+import MusicSection from "@/components/MusicSection";
+import SmallCard from "@/components/MediaCards/SmallCard";
+import { router, useLocalSearchParams } from "expo-router";
+import { useBackend } from "@/lib/useBackend";
+import {
+  getRecentSearch,
+  addSearch,
+  deleteRecentSearch,
+  suggestRecentSearch,
+} from "@/lib/api/recentSearch";
+import { searchMedia } from "@/lib/api/media";
+import { images } from "@/constants";
 
-const { width, height } = Dimensions.get("window");
+const TAGS = ["All", "Meditation", "Calm", "Stress relief", "Focus", "Sleep", "Anxiety"];
 
-const NowPlayingScreen: React.FC = () => {
-  const params = useSearchParams();
-  const title = params.get("title") ?? "Unknown";
-  const by = params.get("by") ?? "Unknown";
-  const imageUrl = params.get("imageUrl") ?? "";
-  const audioUrl = params.get("audioUrl") ?? "";
+const SearchScreen = () => {
+  const { tag } = useLocalSearchParams();
+  const [keyword, setKeyword] = useState("");
+  const [selectedTag, setSelectedTag] = useState("All");
+  const [searchResults, setSearchResults] = useState<any>(null);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
 
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
-  const [position, setPosition] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const typingTimeout = useRef<NodeJS.Timeout | null>(null);
+  const skipNextSuggestion = useRef(false);
 
-  // --- Animations ---
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-  const waveAmp = useRef(new Animated.Value(0)).current;
+  const {
+    data: recentSearches,
+    loading: loadingRecent,
+    refetch: fetchRecentSearches,
+  } = useBackend({ fn: getRecentSearch });
 
-  // --- CD Rotation + Wave Animation ---
+  const { refetch: addSearchItem } = useBackend({ fn: addSearch });
+  const { refetch: removeSearchItem } = useBackend({ fn: deleteRecentSearch });
+  const { refetch: performSearch, loading: searching } = useBackend({ fn: searchMedia });
+
   useEffect(() => {
-    if (isPlaying) {
-      Animated.loop(
-        Animated.timing(rotateAnim, {
-          toValue: 1,
-          duration: 8000,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        })
-      ).start();
-
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(waveAmp, {
-            toValue: 1,
-            duration: 700,
-            useNativeDriver: false,
-          }),
-          Animated.timing(waveAmp, {
-            toValue: 0,
-            duration: 700,
-            useNativeDriver: false,
-          }),
-        ])
-      ).start();
-    } else {
-      rotateAnim.stopAnimation();
-      waveAmp.stopAnimation();
-    }
-  }, [isPlaying]);
-
-  // --- Cleanup ---
-  useEffect(() => {
-    return () => {
-      if (sound) sound.unloadAsync();
-    };
-  }, [sound]);
-
-  // --- Load and Play ---
-  useEffect(() => {
-    if (audioUrl) loadAndPlay();
-  }, [audioUrl]);
-
-  const loadAndPlay = async () => {
-    if (!audioUrl) return;
-    setLoading(true);
-
-    if (sound) {
-      const status = await sound.getStatusAsync();
-      if (status.isLoaded) {
-        if (status.isPlaying) {
-          await sound.pauseAsync();
-          setIsPlaying(false);
-        } else {
-          await sound.playAsync();
-          setIsPlaying(true);
-        }
-        setLoading(false);
-        return;
-      }
-    }
-
-    const { sound: newSound } = await Audio.Sound.createAsync(
-      { uri: audioUrl },
-      { shouldPlay: true },
-      onPlaybackStatusUpdate
-    );
-    setSound(newSound);
-    setIsPlaying(true);
-    setLoading(false);
-  };
-
-  const onPlaybackStatusUpdate = (status: any) => {
-    if (status.isLoaded) {
-      setPosition(status.positionMillis);
-      setDuration(status.durationMillis || 0);
-      if (status.didJustFinish) setIsPlaying(false);
-    }
-  };
-
-  const handleSeek = async (value: number) => {
-    if (sound && duration) await sound.setPositionAsync(value);
-  };
-
-  const formatTime = (ms: number) => {
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-  };
-
-  const rotateInterpolate = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
-
-  // --- Generate wave path dynamically based on amplitude ---
-  const generateWavePath = (amplitude: number) => {
-    const midY = 50;
-    const path = [];
-    for (let x = 0; x <= 100; x += 10) {
-      const y = midY + amplitude * Math.sin((x / 100) * Math.PI * 4);
-      path.push(`${x === 0 ? "M" : "L"}${x},${y}`);
-    }
-    return path.join(" ");
-  };
-
-  const amplitude = waveAmp.interpolate({
-    inputRange: [0, 1],
-    outputRange: [5, 15],
-  });
-
-  const [wavePath, setWavePath] = useState(generateWavePath(10));
-
-  // Update path on animation
-  useEffect(() => {
-    const id = waveAmp.addListener(({ value }) => {
-      setWavePath(generateWavePath(5 + value * 10));
-    });
-    return () => waveAmp.removeListener(id);
+    fetchRecentSearches();
   }, []);
+
+  useEffect(() => {
+    if (!tag) return;
+    const tagValue = Array.isArray(tag) ? tag[0] : tag;
+    const formattedTag = TAGS.find((t) => t.toLowerCase() === tagValue.toLowerCase());
+    if (formattedTag) setSelectedTag(formattedTag);
+  }, [tag]);
+
+  // --- Handle live suggestions ---
+  useEffect(() => {
+    if (skipNextSuggestion.current) {
+      skipNextSuggestion.current = false;
+      return;
+    }
+
+    if (typingTimeout.current) clearTimeout(typingTimeout.current);
+    if (keyword.trim().length === 0) {
+      setSuggestions([]);
+      return;
+    }
+
+    typingTimeout.current = setTimeout(async () => {
+      try {
+        setLoadingSuggestions(true);
+        const res = await suggestRecentSearch({ query: keyword });
+        setSuggestions(res);
+      } catch (error) {
+        console.log("Suggestion error:", error);
+      } finally {
+        setLoadingSuggestions(false);
+      }
+    }, 300);
+  }, [keyword]);
+
+  const handleSearch = async (
+    customTag?: string,
+    customKeyword?: string,
+    saveRecent: boolean = false
+  ) => {
+    const activeTag = customTag || selectedTag;
+    const searchTerm = (customKeyword ?? keyword).trim();
+
+    if (!searchTerm && activeTag === "All") {
+      setHasSearched(false);
+      return;
+    }
+
+    setHasSearched(true);
+    Keyboard.dismiss();
+
+    try {
+      const data = await performSearch({
+        keyword: searchTerm,
+        tag: activeTag.toLowerCase(),
+      });
+
+      setSearchResults(data);
+      setSuggestions([]);
+
+      if (saveRecent && searchTerm.length > 0) {
+        await addSearchItem({ content: searchTerm });
+        await fetchRecentSearches();
+      }
+    } catch (error) {
+      console.log("Search error:", error);
+    }
+  };
+
+  const handleDeleteRecent = async (id: string) => {
+    try {
+      await removeSearchItem({ id });
+      await fetchRecentSearches();
+    } catch (error) {
+      console.log("Error deleting search:", error);
+    }
+  };
+
+  const handleDeleteSuggestion = async (id: string) => {
+    try {
+      await removeSearchItem({ id });
+      const res = await suggestRecentSearch({ query: keyword });
+      setSuggestions(res);
+    } catch (error) {
+      console.log("Error deleting suggestion:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (hasSearched) handleSearch(selectedTag, undefined, false);
+  }, [selectedTag]);
+
+  useEffect(() => {
+    if (keyword.trim().length === 0) {
+      setHasSearched(false);
+      setSearchResults(null);
+    }
+  }, [keyword]);
+
+  const renderRecentItem = ({ item }: any) => (
+    <View style={styles.recentItem}>
+      <TouchableOpacity
+        onPress={() => {
+          setHasSearched(true);
+          setKeyword(item.content);
+          handleSearch("All", item.content, false);
+        }}
+      >
+        <View style={{flexDirection:"row", gap:4, alignItems:"center"}} >
+        <SearchIcon color="#553434" size={18} />
+        <Text style={styles.recentText}>{item.content}</Text>
+        </View>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => handleDeleteRecent(item._id)}>
+        <X size={18} color="#553434" />
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderSuggestionItem = ({ item }: any) => (
+    <View style={styles.recentItem}>
+      <TouchableOpacity
+        onPress={() => {
+          Keyboard.dismiss();
+          skipNextSuggestion.current = true;
+          setHasSearched(true);
+          setKeyword(item.content);
+          setSuggestions([]);
+          handleSearch("All", item.content, true);
+        }}
+      >
+        <View style={{flexDirection:"row", gap:4, alignItems:"center"}} >
+        <SearchIcon color="#553434" size={18} />
+        <Text style={styles.recentText}>{item.content}</Text>
+        </View>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => handleDeleteSuggestion(item._id)}>
+        <X size={18} color="#553434" />
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* --- Top Bar --- */}
-      <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <X color="#553434" size={28} />
-        </TouchableOpacity>
-        <Text style={styles.nowPlaying}>NOW PLAYING</Text>
-        <View style={{ width: 28 }} />
-      </View>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <Image source={images.arrowBack} style={styles.backImage} />
+      </TouchableOpacity>
 
-      {/* --- CD + Animated Curved Waves --- */}
-      <View style={styles.cdContainer}>
-        {/* Left Wave */}
-        <Animated.View style={[styles.waveWrapper, { left: width / 2 - 230 }]}>
-          <Svg height="100" width="100">
-            <Path
-              d={wavePath}
-              fill="none"
-              stroke="#553434"
-              strokeWidth="3"
-              strokeLinecap="round"
-            />
-          </Svg>
-        </Animated.View>
-
-        {/* Rotating CD */}
-        <Animated.View
-          style={[styles.cdWrapper, { transform: [{ rotate: rotateInterpolate }] }]}
-        >
-          <Image source={{ uri: imageUrl }} style={styles.cdImage} />
-          <View style={styles.cdCenter} />
-        </Animated.View>
-
-        {/* Right Wave */}
-        <Animated.View style={[styles.waveWrapper, { right: width / 2 - 230 }]}>
-          <Svg height="100" width="100">
-            <Path
-              d={wavePath}
-              fill="none"
-              stroke="#553434"
-              strokeWidth="3"
-              strokeLinecap="round"
-            />
-          </Svg>
-        </Animated.View>
-      </View>
-
-      {/* Song Info */}
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.by}>By: {by}</Text>
-
-      {/* Icons */}
-      <View style={styles.controlsRow}>
-        <Heart color="#553434" size={28} />
-        <List color="#553434" size={28} />
-      </View>
-
-      {/* Slider */}
-      <View style={styles.sliderContainer}>
-        <Slider
-          style={{ width: "100%", height: 40 }}
-          minimumValue={0}
-          maximumValue={duration}
-          value={position}
-          minimumTrackTintColor="#553434"
-          maximumTrackTintColor="#d9bebe"
-          thumbTintColor="#553434"
-          onSlidingComplete={handleSeek}
-        />
-        <View style={styles.timeRow}>
-          <Text style={styles.time}>{formatTime(position)}</Text>
-          <Text style={styles.time}>{formatTime(duration)}</Text>
+      {/* --- Search Input Row --- */}
+      <View style={styles.searchRow}>
+        {/* Shadowed input only */}
+        <View style={styles.inputWrapper}>
+          <View style={styles.shadowLayer} />
+          <TextInput
+            style={styles.input}
+            placeholder="Search by keyword..."
+            value={keyword}
+            onChangeText={setKeyword}
+            returnKeyType="search"
+            onSubmitEditing={() => {
+              Keyboard.dismiss();
+              handleSearch(undefined, undefined, true);
+            }}
+          />
         </View>
+
+        {/* Go button stays outside */}
+        <TouchableOpacity
+          onPress={() => {
+            Keyboard.dismiss();
+            handleSearch(undefined, undefined, true);
+          }}
+          style={styles.button}
+        >
+          <Text style={styles.buttonText}>Go</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Main Controls */}
-      <View style={styles.mainControls}>
-        <TouchableOpacity
-          onPress={async () => {
-            if (sound) {
-              const status = await sound.getStatusAsync();
-              if (status.isLoaded) {
-                const newPosition = Math.max(status.positionMillis - 10000, 0);
-                await sound.setPositionAsync(newPosition);
-              }
-            }
-          }}
-        >
-          <Rewind size={36} color="#553434" />
-        </TouchableOpacity>
+      {/* --- Tag Filter --- */}
+      <TagHeader tags={TAGS} selectedTag={selectedTag} onSelect={setSelectedTag} />
 
-        <TouchableOpacity onPress={loadAndPlay} style={styles.playButton}>
-          {loading ? (
-            <Text style={{ color: "#fff" }}>...</Text>
-          ) : isPlaying ? (
-            <Pause size={36} color="#fff" />
+      {/* --- Live Suggestions --- */}
+      {!loadingSuggestions && suggestions.length > 0 && !hasSearched && (
+        <>
+          <Text style={styles.sectionTitle}>Suggestions</Text>
+          <FlatList
+            data={suggestions}
+            renderItem={renderSuggestionItem}
+            keyExtractor={(item) => item._id}
+            contentContainerStyle={{ paddingVertical: 8 }}
+            showsVerticalScrollIndicator={false}
+          />
+        </>
+      )}
+
+      {/* --- Recent Searches --- */}
+      {!hasSearched && !searching && suggestions.length === 0 && (
+        <View style={styles.recentContainer}>
+          <Text style={styles.sectionTitle}>Recent Searches</Text>
+          {loadingRecent ? (
+            <ActivityIndicator color="#553434" style={{ marginTop: 10 }} />
+          ) : recentSearches && recentSearches.length > 0 ? (
+            <FlatList
+              data={recentSearches}
+              renderItem={renderRecentItem}
+              keyExtractor={(item) => item._id}
+              contentContainerStyle={{ paddingBottom: 8 }}
+              showsVerticalScrollIndicator={false}
+            />
           ) : (
-            <Play size={36} color="#fff" />
+            <Text style={styles.noResults}>No recent searches yet</Text>
           )}
-        </TouchableOpacity>
+        </View>
+      )}
 
-        <TouchableOpacity
-          onPress={async () => {
-            if (sound) {
-              const status = await sound.getStatusAsync();
-              if (status.isLoaded && status.durationMillis) {
-                const newPosition = Math.min(
-                  status.positionMillis + 10000,
-                  status.durationMillis
-                );
-                await sound.setPositionAsync(newPosition);
-              }
-            }
-          }}
-        >
-          <FastForward size={36} color="#553434" />
-        </TouchableOpacity>
-      </View>
+      {/* --- Search Results --- */}
+      {searching ? (
+        <ActivityIndicator size="large" color="#553434" style={styles.loading} />
+      ) : (
+        hasSearched &&
+        searchResults && (
+          searchResults.type === "all" ? (
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.resultsContainer}
+              showsVerticalScrollIndicator={false}
+            >
+              {searchResults.data.meditations?.length > 0 && (
+                <MusicSection
+                  title="Meditations"
+                  data={searchResults.data.meditations}
+                  onTagSelect={(tag: string) =>
+                    setSelectedTag(tag.charAt(0).toUpperCase() + tag.slice(1))
+                  }
+                />
+              )}
+              {Object.entries(searchResults.data.musicByCategory)
+                .filter(([_, items]) => Array.isArray(items) && items.length > 0)
+                .map(([category, items]) => (
+                  <MusicSection
+                    key={category}
+                    title={category}
+                    data={items}
+                    onTagSelect={(tag: string) =>
+                      setSelectedTag(tag.charAt(0).toUpperCase() + tag.slice(1))
+                    }
+                  />
+                ))}
+            </ScrollView>
+          ) : (
+            <FlatList
+              data={searchResults.data}
+              keyExtractor={(item) => item._id}
+              renderItem={({ item }) => <SmallCard item={item} />}
+              numColumns={2}
+              columnWrapperStyle={{ justifyContent: "space-between" }}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingVertical: 8 }}
+              ListEmptyComponent={<Text style={styles.noResults}>No results found</Text>}
+            />
+          )
+        )
+      )}
     </SafeAreaView>
   );
 };
 
-export default NowPlayingScreen;
+export default SearchScreen;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
-    alignItems: "center",
+    backgroundColor: "#FFF",
     paddingHorizontal: 24,
+    paddingTop: 16,
   },
-  topBar: {
+  backButton: {
+    paddingTop: 4,
+    marginBottom: 16,
+  },
+  backImage: {
+    width: 30,
+    height: 30,
+    resizeMode: "contain",
+  },
+
+  searchRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    width: "100%",
-    marginTop: 10,
-  },
-  nowPlaying: {
-    fontFamily: "KodchasanSemiBold",
-    color: "#553434",
-    fontSize: 18,
-  },
-  cdContainer: {
-    marginVertical: 10,
-    width: "100%",
-    height: 220,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  cdWrapper: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    overflow: "hidden",
-    borderWidth: 3,
-    borderColor: "#553434",
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#fff",
-  },
-  cdImage: { width: 180, height: 180, borderRadius: 90 },
-  cdCenter: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#fff",
-    borderColor: "#553434",
-    borderWidth: 3,
-    position: "absolute",
-  },
-  waveWrapper: {
-    position: "absolute",
-    height: 100,
-  },
-  title: {
-    fontFamily: "KodchasanSemiBold",
-    fontSize: 20,
-    color: "#553434",
-    textAlign: "center",
-    marginTop: 20,
-  },
-  by: {
-    fontFamily: "KodchasanRegular",
-    fontSize: 14,
-    color: "#553434",
-    marginTop: 4,
-    marginBottom: 20,
-  },
-  controlsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: 100,
+    gap: 8,
     marginBottom: 10,
   },
-  sliderContainer: { width: "100%", marginTop: 10 },
-  timeRow: { flexDirection: "row", justifyContent: "space-between" },
-  time: { color: "#553434", fontFamily: "KodchasanRegular" },
-  mainControls: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    width: 220,
-    marginTop: 30,
-  },
-  playButton: {
+
+inputWrapper: {
+  flex: 1,
+  position: "relative",
+  height: 48,
+},
+
+shadowLayer: {
+  position: "absolute",
+  width: "100%",
+  height: "100%",
+  borderRadius: 20,
+  borderWidth: 3,
+  borderColor: "#553434",
+  backgroundColor: "#fff",
+  top: 2,  
+  left: 2,
+  zIndex: 0,
+},
+
+input: {
+  borderRadius: 20,
+  paddingHorizontal: 12,
+  paddingVertical: 8,
+  fontFamily: "KodchasanMedium",
+  width: "100%",
+  height: "100%",
+  borderWidth: 3,
+  borderColor: "#553434",
+  backgroundColor: "#fff",
+  position: "relative",
+  zIndex: 1,
+},
+
+  button: {
     backgroundColor: "#553434",
-    borderRadius: 50,
-    width: 70,
-    height: 70,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  buttonText: {
+    color: "#553434",
+    fontFamily: "KodchasanSemiBold",
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontFamily: "KodchasanSemiBold",
+    color: "#553434",
+    marginBottom: 8,
+  },
+  recentContainer: {
+    marginTop: 2,
+  },
+  recentItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    justifyContent: "center",
+    marginBottom:16,
+    borderBottomWidth: 0.5,
+    borderColor: "#553434",
+  },
+  recentText: {
+    fontFamily: "KodchasanMedium",
+    color: "#553434",
+    fontSize: 15,
+  },
+  
+  resultsContainer: {
+    paddingBottom: 40,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  loading: {
+    marginTop: 20,
+    alignSelf: "center",
+  },
+  noResults: {
+    textAlign: "center",
+    marginTop: 20,
+    color: "#7D7D7D",
+    fontFamily: "KodchasanRegular",
   },
 });
