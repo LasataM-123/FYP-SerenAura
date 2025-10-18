@@ -89,4 +89,31 @@ const deleteRecentSearch = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Recent search deleted successfully" });
 });
 
-module.exports = {addRecentSearch, getRecentSearches, deleteRecentSearch}
+//@route GET /api/recent-search/suggest
+//@desc Suggest recent searches
+//@access private
+const suggestRecentSearch = asyncHandler(async (req, res) => {
+  try {
+    const patientId = req.user?.id;
+    const query = req.query.query?.trim();
+
+    if (!patientId) return res.status(401).json({ message: "Unauthorized" });
+    if (!query) return res.status(400).json({ message: "Query is required" });
+
+    // Only return searches for this user that start with the query
+    const suggestions = await RecentSearch.find({
+      patientId,
+      content: { $regex: "^" + query, $options: "i" },
+    })
+      .sort({ createdAt: -1 })
+      .limit(10);
+
+    res.status(200).json(suggestions);
+  } catch (error) {
+    console.error("Error in suggestRecentSearch:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+module.exports = {addRecentSearch, getRecentSearches, deleteRecentSearch, suggestRecentSearch}
