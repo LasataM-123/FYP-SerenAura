@@ -15,7 +15,7 @@ import {
   TouchableWithoutFeedback,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { SearchIcon, X } from "lucide-react-native";
+import { Clock4, Lightbulb, SearchIcon, X } from "lucide-react-native";
 import TagHeader from "@/components/TagHeader";
 import MusicSection from "@/components/MusicSection";
 import SmallCard from "@/components/MediaCards/SmallCard";
@@ -43,6 +43,7 @@ const SearchScreen = () => {
 
   const typingTimeout = useRef<NodeJS.Timeout | null>(null);
   const skipNextSuggestion = useRef(false);
+  const inputRef = useRef<TextInput>(null);
 
   const {
     data: recentSearches,
@@ -65,7 +66,15 @@ const SearchScreen = () => {
     if (formattedTag) setSelectedTag(formattedTag);
   }, [tag]);
 
-  // --- Handle live suggestions ---
+  // Auto-focus on screen load
+  useEffect(() => {
+    const showKeyboard = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 400);
+    return () => clearTimeout(showKeyboard);
+  }, []);
+
+  // Handle live suggestions
   useEffect(() => {
     if (skipNextSuggestion.current) {
       skipNextSuggestion.current = false;
@@ -179,7 +188,6 @@ const SearchScreen = () => {
     <View style={styles.recentItem}>
       <TouchableOpacity
         onPress={() => {
-          Keyboard.dismiss();
           skipNextSuggestion.current = true;
           setHasSearched(true);
           setKeyword(item.content);
@@ -214,6 +222,7 @@ const SearchScreen = () => {
             <View style={styles.inputWrapper}>
               <View style={styles.shadowLayer} />
               <TextInput
+                ref={inputRef}
                 style={styles.input}
                 placeholder="Search by keyword..."
                 value={keyword}
@@ -227,7 +236,7 @@ const SearchScreen = () => {
               onPress={() => handleSearch(undefined, undefined, true)}
               style={styles.button}
             >
-              <Text style={styles.buttonText}>Go</Text>
+             <SearchIcon color="#fff" size={18}/>
             </TouchableOpacity>
           </View>
 
@@ -237,13 +246,17 @@ const SearchScreen = () => {
           {/* --- Live Suggestions --- */}
           {!loadingSuggestions && suggestions.length > 0 && !hasSearched && (
             <>
-              <Text style={styles.sectionTitle}>Suggestions</Text>
+             <View style={{flexDirection:"row",gap:4, alignItems:"center"}}>
+                <Lightbulb color="#553434" size={24}/>
+                <Text style={styles.sectionTitle}>Suggestions</Text>
+              </View>
               <FlatList
                 data={suggestions}
                 renderItem={renderSuggestionItem}
                 keyExtractor={(item) => item._id}
                 contentContainerStyle={{ paddingVertical: 8 }}
                 showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
               />
             </>
           )}
@@ -251,7 +264,10 @@ const SearchScreen = () => {
           {/* --- Recent Searches --- */}
           {!hasSearched && !searching && suggestions.length === 0 && (
             <View style={styles.recentContainer}>
-              <Text style={styles.sectionTitle}>Recent Searches</Text>
+              <View style={{flexDirection:"row",gap:4, alignItems:"center"}}>
+                <Clock4 color="#553434" size={24}/>
+                <Text style={styles.sectionTitle}>Recent Searches</Text>
+              </View>
               {loadingRecent ? (
                 <ActivityIndicator color="#553434" style={{ marginTop: 10 }} />
               ) : recentSearches && recentSearches.length > 0 ? (
@@ -261,6 +277,7 @@ const SearchScreen = () => {
                   keyExtractor={(item) => item._id}
                   contentContainerStyle={{ paddingBottom: 8 }}
                   showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
                 />
               ) : (
                 <Text style={styles.noResults}>No recent searches yet</Text>
@@ -312,6 +329,7 @@ const SearchScreen = () => {
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={{ paddingVertical: 8 }}
                   ListEmptyComponent={<Text style={styles.noResults}>No results found</Text>}
+                  keyboardShouldPersistTaps="handled"
                 />
               )
             )
@@ -340,20 +358,17 @@ const styles = StyleSheet.create({
     height: 30,
     resizeMode: "contain",
   },
-
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     marginBottom: 10,
   },
-
   inputWrapper: {
     flex: 1,
     position: "relative",
     height: 48,
   },
-
   shadowLayer: {
     position: "absolute",
     width: "100%",
@@ -366,7 +381,6 @@ const styles = StyleSheet.create({
     left: 2,
     zIndex: 0,
   },
-
   input: {
     borderRadius: 20,
     paddingHorizontal: 12,
@@ -380,16 +394,11 @@ const styles = StyleSheet.create({
     position: "relative",
     zIndex: 1,
   },
-
   button: {
     backgroundColor: "#553434",
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 10,
-  },
-  buttonText: {
-    color: "#FFF",
-    fontFamily: "KodchasanSemiBold",
   },
   sectionTitle: {
     fontSize: 22,
@@ -413,7 +422,6 @@ const styles = StyleSheet.create({
     color: "#553434",
     fontSize: 15,
   },
-
   resultsContainer: {
     paddingBottom: 40,
   },
@@ -426,7 +434,7 @@ const styles = StyleSheet.create({
   },
   noResults: {
     textAlign: "center",
-    marginTop: 20,
+    marginTop: 10,
     color: "#7D7D7D",
     fontFamily: "KodchasanRegular",
   },
