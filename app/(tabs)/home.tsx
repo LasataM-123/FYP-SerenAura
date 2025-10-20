@@ -20,24 +20,11 @@ import FeatureCard from '@/components/FeatureCard';
 import { useBackend } from '@/lib/useBackend';
 import { getRecommendations } from '@/lib/api/media';
 import MusicSection from '@/components/MusicSection';
-import { jwtDecode } from 'jwt-decode';
-import {API_URL} from '@/config';
-interface DecodedToken {
-  exp: number;
-  [key: string]: any;
-}
 
-function getTokenExpiry(token: string | null): number | null {
-  if (!token) return null;
-  try {
-    const decoded: DecodedToken = jwtDecode(token);
-    return decoded.exp * 1000;
-  } catch {
-    return null;
-  }
-}
 const AnimatedFeatureCard = ({ item }: { item: any }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const { accessToken, logout } = useAuthStore();
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -55,51 +42,15 @@ const AnimatedFeatureCard = ({ item }: { item: any }) => {
       useNativeDriver: true,
     }).start();
   };
-  const { accessToken, refreshToken, logout, startAutoRefresh, updateToken } = useAuthStore();
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
+  // ✅ Simple auth check (no refresh logic)
   useEffect(() => {
     const checkAuth = async () => {
-      const now = Date.now();
-
-      if (!refreshToken) {
+      if (!accessToken) {
         logout();
         router.replace("/login");
         return;
       }
-
-      const accessExpiry = accessToken ? getTokenExpiry(accessToken) : null;
-      const refreshExpiry = getTokenExpiry(refreshToken);
-
-      // Refresh token expired → logout
-      if (!refreshExpiry || now > refreshExpiry) {
-        logout();
-        router.replace("/login");
-        return;
-      }
-
-      // Access token expired → refresh immediately
-      if (!accessExpiry || now > accessExpiry) {
-        try {
-          const res = await fetch(`${API_URL}/auth/refresh`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ refreshToken }),
-          });
-          if (!res.ok) throw new Error("Failed to refresh token");
-
-          const data = await res.json();
-          updateToken(data.accessToken);
-        } catch (err) {
-          console.error("Token refresh failed:", err);
-          logout();
-          router.replace("/login");
-          return;
-        }
-      }
-
-      startAutoRefresh();
-
       setIsCheckingAuth(false);
     };
 
@@ -113,6 +64,7 @@ const AnimatedFeatureCard = ({ item }: { item: any }) => {
       </View>
     );
   }
+
   return (
     <Pressable
       onPressIn={handlePressIn}
@@ -133,7 +85,7 @@ const AnimatedFeatureCard = ({ item }: { item: any }) => {
 
 const Home = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(0)).current; // animation ref
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   const today = new Date();
   const { logout } = useAuthStore();
   const name = useAuthStore((state) => state.name);
@@ -167,7 +119,6 @@ const Home = () => {
     refetch();
   }, []);
 
-  // Fade animation for overlay
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: isRefreshing ? 1 : 0,
@@ -179,7 +130,7 @@ const Home = () => {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await refetch();
-    setTimeout(() => setIsRefreshing(false), 500); // small delay for smooth fade out
+    setTimeout(() => setIsRefreshing(false), 500);
   };
 
   const handleLogout = () => {
@@ -237,7 +188,7 @@ const Home = () => {
       </ScrollView>
 
       <Animated.View
-        pointerEvents={isRefreshing ? "auto" : "none"} // blocks touches only when visible
+        pointerEvents={isRefreshing ? "auto" : "none"}
         style={[styles.overlay, { opacity: fadeAnim }]}
       >
         <View style={styles.cardWrapper}>
@@ -253,6 +204,7 @@ const Home = () => {
 };
 
 export default Home;
+
 
 const styles = StyleSheet.create({
   container: {

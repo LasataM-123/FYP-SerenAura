@@ -224,7 +224,8 @@ const SearchScreen = () => {
               <TextInput
                 ref={inputRef}
                 style={styles.input}
-                placeholder="Search by keyword..."
+                placeholder="Search meditations and music.."
+                placeholderTextColor="#553434"
                 value={keyword}
                 onChangeText={setKeyword}
                 returnKeyType="search"
@@ -236,7 +237,7 @@ const SearchScreen = () => {
               onPress={() => handleSearch(undefined, undefined, true)}
               style={styles.button}
             >
-             <SearchIcon color="#fff" size={18}/>
+             <SearchIcon color="#fff" />
             </TouchableOpacity>
           </View>
 
@@ -246,15 +247,15 @@ const SearchScreen = () => {
           {/* --- Live Suggestions --- */}
           {!loadingSuggestions && suggestions.length > 0 && !hasSearched && (
             <>
-             <View style={{flexDirection:"row",gap:4, alignItems:"center"}}>
-                <Lightbulb color="#553434" size={24}/>
+             <View style={{flexDirection:"row",gap:6, alignItems:"center", marginTop: 2}}>
+                <Lightbulb color="#553434" size={22} style={{ marginBottom: 6 }}/>
                 <Text style={styles.sectionTitle}>Suggestions</Text>
               </View>
               <FlatList
                 data={suggestions}
                 renderItem={renderSuggestionItem}
                 keyExtractor={(item) => item._id}
-                contentContainerStyle={{ paddingVertical: 8 }}
+                contentContainerStyle={{ paddingVertical: 4 }}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
               />
@@ -264,10 +265,10 @@ const SearchScreen = () => {
           {/* --- Recent Searches --- */}
           {!hasSearched && !searching && suggestions.length === 0 && (
             <View style={styles.recentContainer}>
-              <View style={{flexDirection:"row",gap:4, alignItems:"center"}}>
-                <Clock4 color="#553434" size={24}/>
-                <Text style={styles.sectionTitle}>Recent Searches</Text>
-              </View>
+              <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+              <Clock4 color="#553434" size={22} style={{ marginBottom: 6 }} />
+              <Text style={styles.sectionTitle}>Recent Searches</Text>
+            </View>
               {loadingRecent ? (
                 <ActivityIndicator color="#553434" style={{ marginTop: 10 }} />
               ) : recentSearches && recentSearches.length > 0 ? (
@@ -275,7 +276,7 @@ const SearchScreen = () => {
                   data={recentSearches}
                   renderItem={renderRecentItem}
                   keyExtractor={(item) => item._id}
-                  contentContainerStyle={{ paddingBottom: 8 }}
+                  contentContainerStyle={{ paddingVertical: 4 }}
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
                 />
@@ -393,6 +394,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     position: "relative",
     zIndex: 1,
+    fontSize: 14,
+
   },
   button: {
     backgroundColor: "#553434",
@@ -420,7 +423,7 @@ const styles = StyleSheet.create({
   recentText: {
     fontFamily: "KodchasanMedium",
     color: "#553434",
-    fontSize: 15,
+    fontSize: 16,
   },
   resultsContainer: {
     paddingBottom: 40,

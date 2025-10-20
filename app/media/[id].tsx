@@ -36,10 +36,12 @@ const Media = () => {
   router.push({
     pathname: "./now-playing",
     params: {
+      id: data.media._id,
       title: data.media.title,
       by: data.media.by,
       imageUrl: data.media.imageUrl,
       audioUrl: data.media.audioUrl,
+      mediaType: data.media.mediaType
     },
 
 });

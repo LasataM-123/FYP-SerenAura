@@ -31,7 +31,7 @@ export type RecommendationItem<T = MeditationItem | MusicItem> = {
 
 export type IndividualMediaResponse<T = MeditationItem | MusicItem> = {
   success: true;
-  media: T & { duration: string }; 
+  media: T & { duration: string, mediaType: 'Meditation' | 'Music' }; 
 };
 
 

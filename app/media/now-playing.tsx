@@ -24,27 +24,46 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import { images } from "@/constants";
 import { useSearchParams } from "expo-router/build/hooks";
+import { useBackend } from "@/lib/useBackend";
+import { addFavourite, checkFavourite } from "@/lib/api/favourite";
 
 const { width } = Dimensions.get("window");
 
+type MediaType = "Music" | "Meditation";
+
 const NowPlayingScreen: React.FC = () => {
   const params = useSearchParams();
+  const id = params.get("id") ?? "";
   const title = params.get("title") ?? "Unknown";
   const by = params.get("by") ?? "Unknown";
   const imageUrl = params.get("imageUrl") ?? "";
   const audioUrl = params.get("audioUrl") ?? "";
+
+  // Ensure valid mediaType
+  const rawMediaType = params.get("mediaType") ?? "Music";
+  const mediaType = (["Music", "Meditation"].includes(rawMediaType)
+    ? rawMediaType
+    : "Music") as MediaType;
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [isFavourite, setIsFavourite] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+
 
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const waveAmp = useRef(new Animated.Value(0)).current;
   const playScale = useRef(new Animated.Value(1)).current;
+  const toastAnim = useRef(new Animated.Value(0)).current;
 
-  // 🎵 Play button poppy animation
+  const { refetch: checkFavouriteRefetch } = useBackend({ fn: checkFavourite });
+  const { refetch: addFavouriteRefetch } = useBackend({ fn: addFavourite });
+
+  // 🎵 Button press animation
   const handlePlayPressIn = () => {
     Animated.spring(playScale, {
       toValue: 0.9,
@@ -62,7 +81,60 @@ const NowPlayingScreen: React.FC = () => {
     }).start();
   };
 
-  // 🎧 CD Rotation (continuous, smooth)
+  //Fetch favourite state on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await checkFavouriteRefetch({ mediaId: id });
+        setIsFavourite(res?.isFavourite || false);
+      } catch (err) {
+        console.log("Error checking favourite:", err);
+      }
+    })();
+  }, [id]);
+
+  // Toggle favourite
+  // Toggle favourite
+const handleToggleFavourite = async () => {
+  if (isFavourite) {
+    // Prevent re-adding the same favourite
+    triggerToast("Already in favourites ❤️");
+    return;
+  }
+
+  try {
+    await addFavouriteRefetch({ mediaId: id, mediaType });
+    const res = await checkFavouriteRefetch({ mediaId: id });
+    setIsFavourite(res?.isFavourite || false);
+    triggerToast("Added to favourites 💖");
+  } catch (err) {
+    console.log("Error toggling favourite:", err);
+  }
+};
+
+
+  // Toast animation
+  // Toast animation
+const triggerToast = (message: string) => {
+  setShowToast(true);
+  setToastMessage(message); 
+  Animated.timing(toastAnim, {
+    toValue: 1,
+    duration: 300,
+    useNativeDriver: true,
+  }).start(() => {
+    setTimeout(() => {
+      Animated.timing(toastAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => setShowToast(false));
+    }, 1500);
+  });
+};
+
+
+  // CD Rotation
   useEffect(() => {
     if (isPlaying) {
       rotateAnim.setValue(0);
@@ -79,7 +151,7 @@ const NowPlayingScreen: React.FC = () => {
     }
   }, [isPlaying]);
 
-  // 🎵 Wave animation
+  // Wave animation
   useEffect(() => {
     if (isPlaying) {
       Animated.loop(
@@ -188,7 +260,7 @@ const NowPlayingScreen: React.FC = () => {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container}>      
       {/* Header */}
       <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
         <Image source={images.cross} style={{ width: 32, height: 32 }} />
@@ -209,10 +281,8 @@ const NowPlayingScreen: React.FC = () => {
           </Svg>
         </Animated.View>
 
-        {/* CD shadow layer */}
         <View style={styles.cdShadowLayer} />
 
-        {/* Rotating CD */}
         <Animated.View
           style={[
             styles.cdWrapper,
@@ -250,9 +320,15 @@ const NowPlayingScreen: React.FC = () => {
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.by}>By: {by}</Text>
 
-      {/* Icons */}
+      {/* Controls Row */}
       <View style={styles.controlsRow}>
-        <Heart color="#553434" size={28} />
+        <TouchableOpacity onPress={handleToggleFavourite}>
+          {isFavourite ? (
+            <Heart fill="#553434" color="#553434" size={28} />
+          ) : (
+            <Heart color="#553434" size={28} />
+          )}
+        </TouchableOpacity>
         <List color="#553434" size={28} />
       </View>
 
@@ -274,7 +350,7 @@ const NowPlayingScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Controls */}
+      {/* Main Controls */}
       <View style={styles.mainControls}>
         <TouchableOpacity
           onPress={async () => {
@@ -292,7 +368,6 @@ const NowPlayingScreen: React.FC = () => {
           <Text style={styles.skipText}>10s</Text>
         </TouchableOpacity>
 
-        {/* 🎵 Main Play Button with Poppy Animation */}
         <TouchableOpacity
           onPressIn={handlePlayPressIn}
           onPressOut={handlePlayPressOut}
@@ -300,7 +375,10 @@ const NowPlayingScreen: React.FC = () => {
           activeOpacity={1}
         >
           <Animated.View
-            style={[styles.playButtonContainer, { transform: [{ scale: playScale }] }]}
+            style={[
+              styles.playButtonContainer,
+              { transform: [{ scale: playScale }] },
+            ]}
           >
             <View style={styles.playShadowLayer} />
             <View style={styles.playButton}>
@@ -334,12 +412,34 @@ const NowPlayingScreen: React.FC = () => {
           <Text style={styles.skipText}>10s</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Toast */}
+      {showToast && (
+        <Animated.View
+          style={[
+            styles.toast,
+            {
+              opacity: toastAnim,
+              transform: [
+                {
+                  translateY: toastAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [50, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <Image source={images.tick} style={{width:20, height:20}}/>
+<Text style={styles.toastText}>{toastMessage}</Text>
+        </Animated.View>
+      )}
     </SafeAreaView>
   );
 };
 
 export default NowPlayingScreen;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -347,12 +447,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 16,
   },
+
   backButton: {
     position: "absolute",
     top: 50,
     left: 24,
     zIndex: 10,
   },
+
   nowPlaying: {
     fontFamily: "Schoolbell",
     color: "#553434",
@@ -360,6 +462,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 40,
   },
+
   cdContainer: {
     marginVertical: 30,
     width: "100%",
@@ -368,6 +471,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     position: "relative",
   },
+
   cdShadowLayer: {
     position: "absolute",
     width: 180,
@@ -378,8 +482,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     top: 40,
     left: 80,
-    zIndex: 0,
   },
+
   cdWrapper: {
     width: 180,
     height: 180,
@@ -390,13 +494,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#fff",
-    zIndex: 1,
   },
+
   cdImage: {
     width: 180,
     height: 180,
     borderRadius: 90,
   },
+
   cdCenterShadow: {
     position: "absolute",
     width: 36,
@@ -406,8 +511,8 @@ const styles = StyleSheet.create({
     top: 2,
     left: 2,
     transform: [{ rotate: "45deg" }],
-    zIndex: 0,
   },
+
   cdCenter: {
     width: 36,
     height: 36,
@@ -416,19 +521,20 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     position: "absolute",
     transform: [{ rotate: "45deg" }],
-    zIndex: 1,
   },
+
   waveWrapper: {
     position: "absolute",
     height: 220,
-    zIndex: 0,
   },
+
   title: {
     fontFamily: "KodchasanSemiBold",
     fontSize: 30,
     color: "#553434",
     textAlign: "center",
   },
+
   by: {
     fontFamily: "KodchasanMedium",
     fontSize: 20,
@@ -436,29 +542,35 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     textAlign: "center",
   },
+
   controlsRow: {
     flexDirection: "row",
     justifyContent: "center",
     gap: 20,
   },
+
   sliderContainer: {
     width: "100%",
     marginTop: 12,
     alignItems: "center",
   },
+
   slider: {
     width: "100%",
     height: 40,
   },
+
   timeRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     width: "100%",
   },
+
   time: {
     color: "#553434",
     fontFamily: "KodchasanMedium",
   },
+
   mainControls: {
     flexDirection: "row",
     alignItems: "center",
@@ -466,6 +578,7 @@ const styles = StyleSheet.create({
     gap: 40,
     marginTop: 20,
   },
+
   playButtonContainer: {
     width: 80,
     height: 80,
@@ -473,6 +586,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+
   playShadowLayer: {
     position: "absolute",
     width: 80,
@@ -483,8 +597,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     top: 2,
     left: 2,
-    zIndex: 0,
   },
+
   playButton: {
     width: 80,
     height: 80,
@@ -494,16 +608,40 @@ const styles = StyleSheet.create({
     backgroundColor: "#C76350",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 1,
   },
+
   skipButton: {
     alignItems: "center",
     justifyContent: "center",
   },
+
   skipText: {
     fontSize: 12,
     color: "#553434",
     marginTop: 2,
     fontFamily: "KodchasanSemiBold",
+  },
+
+  toast: {
+    position: "absolute",
+    bottom: 60,
+    left: "10%",
+    right: "10%",
+    backgroundColor: "rgba(255,255,255,0.9)",
+    borderWidth: 2,
+    borderColor: "#553434",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+
+  toastText: {
+    fontFamily: "KodchasanMedium",
+    color: "#553434",
+    fontSize: 16,
   },
 });
