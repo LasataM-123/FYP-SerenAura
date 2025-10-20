@@ -72,9 +72,11 @@ const generateTokens = (userId, email, role) => {
   return { accessToken, refreshToken };
 };
 
-// @route POST /api/auth/login
-// @desc Login user
-// @access Public
+/**
+ * @route  POST /api/auth/login
+ * @desc   Login user
+ * @access Public
+ */
 const loginController = asyncHandler(async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -119,9 +121,11 @@ const loginController = asyncHandler(async (req, res) => {
   }
 });
 
-//@ROUTE POST /api/auth/register
-//@DESC Register patient
-//@ACCESS Public
+/**
+ * @route  POST /api/auth/register
+ * @desc   Register patient
+ * @access Public
+ */
 const register = asyncHandler(async (req, res) => {
   try {
     const { name, dateOfBirth, email, password } = req.body;
@@ -215,10 +219,11 @@ const register = asyncHandler(async (req, res) => {
 });
 
 
-
-//@ROUTE POST /api/auth/verify-otp
-//@DESC Verify OTP and create account
-//@ACCESS Public
+/**
+ * @route  POST /api/auth/verify-otp
+ * @desc   Verify OTP and create account
+ * @access Public
+ */
 const verifyOTPAndCreate = asyncHandler(async (req, res) => {
   const { otp, otpToken } = req.body;
 
@@ -261,9 +266,11 @@ const verifyOTPAndCreate = asyncHandler(async (req, res) => {
   }
 });
 
-//@ROUTE POST /api/auth/resend-otp
-//@DESC Resend OTP
-//@ACCESS Public
+/**
+ * @route  POST /api/auth/resend-otp
+ * @desc   Resend OTP
+ * @access Public
+ */
 const resendOTP = asyncHandler(async (req, res) => {
   const { otpToken } = req.body;
 
@@ -294,9 +301,12 @@ const resendOTP = asyncHandler(async (req, res) => {
   }
 });
 
-//@ROUTE POST /api/auth/refresh
-//@DESC Refresh access token using refresh token
-//@ACCESS Public
+/**
+ * @route  POST /api/auth/refresh
+ * @desc   Refresh access token using refresh token
+ * @access Public
+ */
+//
 const refreshTokenController = asyncHandler(async (req, res) => {
   const { refreshToken } = req.body;
   if (!refreshToken) return res.status(401).json({ message: "No refresh token" });
@@ -313,9 +323,12 @@ const refreshTokenController = asyncHandler(async (req, res) => {
   });
 });
 
-//@route POST /api/auth/verify
-//@desc Verify OTP code for password reset
-//@access public
+/**
+ * @route  POST /api/auth/verify
+ * @desc   Verify OTP code for password reset
+ * @access Public
+ */
+
 const verifyOTP = asyncHandler(async(req,res)=>{
   const { otp, otpToken } = req.body;
   try{
@@ -332,9 +345,11 @@ const verifyOTP = asyncHandler(async(req,res)=>{
   }
 });
 
-// @route /api/auth/google
-// @desc Login/Register with Google OAuth
-// @access Public
+/**
+ * @route  /api/auth/google
+ * @desc   Login/Register with Google OAuth
+ * @access Public
+ */
 const googleAuth = asyncHandler(async (req, res) => {
   const { idToken } = req.body;
   try{

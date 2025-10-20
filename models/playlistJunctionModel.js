@@ -1,5 +1,5 @@
 const mongoose = require('mongoose')
-const favouriteSchema = new mongoose.Schema({
+const playlistJunctionSchema = new mongoose.Schema({
   mediaType: {
     type: String,
     required: true,
@@ -10,12 +10,12 @@ const favouriteSchema = new mongoose.Schema({
     required: true,
     refPath: "mediaType", 
   },
-  patientId: {
+  playlistId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Patient",
+    ref: "Playlist",
   },
 },{
-  timestamps:true
+    timestamps:true
 });
 
-module.exports = mongoose.model("Favourite", favouriteSchema);
+module.exports = mongoose.model("PlaylistJunction", playlistJunctionSchema);

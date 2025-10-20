@@ -80,7 +80,7 @@ const deleteRecentSearch = asyncHandler(async (req, res) => {
 
   // Remove search reference from patient
   await Patient.findByIdAndUpdate(search.patientId, {
-    $pull: { recentSearches: id }
+    $pull: { recentSearch: id }
   });
 
   // Delete search itself

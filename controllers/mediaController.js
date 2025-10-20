@@ -171,8 +171,10 @@ const getIndividualMedia = asyncHandler(async (req, res) => {
 
     // Fetch from Meditation first, then Music
     let media = await Meditation.findById(id);
+    let type = 'Meditation';
     if (!media) {
       media = await Music.findById(id);
+      type = 'Music';
     }
 
     if (!media) {
@@ -199,7 +201,8 @@ const getIndividualMedia = asyncHandler(async (req, res) => {
       success: true,
       media: {
         ...media.toObject(),
-        duration: durationStr, // "X min"
+        duration: durationStr, 
+        mediaType: type
       },
     });
   } catch (err) {

@@ -28,11 +28,11 @@ const patientSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
-    playlist: [{
+    playlists: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Playlist'
     }],
-    favorites: [{
+    favourites: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Favourite'
     }],
