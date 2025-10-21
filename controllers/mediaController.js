@@ -101,7 +101,7 @@ const getRecommendations = asyncHandler(async(req,res)=>{
     },
   });
   }catch(err){
-    return res.status(500).json({error: err.message});
+    return res.status(500).json({message: err.message});
   }
 })
 
@@ -154,7 +154,7 @@ const filterByCategory = asyncHandler(async (req, res) => {
       data,
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ message: err.message });
   }
 });
 
@@ -206,7 +206,7 @@ const getIndividualMedia = asyncHandler(async (req, res) => {
       },
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ message: err.message });
   }
 });
 
@@ -305,7 +305,7 @@ const searchContent = asyncHandler(async (req, res) => {
       data: music,
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ message: err.message });
   }
 });
 

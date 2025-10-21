@@ -44,7 +44,7 @@ const addRecentSearch = asyncHandler(async (req, res) => {
       recentSearch: newSearch,
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ message: err.message });
   }
 });
 
@@ -63,7 +63,7 @@ const getRecentSearches = asyncHandler(async (req, res) => {
         res.status(200).json(searches);
 
     }catch(err){
-        return res.status(500).json({error:err.message});
+        return res.status(500).json({message:err.message});
     }
 });
 
@@ -110,7 +110,6 @@ const suggestRecentSearch = asyncHandler(async (req, res) => {
 
     res.status(200).json(suggestions);
   } catch (error) {
-    console.error("Error in suggestRecentSearch:", error);
     res.status(500).json({ message: "Server error" });
   }
 });

@@ -28,7 +28,7 @@ const addFavourite = asyncHandler(async(req, res)=>{
         await patient.save();
         return res.status(201).json({success:true, newFavourite});
     }catch(err){
-        return res.status(500).json({error:err.message});
+        return res.status(500).json({message:err.message});
     }
 })
 
@@ -62,7 +62,7 @@ const getFavourites = asyncHandler(async (req, res) => {
       favourites: formatted,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -93,7 +93,7 @@ const removeFavourite = asyncHandler(async (req, res) => {
       message: "Removed from favourites successfully.",
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -115,7 +115,7 @@ const checkFavourite = asyncHandler(async (req, res) => {
     const isFavourite = !!favourite;
     res.status(200).json({ isFavourite });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
