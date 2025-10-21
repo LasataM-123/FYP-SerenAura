@@ -14,7 +14,6 @@ export async function addSearch(params?:{content:string}): Promise<RecentSearch>
     const res = await fetch(`${API_URL}/recent-search/add`, {
       method: "POST",
       headers: { 
-         "Cache-Control": "no-cache",
         "Content-Type": "application/json",
         "Authorization": `Bearer ${accessToken}`
      },
@@ -32,7 +31,6 @@ export async function getRecentSearch(): Promise<RecentSearch[]> {
     const res = await fetch(`${API_URL}/recent-search/get`, {
       method: "GET",
       headers: { 
-         "Cache-Control": "no-cache",
         "Content-Type": "application/json",
         "Authorization": `Bearer ${accessToken}`
      }
@@ -49,7 +47,6 @@ export async function deleteRecentSearch(params?:{id:string}): Promise<RecentSea
     const res = await fetch(`${API_URL}/recent-search/delete/${params?.id}`, {
       method: "DELETE",
       headers: { 
-         "Cache-Control": "no-cache",
         "Content-Type": "application/json",
         "Authorization": `Bearer ${accessToken}`
      }
@@ -66,7 +63,6 @@ export async function suggestRecentSearch(params?:{query:string}): Promise<Recen
     const res = await fetch(`${API_URL}/recent-search/suggest?query=${params?.query}`, {
       method: "GET",
       headers: { 
-         "Cache-Control": "no-cache",
         "Content-Type": "application/json",
         "Authorization": `Bearer ${accessToken}`
      }

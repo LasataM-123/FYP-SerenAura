@@ -1,10 +1,11 @@
 import { useAuthStore } from "@/store/authStore";
 import { MeditationItem, MusicItem } from "./media";
 import { API_URL } from "@/config";
+import { MediaType } from "./playlist";
 
 export type Favourite = {
   _id: string;
-  mediaType: "Meditation" | "Music"; 
+  mediaType: MediaType; 
   media: MeditationItem | MusicItem; 
 }
 
@@ -14,7 +15,7 @@ export type AddFavouriteResponse = {
     _id: string;
     patientId: string;
     mediaId: string;
-    mediaType: "Meditation" | "Music"; 
+    mediaType: MediaType; 
     createdAt?: string;
     updatedAt?: string;
   };
@@ -40,14 +41,13 @@ export async function addFavourite(params?:{mediaId: string, mediaType: 'Music' 
       method: "POST",
       headers: { 
         "Content-Type": "application/json",
-        "Cache-Control": "no-cache", 
         "Authorization": `Bearer ${accessToken}`
      },
      body: JSON.stringify(params)
     });
         if (!res.ok) {
         const errBody = await res.json();
-        throw new Error(errBody.error || "Error while adding favourite")
+        throw new Error(errBody.message || "Error while adding favourite")
         }
     return res.json();
 }
@@ -58,7 +58,6 @@ export async function checkFavourite(params?:{mediaId: string}): Promise<CheckFa
       method: "GET",
       headers: { 
         "Content-Type": "application/json",
-        "Cache-Control": "no-cache", 
         "Authorization": `Bearer ${accessToken}`
      },
     });
@@ -75,7 +74,6 @@ export async function getFavourites(params?:{mediaId: string}): Promise<GetFavou
       method: "GET",
       headers: { 
         "Content-Type": "application/json",
-        "Cache-Control": "no-cache", 
         "Authorization": `Bearer ${accessToken}`
      },
     });

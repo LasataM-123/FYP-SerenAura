@@ -128,7 +128,7 @@ export async function getRecommendations(): Promise<RecommendationsResponse> {
 export async function getFilteredMedia(params?:{category:string}):Promise<FilterMediaResponse>{
     const accessToken = useAuthStore.getState().accessToken;
     const res = await fetch(`${API_URL}/media/filter?category=${params?.category ?? ""}`, {
-          headers: { "Cache-Control": "no-cache", "Authorization": `Bearer ${accessToken}` },
+          headers: { "Authorization": `Bearer ${accessToken}` },
 
     });
 
@@ -142,7 +142,7 @@ export async function getFilteredMedia(params?:{category:string}):Promise<Filter
 export async function getIndividualMedia(params?:{id:string}):Promise<IndividualMediaResponse>{
     const accessToken = useAuthStore.getState().accessToken;
     const res = await fetch(`${API_URL}/media/individual/${params?.id ?? ""}`, {
-          headers: { "Cache-Control": "no-cache", "Authorization": `Bearer ${accessToken}` },
+          headers: {"Authorization": `Bearer ${accessToken}` },
 
     });
 
@@ -163,7 +163,6 @@ export async function searchMedia(params?: SearchParams): Promise<SearchResponse
   const res = await fetch(`${API_URL}/media/search?${queryParams.toString()}`, {
     method: "GET",
     headers: {
-       "Cache-Control": "no-cache",
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`,
     },

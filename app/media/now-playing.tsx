@@ -1,3 +1,4 @@
+// NowPlayingScreen.tsx
 import React, { useEffect, useRef, useState } from "react";
 import {
   View,
@@ -8,6 +9,11 @@ import {
   Animated,
   Easing,
   Dimensions,
+  FlatList,
+  TextInput,
+  Modal,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from "react-native";
 import { Audio } from "expo-av";
 import Slider from "@react-native-community/slider";
@@ -16,16 +22,28 @@ import {
   Pause,
   Heart,
   List,
+  ListPlus,
   RotateCcw,
   RotateCw,
+  ChevronLeft,
+  Check,
+  ListCheck,
 } from "lucide-react-native";
+
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import { images } from "@/constants";
-import { useSearchParams } from "expo-router/build/hooks";
 import { useBackend } from "@/lib/useBackend";
 import { addFavourite, checkFavourite } from "@/lib/api/favourite";
+import {
+  addMediaToPlaylist,
+  createPlaylist,
+  getUserPlaylists,
+  checkPlaylists,
+} from "@/lib/api/playlist";
+import { useSearchParams } from "expo-router/build/hooks";
+import Button from "@/components/Button";
 
 const { width } = Dimensions.get("window");
 
@@ -38,32 +56,75 @@ const NowPlayingScreen: React.FC = () => {
   const by = params.get("by") ?? "Unknown";
   const imageUrl = params.get("imageUrl") ?? "";
   const audioUrl = params.get("audioUrl") ?? "";
-
-  // Ensure valid mediaType
   const rawMediaType = params.get("mediaType") ?? "Music";
   const mediaType = (["Music", "Meditation"].includes(rawMediaType)
     ? rawMediaType
     : "Music") as MediaType;
 
+  // player
   const [isPlaying, setIsPlaying] = useState(false);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const [loading, setLoading] = useState(false);
+
+  // favourites & toast
   const [isFavourite, setIsFavourite] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
+  // playlists UI
+  const [showAddPlaylist, setShowAddPlaylist] = useState(false);
+  const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
+  const [playlists, setPlaylists] = useState<
+    {
+      _id: string;
+      title: string;
+      imageUrl: string | null;
+      totalVideos?: number;
+    }[]
+  >([]);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
+  const [newPlaylistName, setNewPlaylistName] = useState("");
+  const [isInAnyPlaylist, setIsInAnyPlaylist] = useState(false);
 
+  // animations
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const waveAmp = useRef(new Animated.Value(0)).current;
   const playScale = useRef(new Animated.Value(1)).current;
   const toastAnim = useRef(new Animated.Value(0)).current;
 
+  // backend hooks
   const { refetch: checkFavouriteRefetch } = useBackend({ fn: checkFavourite });
   const { refetch: addFavouriteRefetch } = useBackend({ fn: addFavourite });
+  const { refetch: getUserPlaylistRefetch } = useBackend({ fn: getUserPlaylists });
+  const { refetch: createPlaylistRefetch } = useBackend({ fn: createPlaylist });
+  const { refetch: addMediaRefetch } = useBackend({ fn: addMediaToPlaylist });
+  const { refetch: checkPlaylistsRefetch } = useBackend({ fn: checkPlaylists });
+   useEffect(() => {
+  (async () => {
+    try {
+      // check favourite first
+      const favRes = await checkFavouriteRefetch({ mediaId: id });
+      setIsFavourite(favRes?.isFavourite || false);
 
-  // 🎵 Button press animation
+      // first check if media is in any playlist
+      const checkRes = await checkPlaylistsRefetch({ mediaId: id });
+      setIsInAnyPlaylist(checkRes?.exists || false);
+
+
+      // then fetch user playlists
+      const plRes = await getUserPlaylistRefetch();
+      const userPlaylists = plRes?.playlists || [];
+      setPlaylists(userPlaylists);
+    } catch (err) {
+      console.log("Error fetching playlists:", err);
+    }
+  })();
+}, []);
+
+
+  // play button scale animation handlers
   const handlePlayPressIn = () => {
     Animated.spring(playScale, {
       toValue: 0.9,
@@ -81,60 +142,26 @@ const NowPlayingScreen: React.FC = () => {
     }).start();
   };
 
-  //Fetch favourite state on mount
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await checkFavouriteRefetch({ mediaId: id });
-        setIsFavourite(res?.isFavourite || false);
-      } catch (err) {
-        console.log("Error checking favourite:", err);
-      }
-    })();
-  }, [id]);
+  // toast helper
+  const triggerToast = (message: string) => {
+    setShowToast(true);
+    setToastMessage(message);
+    Animated.timing(toastAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setTimeout(() => {
+        Animated.timing(toastAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }).start(() => setShowToast(false));
+      }, 1400);
+    });
+  };
 
-  // Toggle favourite
-  // Toggle favourite
-const handleToggleFavourite = async () => {
-  if (isFavourite) {
-    // Prevent re-adding the same favourite
-    triggerToast("Already in favourites ❤️");
-    return;
-  }
-
-  try {
-    await addFavouriteRefetch({ mediaId: id, mediaType });
-    const res = await checkFavouriteRefetch({ mediaId: id });
-    setIsFavourite(res?.isFavourite || false);
-    triggerToast("Added to favourites 💖");
-  } catch (err) {
-    console.log("Error toggling favourite:", err);
-  }
-};
-
-
-  // Toast animation
-  // Toast animation
-const triggerToast = (message: string) => {
-  setShowToast(true);
-  setToastMessage(message); 
-  Animated.timing(toastAnim, {
-    toValue: 1,
-    duration: 300,
-    useNativeDriver: true,
-  }).start(() => {
-    setTimeout(() => {
-      Animated.timing(toastAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => setShowToast(false));
-    }, 1500);
-  });
-};
-
-
-  // CD Rotation
+  // CD rotation
   useEffect(() => {
     if (isPlaying) {
       rotateAnim.setValue(0);
@@ -151,21 +178,13 @@ const triggerToast = (message: string) => {
     }
   }, [isPlaying]);
 
-  // Wave animation
+  // wave animation
   useEffect(() => {
     if (isPlaying) {
       Animated.loop(
         Animated.sequence([
-          Animated.timing(waveAmp, {
-            toValue: 1,
-            duration: 700,
-            useNativeDriver: false,
-          }),
-          Animated.timing(waveAmp, {
-            toValue: 0,
-            duration: 700,
-            useNativeDriver: false,
-          }),
+          Animated.timing(waveAmp, { toValue: 1, duration: 700, useNativeDriver: false }),
+          Animated.timing(waveAmp, { toValue: 0, duration: 700, useNativeDriver: false }),
         ])
       ).start();
     } else {
@@ -183,10 +202,10 @@ const triggerToast = (message: string) => {
     if (audioUrl) loadAndPlay();
   }, [audioUrl]);
 
+  // player helpers
   const loadAndPlay = async () => {
     if (!audioUrl) return;
     setLoading(true);
-
     if (sound) {
       const status = await sound.getStatusAsync();
       if (status.isLoaded) {
@@ -201,7 +220,6 @@ const triggerToast = (message: string) => {
         return;
       }
     }
-
     const { sound: newSound } = await Audio.Sound.createAsync(
       { uri: audioUrl },
       { shouldPlay: true },
@@ -237,7 +255,6 @@ const triggerToast = (message: string) => {
     const midY = h / 2;
     const waveLength = w / 2;
     const path = [`M0 ${midY}`];
-
     for (let x = 0; x <= w; x += waveLength) {
       const cp1x = x + waveLength / 4;
       const cp1y = midY - amplitude;
@@ -246,38 +263,140 @@ const triggerToast = (message: string) => {
       const endX = x + waveLength;
       path.push(`C${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${endX} ${midY}`);
     }
-
     return path.join(" ");
   };
 
   const [wavePath, setWavePath] = useState(generateWavePath(25));
-
   useEffect(() => {
-    const id = waveAmp.addListener(({ value }) => {
+    const idL = waveAmp.addListener(({ value }) => {
       setWavePath(generateWavePath(25 + value * 15));
     });
-    return () => waveAmp.removeListener(id);
+    return () => waveAmp.removeListener(idL);
   }, []);
 
+  // playlists actions
+  const openAddPlaylist = async () => {
+  try {
+    const plRes = await getUserPlaylistRefetch();
+    setPlaylists(plRes?.playlists || []);
+
+    // re-check membership
+    const included: string[] = [];
+    let foundInAny = false;
+
+    await Promise.all(
+      (plRes?.playlists || []).map(async (p: any) => {
+        try {
+          const c = await checkPlaylistsRefetch({ mediaId: id });
+          const exists = c?.exists;
+          if (exists) {
+            included.push(p._id);
+            foundInAny = true; 
+          }
+        } catch (err) {
+          // ignore
+        }
+      })
+    );
+    setIsInAnyPlaylist(foundInAny); 
+  } catch (err) {
+    console.log("Error opening playlists:", err);
+  }
+
+  setSelectedPlaylistId(null);
+  setShowAddPlaylist(true);
+};
+
+
+  const closeAddPlaylist = () => {
+    setShowAddPlaylist(false);
+  };
+
+  const openCreatePlaylist = () => {
+    setNewPlaylistName("");
+    setShowCreatePlaylist(true);
+  };
+
+  const handleConfirmAddOrCreate = async () => {
+  if (!selectedPlaylistId) {
+    openCreatePlaylist();
+    return;
+  }
+
+  try {
+    await addMediaRefetch({ playlistId: selectedPlaylistId, mediaId: id, mediaType });
+    setIsInAnyPlaylist(true);
+    setShowAddPlaylist(false);
+
+    setTimeout(() => triggerToast("Added to playlist 🎶"), 200);
+  } catch (err) {
+    console.log("Error adding media to playlist:", err);
+    triggerToast("Failed to add to playlist");
+  }
+};
+
+
+  const handleCreatePlaylistPress = async () => {
+    if (!newPlaylistName.trim()) {
+      triggerToast("Please enter a name");
+      return;
+    }
+    try {
+      await createPlaylistRefetch({ title: newPlaylistName.trim() });
+      triggerToast("Playlist created ✅");
+      // refetch playlists
+      const plRes = await getUserPlaylistRefetch();
+      setPlaylists(plRes?.playlists || []);
+      // close create and return to add overlay
+      setShowCreatePlaylist(false);
+      setShowAddPlaylist(true);
+    } catch (err) {
+      console.log("Error creating playlist:", err);
+      triggerToast("Failed to create playlist");
+    }
+  };
+
+  // favourite (keep behavior unchanged)
+  const handleToggleFavourite = async () => {
+    if (isFavourite) {
+      triggerToast("Already in favourites ❤️");
+      return;
+    }
+    try {
+      await addFavouriteRefetch({ mediaId: id, mediaType });
+      const res = await checkFavouriteRefetch({ mediaId: id });
+      setIsFavourite(res?.isFavourite || false);
+      triggerToast("Added to favourites 💖");
+    } catch (err) {
+      console.log("Error toggling favourite:", err);
+    }
+  };
+
+  const handleTogglePlaylist = () => {
+  if (isInAnyPlaylist) {
+    triggerToast("Already in Playlist 🎶");
+  } else {
+    setSelectedPlaylistId(null);
+    setShowAddPlaylist(true);
+  }
+};
+
+
+
   return (
-    <SafeAreaView style={styles.container}>      
-      {/* Header */}
+    <SafeAreaView style={styles.container}>
+      {/* header back */}
       <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
         <Image source={images.cross} style={{ width: 32, height: 32 }} />
       </TouchableOpacity>
+
       <Text style={styles.nowPlaying}>NOW PLAYING</Text>
 
       {/* CD + Waves */}
       <View style={styles.cdContainer}>
         <Animated.View style={[styles.waveWrapper, { left: width / 2 - 250 }]}>
           <Svg height="220" width="140">
-            <Path
-              d={wavePath}
-              fill="none"
-              stroke="#553434"
-              strokeWidth="3"
-              strokeLinecap="round"
-            />
+            <Path d={wavePath} fill="none" stroke="#553434" strokeWidth="3" strokeLinecap="round" />
           </Svg>
         </Animated.View>
 
@@ -289,10 +408,7 @@ const triggerToast = (message: string) => {
             {
               transform: [
                 {
-                  rotate: rotateAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ["0deg", "360deg"],
-                  }),
+                  rotate: rotateAnim.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }),
                 },
               ],
             },
@@ -305,34 +421,28 @@ const triggerToast = (message: string) => {
 
         <Animated.View style={[styles.waveWrapper, { right: width / 2 - 250 }]}>
           <Svg height="220" width="140">
-            <Path
-              d={wavePath}
-              fill="none"
-              stroke="#553434"
-              strokeWidth="3"
-              strokeLinecap="round"
-            />
+            <Path d={wavePath} fill="none" stroke="#553434" strokeWidth="3" strokeLinecap="round" />
           </Svg>
         </Animated.View>
       </View>
 
-      {/* Song Info */}
+      {/* song info */}
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.by}>By: {by}</Text>
 
-      {/* Controls Row */}
+      {/* controls */}
       <View style={styles.controlsRow}>
         <TouchableOpacity onPress={handleToggleFavourite}>
-          {isFavourite ? (
-            <Heart fill="#553434" color="#553434" size={28} />
-          ) : (
-            <Heart color="#553434" size={28} />
-          )}
+          {isFavourite ? <Heart fill="#553434" color="#553434" size={28} /> : <Heart color="#553434" size={28} />}
         </TouchableOpacity>
-        <List color="#553434" size={28} />
+
+        <TouchableOpacity onPress={handleTogglePlaylist}>
+          {isInAnyPlaylist ? <ListCheck color="#553434" size={28} /> : <ListPlus color="#553434" size={28} />}
+        </TouchableOpacity>
+
       </View>
 
-      {/* Slider */}
+      {/* slider */}
       <View style={styles.sliderContainer}>
         <Slider
           style={styles.slider}
@@ -350,7 +460,7 @@ const triggerToast = (message: string) => {
         </View>
       </View>
 
-      {/* Main Controls */}
+      {/* main controls */}
       <View style={styles.mainControls}>
         <TouchableOpacity
           onPress={async () => {
@@ -368,27 +478,11 @@ const triggerToast = (message: string) => {
           <Text style={styles.skipText}>10s</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPressIn={handlePlayPressIn}
-          onPressOut={handlePlayPressOut}
-          onPress={loadAndPlay}
-          activeOpacity={1}
-        >
-          <Animated.View
-            style={[
-              styles.playButtonContainer,
-              { transform: [{ scale: playScale }] },
-            ]}
-          >
+        <TouchableOpacity onPressIn={handlePlayPressIn} onPressOut={handlePlayPressOut} onPress={loadAndPlay} activeOpacity={1}>
+          <Animated.View style={[styles.playButtonContainer, { transform: [{ scale: playScale }] }]}>
             <View style={styles.playShadowLayer} />
             <View style={styles.playButton}>
-              {loading ? (
-                <Text style={{ color: "#fff" }}>...</Text>
-              ) : isPlaying ? (
-                <Pause size={36} color="#fff" />
-              ) : (
-                <Play size={36} color="#fff" />
-              )}
+              {loading ? <Text style={{ color: "#fff" }}>...</Text> : isPlaying ? <Pause size={36} color="#fff" /> : <Play size={36} color="#fff" />}
             </View>
           </Animated.View>
         </TouchableOpacity>
@@ -398,10 +492,7 @@ const triggerToast = (message: string) => {
             if (sound) {
               const status = await sound.getStatusAsync();
               if (status.isLoaded && status.durationMillis) {
-                const newPosition = Math.min(
-                  status.positionMillis + 10000,
-                  status.durationMillis
-                );
+                const newPosition = Math.min(status.positionMillis + 10000, status.durationMillis);
                 await sound.setPositionAsync(newPosition);
               }
             }
@@ -413,7 +504,92 @@ const triggerToast = (message: string) => {
         </TouchableOpacity>
       </View>
 
-      {/* Toast */}
+    
+
+      {/* Add Playlist Modal */}
+      <Modal visible={showAddPlaylist} transparent animationType="slide">
+        <TouchableWithoutFeedback onPress={() => setShowAddPlaylist(false)}>
+          <View style={styles.overlayBackdrop} />
+        </TouchableWithoutFeedback>
+
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={closeAddPlaylist}>
+          <Image source={images.cross} style={{ width: 28, height: 28 }} />
+        </TouchableOpacity>
+
+            <Text style={styles.modalTitle}>Add to playlist</Text>
+            <TouchableOpacity onPress={() => setShowAddPlaylist(false)}>
+              <Image source={images.cross} style={{ width: 28, height: 28 }} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.modalContent}>
+            {playlists.length === 0 ? (
+              <View style={styles.noPlaylistContainer}>
+                <Text style={styles.noPlaylistsText}>No playlists yet</Text>
+                <Button label="Create Playlist" onPress={() => { setShowAddPlaylist(false); setShowCreatePlaylist(true); }}/>
+              </View>
+            ) : (
+              <FlatList
+                data={playlists}
+                keyExtractor={(item) => item._id}
+                renderItem={({ item }) => {
+    
+                  const isSelected = selectedPlaylistId === item._id;
+                  return (
+                    <TouchableOpacity
+                      onPress={() => setSelectedPlaylistId(item._id)}
+                      style={[styles.playlistRow, isSelected ? styles.playlistRowSelected : null]}
+                    >
+                      <Image source={{ uri: item.imageUrl || undefined }} style={styles.playlistImage} />
+                      <View style={styles.playlistTextWrap}>
+                        <Text style={styles.playlistTitle}>{item.title}</Text>
+                        <Text style={styles.playlistCount}>{(item.totalVideos ?? 0) + " items"}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            )}
+          </View>
+
+          <View style={styles.modalFooter}>
+            <Button label={selectedPlaylistId ? "Add to playlist" : "Create playlist"} onPress={handleConfirmAddOrCreate}/>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Create Playlist Modal */}
+      <Modal visible={showCreatePlaylist} transparent animationType="slide">
+        <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss(); }}>
+          <View style={styles.overlayBackdrop} />
+        </TouchableWithoutFeedback>
+
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => { setShowCreatePlaylist(false); setShowAddPlaylist(true); }}>
+              <ChevronLeft color="#553434" size={26} />
+            </TouchableOpacity>
+            <Text style={[styles.modalTitle, { marginLeft: 8 }]}>Create playlist</Text>
+
+            {/* empty right element to keep header balanced */}
+            <View style={{ width: 28 }} />
+          </View>
+
+          <View style={styles.modalContent}>
+            <TextInput
+              placeholder="Playlist name"
+              value={newPlaylistName}
+              onChangeText={setNewPlaylistName}
+              style={styles.input}
+            />
+            <Button label="Create Playlist" onPress={handleCreatePlaylistPress}/>
+           
+          </View>
+        </View>
+      </Modal>
+        {/* toast */}
       {showToast && (
         <Animated.View
           style={[
@@ -422,17 +598,14 @@ const triggerToast = (message: string) => {
               opacity: toastAnim,
               transform: [
                 {
-                  translateY: toastAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [50, 0],
-                  }),
+                  translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [50, 0] }),
                 },
               ],
             },
           ]}
         >
-          <Image source={images.tick} style={{width:20, height:20}}/>
-<Text style={styles.toastText}>{toastMessage}</Text>
+          <Image source={images.tick} style={{ width: 20, height: 20 }} />
+          <Text style={styles.toastText}>{toastMessage}</Text>
         </Animated.View>
       )}
     </SafeAreaView>
@@ -440,6 +613,7 @@ const triggerToast = (message: string) => {
 };
 
 export default NowPlayingScreen;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -547,6 +721,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     gap: 20,
+    marginBottom: 12,
   },
 
   sliderContainer: {
@@ -622,26 +797,191 @@ const styles = StyleSheet.create({
     fontFamily: "KodchasanSemiBold",
   },
 
-  toast: {
-    position: "absolute",
-    bottom: 60,
-    left: "10%",
-    right: "10%",
-    backgroundColor: "rgba(255,255,255,0.9)",
-    borderWidth: 2,
-    borderColor: "#553434",
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-  },
+  // toast
+ toast: {
+  position: "absolute",
+  bottom: 60,
+  left: "10%",
+  right: "10%",
+  backgroundColor: "rgba(255,255,255,0.95)",
+  borderWidth: 2,
+  borderColor: "#553434",
+  borderRadius: 12,
+  paddingVertical: 10,
+  paddingHorizontal: 16,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 10,
+  zIndex: 9999,          
+  elevation: 9999,       
+},
+
 
   toastText: {
     fontFamily: "KodchasanMedium",
     color: "#553434",
     fontSize: 16,
+  },
+
+  // modal / overlay
+  overlayBackdrop: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+
+  modalContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: "30%",
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingBottom: 24,
+    overflow: "hidden",
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+
+  modalHeader: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 6,
+    marginBottom: 8,
+  },
+
+  modalTitle: {
+    fontFamily: "KodchasanSemiBold",
+    fontSize: 18,
+    color: "#553434",
+    textAlign: "center",
+  },
+
+  modalContent: {
+    flex: 1,
+    paddingTop: 8,
+  },
+
+  noPlaylistContainer: {
+    alignItems: "center",
+    paddingTop: 24,
+  },
+
+  noPlaylistsText: {
+    fontFamily: "KodchasanMedium",
+    color: "#553434",
+    fontSize: 16,
+  },
+
+  createBtnSecondary: {
+    marginTop: 12,
+    backgroundColor: "#C76350",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+  },
+
+  createBtnText: {
+    color: "#fff",
+    fontFamily: "KodchasanSemiBold",
+  },
+
+  playlistRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+    justifyContent: "space-between",
+  },
+
+  playlistRowSelected: {
+    backgroundColor: "#f8e6e0",
+    borderRadius: 8,
+  },
+
+  playlistImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 8,
+    backgroundColor: "#eee",
+    marginRight: 12,
+  },
+
+  playlistTextWrap: {
+    flex: 1,
+    justifyContent: "center",
+  },
+
+  playlistTitle: {
+    fontFamily: "KodchasanSemiBold",
+    color: "#553434",
+    fontSize: 16,
+  },
+
+  playlistCount: {
+    fontFamily: "KodchasanMedium",
+    color: "#553434",
+    fontSize: 12,
+  },
+
+  selectCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 2,
+    borderColor: "#553434",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+
+  selectCircleActive: {
+    backgroundColor: "#C76350",
+    borderColor: "#C76350",
+  },
+
+  smallTick: {
+    width: 22,
+    height: 22,
+  },
+
+  modalFooter: {
+    flexDirection: "row",
+    paddingHorizontal: 6,
+    justifyContent: "space-between",
+    marginTop: 8,
+  },
+
+  modalSecondaryBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#e6d6d3",
+    backgroundColor: "#fff",
+  },
+
+  modalSecondaryBtnText: {
+    fontFamily: "KodchasanMedium",
+    color: "#553434",
+  },
+
+  input: {
+    borderWidth: 1,
+    borderColor: "#e6d6d3",
+    borderRadius: 8,
+    padding: 12,
+    fontFamily: "KodchasanMedium",
+    marginBottom: 12,
   },
 });

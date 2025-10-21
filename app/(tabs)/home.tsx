@@ -19,7 +19,19 @@ import { useAuthStore } from '@/store/authStore';
 import FeatureCard from '@/components/FeatureCard';
 import { useBackend } from '@/lib/useBackend';
 import { getRecommendations } from '@/lib/api/media';
+import { jwtDecode } from "jwt-decode";
+import { API_URL } from "@/config";
 import MusicSection from '@/components/MusicSection';
+
+const getTokenExpiry = (token: string | null): number | null => {
+  if (!token) return null;
+  try {
+    const decoded: any = jwtDecode(token);
+    return decoded.exp * 1000; // milliseconds
+  } catch {
+    return null;
+  }
+};
 
 const AnimatedFeatureCard = ({ item }: { item: any }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -43,19 +55,14 @@ const AnimatedFeatureCard = ({ item }: { item: any }) => {
     }).start();
   };
 
-  // ✅ Simple auth check (no refresh logic)
   useEffect(() => {
-    const checkAuth = async () => {
-      if (!accessToken) {
-        logout();
-        router.replace("/login");
-        return;
-      }
+    if (!accessToken) {
+      logout();
+      router.replace("/login");
+    } else {
       setIsCheckingAuth(false);
-    };
-
-    checkAuth();
-  }, []);
+    }
+  }, [accessToken]);
 
   if (isCheckingAuth) {
     return (
@@ -87,13 +94,14 @@ const Home = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const today = new Date();
-  const { logout } = useAuthStore();
+
+  const { accessToken, refreshToken, updateToken, logout } = useAuthStore();
   const name = useAuthStore((state) => state.name);
 
   const features = [
     { id: '1', color: "#CB9DF0", image: images.mood, text: "Mood Tracker", description: "How's your mood today?", route: '/media' },
-    { id: '2', color: "#74CEE2", image: images.media, text: "Media Library", description: "Meditations and music", route: '/media' },
-    { id: '3', color: "#FFE37A", image: images.breathe, text: "Breathe", description: "Guided breathing exercises", route: '/breathe' },
+    { id: '2', color: "#74CEE2", image: images.media, text:"Media",description: "Meditations and music", route: '/media' },
+    { id: '3', color: "#FFE37A", image: images.breathe, text: "Breathe", description: "Guided Breathing Exercises", route: '/breathe' },
     { id: '4', color: "#CFDAED", image: images.chat, text: "Counselor Chat", description: "Talk to someone", route: '/chat' },
   ];
 
@@ -114,6 +122,56 @@ const Home = () => {
   const { data, refetch } = useBackend({
     fn: () => getRecommendations(),
   });
+
+  // ✅ Full auto-refresh logic replicated here
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    const startAutoRefresh = () => {
+      if (interval) clearInterval(interval);
+
+      interval = setInterval(async () => {
+        if (!accessToken || !refreshToken) {
+          logout();
+          return;
+        }
+
+        const now = Date.now();
+        const accessExpiry = getTokenExpiry(accessToken);
+        const refreshExpiry = getTokenExpiry(refreshToken);
+
+        // Refresh token expired → logout
+        if (!refreshExpiry || now > refreshExpiry) {
+          logout();
+          return;
+        }
+
+        // Access token expired or about to expire → refresh it
+        if (!accessExpiry || accessExpiry - now < 2 * 60 * 1000) {
+          try {
+            const res = await fetch(`${API_URL}/auth/refresh`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ refreshToken }),
+            });
+
+            if (res.ok) {
+              const data = await res.json();
+              updateToken(data.accessToken);
+            } else {
+              logout();
+            }
+          } catch (error) {
+            console.error("Auto-refresh failed:", error);
+            logout();
+          }
+        }
+      }, 60 * 1000);
+    };
+
+    startAutoRefresh();
+    return () => clearInterval(interval);
+  }, [accessToken, refreshToken]);
 
   useEffect(() => {
     refetch();
@@ -141,7 +199,6 @@ const Home = () => {
   return (
     <SafeAreaView style={styles.container}>
       <Header />
-
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24 }}>
         <View style={styles.heroContainer}>
           <Image source={images.homeImage} style={{ height: 300, width: 316 }} />
@@ -156,7 +213,6 @@ const Home = () => {
             Take a deep breath — peace begins with you today.
           </Text>
         </View>
-
         <View style={styles.wellnessContainer}>
           <Text style={styles.featureText}>Your Wellness Tools</Text>
           <FlatList
@@ -168,25 +224,20 @@ const Home = () => {
             columnWrapperStyle={{ marginBottom: 16, gap: 16 }}
           />
         </View>
-
         <View style={styles.recommendationContainer}>
           <Text style={styles.recommendationText}>Recommendations</Text>
         </View>
-
         <View>
           {Object.entries(data?.recommendations ?? {}).map(([key, value]) => (
             <MusicSection key={key} title={value.title} data={value.data} />
           ))}
         </View>
-
         <View style={{ marginBottom: 30, marginTop: 30 }}>
           <Button label="Refresh Recommendations" onPress={handleRefresh} />
         </View>
-
         <Button label="Logout" onPress={handleLogout} />
         <View style={{ marginBottom: 100 }} />
       </ScrollView>
-
       <Animated.View
         pointerEvents={isRefreshing ? "auto" : "none"}
         style={[styles.overlay, { opacity: fadeAnim }]}
@@ -205,104 +256,20 @@ const Home = () => {
 
 export default Home;
 
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  heroContainer: {
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  mainTextContainer: {
-    marginTop: 12,
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 2,
-  },
-  mainWelcomeText: {
-    fontSize: 22,
-    fontFamily: 'KodchasanSemiBold',
-    color: '#553434',
-  },
-  timeText: {
-    fontFamily: "KodchasanMedium",
-    fontSize: 18,
-    color: "#553434",
-  },
-  subtitle: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#553434',
-    fontFamily: "KodchasanMedium",
-  },
-  wellnessContainer: {
-    marginTop: 20,
-  },
-  featureText: {
-    fontFamily: "KodchasanSemiBold",
-    fontSize: 20,
-    color: "#553434",
-    marginBottom: 16,
-  },
-  recommendationContainer: {
-    marginTop: 20,
-  },
-  recommendationText: {
-    fontSize: 20,
-    fontFamily: "KodchasanSemiBold",
-    color: "#553434",
-  },
-
-  overlay: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 9999,
-    elevation: 9999,
-  },
-  cardWrapper: {
-    position: "relative",
-    width: 255,
-    height: 180,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  cardShadowLayer: {
-    position: "absolute",
-    width: "100%",
-    height: "100%",
-    borderRadius: 20,
-    borderWidth: 3,
-    borderColor: "#553434",
-    backgroundColor: "#553434",
-    top: 3,
-    left: 3,
-  },
-  cardMain: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 20,
-    borderWidth: 3,
-    borderColor: "#553434",
-    backgroundColor: "#FFF",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  loggingText: {
-    marginTop: 20,
-    fontFamily: "Schoolbell",
-    fontSize: 20,
-    color: "#553434",
-    textAlign: "center",
-  },
+  container: { flex: 1, backgroundColor: "#FFFFFF" },
+  heroContainer: { flexDirection: 'column', justifyContent: 'center', alignItems: 'center' },
+  mainTextContainer: { marginTop: 12, justifyContent: 'center', alignItems: 'center', gap: 2 },
+  mainWelcomeText: { fontSize: 22, fontFamily: 'KodchasanSemiBold', color: '#553434' },
+  timeText: { fontFamily: "KodchasanMedium", fontSize: 18, color: "#553434" },
+  subtitle: { marginTop: 12, fontSize: 16, color: '#553434', fontFamily: "KodchasanMedium" },
+  wellnessContainer: { marginTop: 20 },
+  featureText: { fontFamily: "KodchasanSemiBold", fontSize: 20, color: "#553434", marginBottom: 16 },
+  recommendationContainer: { marginTop: 20 },
+  recommendationText: { fontSize: 20, fontFamily: "KodchasanSemiBold", color: "#553434" },
+  overlay: { position: "absolute", top: 0, bottom: 0, left: 0, right: 0, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", zIndex: 9999 },
+  cardWrapper: { position: "relative", width: 255, height: 180, justifyContent: "center", alignItems: "center" },
+  cardShadowLayer: { position: "absolute", width: "100%", height: "100%", borderRadius: 20, borderWidth: 3, borderColor: "#553434", backgroundColor: "#553434", top: 3, left: 3 },
+  cardMain: { width: "100%", height: "100%", borderRadius: 20, borderWidth: 3, borderColor: "#553434", backgroundColor: "#FFF", justifyContent: "center", alignItems: "center", padding: 20 },
+  loggingText: { marginTop: 20, fontFamily: "Schoolbell", fontSize: 20, color: "#553434", textAlign: "center" },
 });

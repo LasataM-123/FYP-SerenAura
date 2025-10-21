@@ -1,5 +1,9 @@
 import React from "react";
-import { View, Text, Image, StyleSheet } from "react-native";
+import { View, Text, Image, StyleSheet, Dimensions } from "react-native";
+
+const { width } = Dimensions.get("window");
+const CARD_SIZE = width * 0.41; 
+const BORDER_COLOR = "#553434";
 
 interface CardProps {
   color: string;
@@ -23,17 +27,17 @@ const FeatureCard: React.FC<CardProps> = ({ color, image, text, description }) =
 
 const styles = StyleSheet.create({
   container: {
-    width: 159,
-    height: 159,
+    width: CARD_SIZE,
+    height: CARD_SIZE,
     position: "relative",
   },
   shadowLayer: {
     position: "absolute",
     width: "100%",
-    height: 159,
+    height: "100%",
     borderRadius: 20,
-    borderWidth: 4,
-    borderColor: "#553434",
+    borderWidth: 3,
+    borderColor: BORDER_COLOR,
     backgroundColor: "#fff",
     top: 2,
     left: 2,
@@ -41,28 +45,29 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     borderRadius: 20,
-    borderWidth: 4,
-    borderColor: "#553434",
+    borderWidth: 3,
+    borderColor: BORDER_COLOR,
     alignItems: "center",
     justifyContent: "center",
-    padding: 12,
+    paddingVertical: CARD_SIZE * 0.08,
+    paddingHorizontal: CARD_SIZE * 0.06,
   },
   image: {
-    width: 50,
-    height: 50,
-    marginBottom: 8,
+    width: CARD_SIZE * 0.35,
+    height: CARD_SIZE * 0.35,
+    marginBottom: CARD_SIZE * 0.06,
   },
   text: {
-    fontSize: 16,
+    fontSize: CARD_SIZE * 0.1, // scales with screen size
     fontWeight: "600",
-    color: "#553434",
-    fontFamily:"KodchasanSemiBold"
+    color: BORDER_COLOR,
+    fontFamily: "KodchasanSemiBold",
   },
   description: {
-    fontSize: 12,
+    fontSize: CARD_SIZE * 0.08,
     textAlign: "center",
-    color: "#553434",
-    marginTop: 2,
+    color: BORDER_COLOR,
+    marginTop: CARD_SIZE * 0.02,
   },
 });
 
