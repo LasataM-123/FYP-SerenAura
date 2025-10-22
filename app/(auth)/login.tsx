@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Keyboard,
   Animated,
+  StatusBar,
 } from "react-native";
 import { Link, router } from "expo-router";
 
@@ -62,6 +63,7 @@ const Login = () => {
 
   useEffect(() => {
     if (loading || isGoogleLoading) {
+          StatusBar.setBarStyle("light-content");
       Keyboard.dismiss();
     }
   }, [loading, isGoogleLoading]);
@@ -237,7 +239,7 @@ const styles = StyleSheet.create({
   signupRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 8,
+    marginTop: 2,
   },
   textDarkMedium: {
     fontFamily: "KodchasanMedium",

@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, Image, StyleSheet, Dimensions } from "react-native";
 
 const { width } = Dimensions.get("window");
-const CARD_SIZE = width * 0.41; 
+const CARD_SIZE = width * 0.408; 
 const BORDER_COLOR = "#553434";
 
 interface CardProps {

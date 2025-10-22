@@ -1,28 +1,22 @@
 import React, { useRef } from 'react';
 import { View, Text, Image, StyleSheet, Dimensions, TouchableOpacity, Animated } from 'react-native';
 import { router } from 'expo-router';
+import { LockKeyhole } from 'lucide-react-native';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
-import { LockKeyhole } from 'lucide-react-native'; // import the lock icon
+// Scale sizes based on height (base iPhone X ~812)
+const scaleHeight = (size: number) => (size / 812) * height;
 
 const MediumCard = ({ item }: { item: any }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
+
   const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.95,
-      friction: 4,
-      useNativeDriver: true,
-    }).start();
+    Animated.spring(scaleAnim, { toValue: 0.95, friction: 4, useNativeDriver: true }).start();
   };
 
   const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      friction: 4,
-      tension: 100,
-      useNativeDriver: true,
-    }).start();
+    Animated.spring(scaleAnim, { toValue: 1, friction: 4, tension: 100, useNativeDriver: true }).start();
   };
 
   const handlePress = () => {
@@ -44,16 +38,14 @@ const MediumCard = ({ item }: { item: any }) => {
               <Image
                 source={{ uri: item.imageUrl }}
                 style={styles.image}
-                resizeMode='stretch'
+                resizeMode='cover'
               />
 
-              {/* LOCK ICON OVERLAY */}
               {item.isLocked && (
                 <View style={styles.lockContainer}>
-                  <LockKeyhole color="#fff" size={16} />
+                  <LockKeyhole color="#fff" size={scaleHeight(16)} />
                 </View>
               )}
-
             </View>
           </View>
 
@@ -64,46 +56,58 @@ const MediumCard = ({ item }: { item: any }) => {
     </Animated.View>
   );
 };
+
 export default MediumCard;
 
 const styles = StyleSheet.create({
-  card: { width: width * 0.7, marginRight: 16 },
-  imageContainer: { width: '100%', height: 180, position: 'relative' },
+  card: { width: width * 0.7, marginRight: scaleHeight(16) },
+  imageContainer: { width: '100%', height: scaleHeight(180), position: 'relative' },
   shadowLayer: {
     position: 'absolute',
     width: '100%',
     height: '100%',
-    borderRadius: 20,
+    borderRadius: scaleHeight(20),
     borderWidth: 4,
     borderColor: '#553434',
     backgroundColor: '#553434',
-    top: 3,
-    left: 3,
+    top: scaleHeight(3),
+    left: scaleHeight(3),
   },
   imageWrapper: {
     position: 'absolute',
     width: '100%',
     height: '100%',
-    borderRadius: 20,
+    borderRadius: scaleHeight(20),
     borderWidth: 4,
     borderColor: '#553434',
     backgroundColor: '#fff',
     overflow: 'hidden',
   },
-  image: { width: '100%', height: '100%', borderRadius: 10 },
-  songTitle: { fontWeight: '600', marginTop: 10, fontSize: 16, color: '#553434', textAlign: 'left', fontFamily:'KodchasanSemiBold' },
-  artist: { color: '#553434', fontSize: 14, textAlign: 'left', fontFamily:"KodchasanMedium" },
+  image: { width: '100%', height: '100%', borderRadius: scaleHeight(10) },
+  songTitle: { 
+    fontWeight: '600', 
+    marginTop: scaleHeight(10), 
+    fontSize: scaleHeight(16), 
+    color: '#553434', 
+    textAlign: 'left', 
+    fontFamily:'KodchasanSemiBold' 
+  },
+  artist: { 
+    color: '#553434', 
+    fontSize: scaleHeight(14), 
+    textAlign: 'left', 
+    fontFamily:"KodchasanMedium" 
+  },
   lockContainer: {
-  position: 'absolute',
-  bottom: 8,
-  left: 8,
-  width: 28,
-  height: 28,
-  borderRadius: 14,
-  backgroundColor: '#553434',
-  justifyContent: 'center',
-  alignItems: 'center',
-  zIndex: 10,
-},
-
+    position: 'absolute',
+    bottom: scaleHeight(8),
+    left: scaleHeight(8),
+    width: scaleHeight(28),
+    height: scaleHeight(28),
+    borderRadius: scaleHeight(14),
+    backgroundColor: '#553434',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
 });

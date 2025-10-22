@@ -5,6 +5,7 @@ import {
   Image, 
   Pressable, 
   ScrollView, 
+  StatusBar, 
   StyleSheet, 
   Text, 
   View 
@@ -123,58 +124,57 @@ const Home = () => {
     fn: () => getRecommendations(),
   });
 
-  // ✅ Full auto-refresh logic replicated here
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+  if (!accessToken || !refreshToken) {
+    logout();
+    return;
+  }
 
-    const startAutoRefresh = () => {
-      if (interval) clearInterval(interval);
+  const checkAndRefreshToken = async () => {
+    const now = Date.now();
+    const accessExpiry = getTokenExpiry(accessToken);
+    const refreshExpiry = getTokenExpiry(refreshToken);
 
-      interval = setInterval(async () => {
-        if (!accessToken || !refreshToken) {
+    // Refresh token expired → logout
+    if (!refreshExpiry || now > refreshExpiry) {
+      logout();
+      return;
+    }
+
+    // Access token expired or about to expire → refresh it
+    if (!accessExpiry || accessExpiry - now < 2 * 60 * 1000) {
+      try {
+        const res = await fetch(`${API_URL}/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          updateToken(data.accessToken);
+        } else {
+          console.error("Token refresh failed, logging out");
           logout();
-          return;
         }
+      } catch (error) {
+        console.error("Auto-refresh failed:", error);
+        logout();
+      }
+    }
+  };
 
-        const now = Date.now();
-        const accessExpiry = getTokenExpiry(accessToken);
-        const refreshExpiry = getTokenExpiry(refreshToken);
+  checkAndRefreshToken();
 
-        // Refresh token expired → logout
-        if (!refreshExpiry || now > refreshExpiry) {
-          logout();
-          return;
-        }
+  const interval = setInterval(checkAndRefreshToken, 60 * 1000);
 
-        // Access token expired or about to expire → refresh it
-        if (!accessExpiry || accessExpiry - now < 2 * 60 * 1000) {
-          try {
-            const res = await fetch(`${API_URL}/auth/refresh`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ refreshToken }),
-            });
+  return () => clearInterval(interval);
+}, [accessToken, refreshToken]);
 
-            if (res.ok) {
-              const data = await res.json();
-              updateToken(data.accessToken);
-            } else {
-              logout();
-            }
-          } catch (error) {
-            console.error("Auto-refresh failed:", error);
-            logout();
-          }
-        }
-      }, 60 * 1000);
-    };
-
-    startAutoRefresh();
-    return () => clearInterval(interval);
-  }, [accessToken, refreshToken]);
 
   useEffect(() => {
     refetch();
+    
   }, []);
 
   useEffect(() => {
@@ -186,6 +186,7 @@ const Home = () => {
   }, [isRefreshing]);
 
   const handleRefresh = async () => {
+    StatusBar.setBarStyle("light-content");
     setIsRefreshing(true);
     await refetch();
     setTimeout(() => setIsRefreshing(false), 500);
@@ -257,7 +258,7 @@ const Home = () => {
 export default Home;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF" },
+  container: { flex: 1, backgroundColor: "#FFFFFF"},
   heroContainer: { flexDirection: 'column', justifyContent: 'center', alignItems: 'center' },
   mainTextContainer: { marginTop: 12, justifyContent: 'center', alignItems: 'center', gap: 2 },
   mainWelcomeText: { fontSize: 22, fontFamily: 'KodchasanSemiBold', color: '#553434' },

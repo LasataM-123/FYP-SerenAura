@@ -5,7 +5,8 @@ import {
   Text, 
   View, 
   Image, 
-  StyleSheet 
+  StyleSheet,
+  useWindowDimensions,
 } from "react-native";
 import { ButtonProps } from "@/types";
 
@@ -18,32 +19,28 @@ const Button: React.FC<ButtonProps> = ({
   height,
   textSize,
 }) => {
+  const { width: wWidth } = useWindowDimensions();
   const isSolid = variant === "solid";
 
-  // Animation value for whole button
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.95,
-      friction: 4,
-      useNativeDriver: true,
-    }).start();
+    Animated.spring(scaleAnim, { toValue: 0.95, friction: 4, useNativeDriver: true }).start();
   };
 
   const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      friction: 4,
-      tension: 100,
-      useNativeDriver: true,
-    }).start();
+    Animated.spring(scaleAnim, { toValue: 1, friction: 4, tension: 100, useNativeDriver: true }).start();
   };
 
-  // Defaults
+  // Responsive height based on screen width
+  const buttonHeight = height || Math.max(56, wWidth * 0.13);
+  const fontSize = textSize || Math.max(14, buttonHeight * 0.33);
+  const borderRadius = 10;
+  const borderWidth = Math.max(2, buttonHeight * 0.07);
+  const imageSize = buttonHeight * 0.45;
+  const shadowOffset = Math.max(2, buttonHeight * 0.05);
+
   const buttonWidth = width || "100%";
-  const buttonHeight = height || 56;
-  const fontSize = textSize || 18;
 
   return (
     <TouchableWithoutFeedback
@@ -54,18 +51,14 @@ const Button: React.FC<ButtonProps> = ({
       <Animated.View
         style={[
           styles.container,
-          { 
-            width: buttonWidth, 
-            height: buttonHeight,
-            transform: [{ scale: scaleAnim }],
-          },
+          { width: buttonWidth, height: buttonHeight, transform: [{ scale: scaleAnim }] },
         ]}
       >
         {/* Shadow layer */}
         <View
           style={[
             styles.shadow,
-            { width: buttonWidth, height: buttonHeight, top: 2, left: 2 },
+            { width: buttonWidth, height: buttonHeight, top: shadowOffset, left: shadowOffset, borderRadius },
           ]}
         />
 
@@ -78,14 +71,15 @@ const Button: React.FC<ButtonProps> = ({
               height: buttonHeight,
               backgroundColor: isSolid ? "#96D1BD" : "#FFFFFF",
               borderColor: "#553435",
-              borderWidth: 4,
+              borderWidth,
+              borderRadius,
             },
           ]}
         >
           {imageSource && (
             <Image
               source={imageSource}
-              style={styles.image}
+              style={[styles.image, { width: imageSize, height: imageSize }]}
               resizeMode="contain"
             />
           )}
@@ -97,28 +91,24 @@ const Button: React.FC<ButtonProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    position: "relative",
+  container: { 
+    position: "relative" 
   },
-  shadow: {
-    position: "absolute",
-    borderRadius: 12,
-    backgroundColor: "#553434",
+  shadow: { 
+    position: "absolute", 
+    backgroundColor: "#553434" 
   },
-  button: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 12,
+  button: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    justifyContent: "center" 
   },
-  image: {
-    width: 26,
-    height: 26,
-    marginRight: 8,
+  image: { 
+    marginRight: 8 
   },
-  label: {
-    fontFamily: "KodchasanSemiBold",
-    color: "#553434",
+  label: { 
+    fontFamily: "KodchasanSemiBold", 
+    color: "#553434" 
   },
 });
 

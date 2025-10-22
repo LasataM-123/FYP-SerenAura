@@ -1,8 +1,12 @@
 import { Tabs } from "expo-router";
-import React from "react";
+import React, { useEffect } from "react";
 import CustomNavBar from "@/components/CustomNavbar";
+import { StatusBar } from "react-native";
 
 export default function TabLayout() {
+  useEffect(()=>{
+      StatusBar.setBarStyle("dark-content", true);
+  },[])
   return (
     <Tabs screenOptions={{headerShown:false}} tabBar={props=><CustomNavBar {...props}/>}>
       <Tabs.Screen name="home" options={{title:"Home"}}/>

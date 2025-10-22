@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, TextInput, Pressable, StyleSheet } from "react-native";
+import { View, TextInput, Pressable, StyleSheet, useWindowDimensions } from "react-native";
 import { Eye, EyeOff } from "lucide-react-native";
 import { CustomInputProps } from "@/types";
 
@@ -11,11 +11,32 @@ const CustomInput = ({
   keyboardType = "default",
 }: CustomInputProps) => {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const { width: wWidth } = useWindowDimensions();
+
+  // responsive sizes
+  const inputHeight = Math.min(56, wWidth * 0.13); // height scales with width
+  const borderRadius = Math.min(20, wWidth * 0.05);
+  const borderWidth = Math.max(2, wWidth * 0.008);
+  const paddingHorizontal = Math.min(16, wWidth * 0.04);
+  const eyeSize = Math.min(22, wWidth * 0.06);
+  const eyeTranslateY = eyeSize / 2;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { height: inputHeight }]}>
       {/* Shadow layer */}
-      <View style={styles.shadowLayer} />
+      <View
+        style={[
+          styles.shadowLayer,
+          {
+            width: "100%",
+            height: inputHeight,
+            borderRadius,
+            borderWidth,
+            top: 2,
+            left: 2,
+          },
+        ]}
+      />
 
       {/* Main Input */}
       <TextInput
@@ -27,21 +48,31 @@ const CustomInput = ({
         secureTextEntry={secureTextEntry && !isPasswordVisible}
         placeholder={placeholder}
         placeholderTextColor="#553434"
-        style={styles.input}
+        style={[
+          styles.input,
+          {
+            height: inputHeight,
+            borderRadius,
+            borderWidth,
+            paddingHorizontal,
+            fontSize: Math.min(16, wWidth * 0.04),
+             textAlignVertical: "center", 
+      paddingVertical: 0,
+          },
+        ]}
       />
 
       {/* Eye Icon (if password field) */}
       {secureTextEntry && (
         <Pressable
           onPress={() => setIsPasswordVisible(!isPasswordVisible)}
-          style={styles.eyeIcon}
+          style={[
+            styles.eyeIcon,
+            { right: paddingHorizontal, top: "50%", transform: [{ translateY: -eyeTranslateY }] },
+          ]}
           hitSlop={10}
         >
-          {isPasswordVisible ? (
-            <Eye size={22} color="#553434" />
-          ) : (
-            <EyeOff size={22} color="#553434" />
-          )}
+          {isPasswordVisible ? <Eye size={eyeSize} color="#553434" /> : <EyeOff size={eyeSize} color="#553434" />}
         </Pressable>
       )}
     </View>
@@ -57,31 +88,17 @@ const styles = StyleSheet.create({
   },
   shadowLayer: {
     position: "absolute",
-    width: "100%",
-    height: 56,
-    borderRadius: 20,
-    borderWidth: 3,
-    borderColor: "#553434",
     backgroundColor: "#fff",
-    top: 2,
-    left: 2,
+    borderColor: "#553434",
   },
   input: {
     width: "100%",
-    height: 56,
-    borderRadius: 20,
-    borderWidth: 3,
     borderColor: "#553434",
-    paddingHorizontal: 16,
     backgroundColor: "#fff",
-    fontSize: 16,
     fontFamily: "KodchasanSemiBold",
     color: "#553434",
   },
   eyeIcon: {
     position: "absolute",
-    right: 16,
-    top: "50%",
-    transform: [{ translateY: -11 }], // half of icon height
   },
 });

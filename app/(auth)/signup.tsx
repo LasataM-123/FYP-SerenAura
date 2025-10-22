@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   },
   signInContainer: {
     flexDirection: "row",
-    marginTop: 8,
+    marginTop: 2,
     alignItems: "center",
   },
   signInText: {

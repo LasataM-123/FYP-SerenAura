@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
     marginTop: 32, 
   },
   ribbonBackground: {
-    paddingVertical: 24, 
+    paddingVertical: 16, 
     paddingHorizontal: 16, 
     minWidth: 240,
     maxWidth: 240,

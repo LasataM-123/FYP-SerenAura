@@ -14,6 +14,9 @@ import {
   Modal,
   TouchableWithoutFeedback,
   Keyboard,
+  useWindowDimensions,
+  StatusBar,
+
 } from "react-native";
 import { Audio } from "expo-av";
 import Slider from "@react-native-community/slider";
@@ -21,17 +24,16 @@ import {
   Play,
   Pause,
   Heart,
-  List,
   ListPlus,
   RotateCcw,
   RotateCw,
   ChevronLeft,
-  Check,
   ListCheck,
+  Check,
 } from "lucide-react-native";
 
+
 import { router } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import { images } from "@/constants";
 import { useBackend } from "@/lib/useBackend";
@@ -44,8 +46,7 @@ import {
 } from "@/lib/api/playlist";
 import { useSearchParams } from "expo-router/build/hooks";
 import Button from "@/components/Button";
-
-const { width } = Dimensions.get("window");
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type MediaType = "Music" | "Meditation";
 
@@ -61,12 +62,17 @@ const NowPlayingScreen: React.FC = () => {
     ? rawMediaType
     : "Music") as MediaType;
 
+  const { width } = Dimensions.get("window");
+  const { height } = Dimensions.get('window');
+  const { width: wWidth, height: wHeight } = useWindowDimensions();
+
   // player
   const [isPlaying, setIsPlaying] = useState(false);
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [errorText, setErrorText] = useState("");
 
   // favourites & toast
   const [isFavourite, setIsFavourite] = useState(false);
@@ -88,41 +94,49 @@ const NowPlayingScreen: React.FC = () => {
   const [newPlaylistName, setNewPlaylistName] = useState("");
   const [isInAnyPlaylist, setIsInAnyPlaylist] = useState(false);
 
+  // responsive sizes
+  const cdSize = Math.min(wWidth * 0.48, 200);
+  const playButtonSize = Math.min(wWidth * 0.18, 88);
+  const textSizeTitle = Math.min(wWidth * 0.07, 30);
+  const textSizeBy = Math.min(wWidth * 0.045, 18);
+
   // animations
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const waveAmp = useRef(new Animated.Value(0)).current;
   const playScale = useRef(new Animated.Value(1)).current;
   const toastAnim = useRef(new Animated.Value(0)).current;
 
+  // modal animations
+  const addModalAnim = useRef(new Animated.Value(wHeight)).current; // translateY
+  const createModalAnim = useRef(new Animated.Value(wWidth)).current; // translateX
+
   // backend hooks
   const { refetch: checkFavouriteRefetch } = useBackend({ fn: checkFavourite });
   const { refetch: addFavouriteRefetch } = useBackend({ fn: addFavourite });
   const { refetch: getUserPlaylistRefetch } = useBackend({ fn: getUserPlaylists });
-  const { refetch: createPlaylistRefetch } = useBackend({ fn: createPlaylist });
+  const { refetch: createPlaylistRefetch, error } = useBackend({ fn: createPlaylist });
   const { refetch: addMediaRefetch } = useBackend({ fn: addMediaToPlaylist });
   const { refetch: checkPlaylistsRefetch } = useBackend({ fn: checkPlaylists });
-   useEffect(() => {
-  (async () => {
-    try {
-      // check favourite first
-      const favRes = await checkFavouriteRefetch({ mediaId: id });
-      setIsFavourite(favRes?.isFavourite || false);
 
-      // first check if media is in any playlist
-      const checkRes = await checkPlaylistsRefetch({ mediaId: id });
-      setIsInAnyPlaylist(checkRes?.exists || false);
+  // initial fetch: favourite, playlist membership, user playlists
+  useEffect(() => {
+    (async () => {
+      try {
+        const favRes = await checkFavouriteRefetch({ mediaId: id });
+        setIsFavourite(favRes?.isFavourite || false);
 
+        const checkRes = await checkPlaylistsRefetch({ mediaId: id });
+        setIsInAnyPlaylist(checkRes?.exists || false);
 
-      // then fetch user playlists
-      const plRes = await getUserPlaylistRefetch();
-      const userPlaylists = plRes?.playlists || [];
-      setPlaylists(userPlaylists);
-    } catch (err) {
-      console.log("Error fetching playlists:", err);
-    }
-  })();
-}, []);
-
+        const plRes = await getUserPlaylistRefetch();
+        const userPlaylists = plRes?.playlists || [];
+        setPlaylists(userPlaylists);
+      } catch (err) {
+        console.log("Error fetching playlists:", err);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   // play button scale animation handlers
   const handlePlayPressIn = () => {
@@ -146,6 +160,7 @@ const NowPlayingScreen: React.FC = () => {
   const triggerToast = (message: string) => {
     setShowToast(true);
     setToastMessage(message);
+    toastAnim.setValue(0);
     Animated.timing(toastAnim, {
       toValue: 1,
       duration: 300,
@@ -176,7 +191,7 @@ const NowPlayingScreen: React.FC = () => {
     } else {
       rotateAnim.stopAnimation();
     }
-  }, [isPlaying]);
+  }, [isPlaying, rotateAnim]);
 
   // wave animation
   useEffect(() => {
@@ -190,7 +205,7 @@ const NowPlayingScreen: React.FC = () => {
     } else {
       waveAmp.stopAnimation();
     }
-  }, [isPlaying]);
+  }, [isPlaying, waveAmp]);
 
   useEffect(() => {
     return () => {
@@ -200,34 +215,40 @@ const NowPlayingScreen: React.FC = () => {
 
   useEffect(() => {
     if (audioUrl) loadAndPlay();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audioUrl]);
 
   // player helpers
   const loadAndPlay = async () => {
     if (!audioUrl) return;
     setLoading(true);
-    if (sound) {
-      const status = await sound.getStatusAsync();
-      if (status.isLoaded) {
-        if (status.isPlaying) {
-          await sound.pauseAsync();
-          setIsPlaying(false);
-        } else {
-          await sound.playAsync();
-          setIsPlaying(true);
+    try {
+      if (sound) {
+        const status = await sound.getStatusAsync();
+        if (status.isLoaded) {
+          if (status.isPlaying) {
+            await sound.pauseAsync();
+            setIsPlaying(false);
+          } else {
+            await sound.playAsync();
+            setIsPlaying(true);
+          }
+          setLoading(false);
+          return;
         }
-        setLoading(false);
-        return;
       }
+      const { sound: newSound } = await Audio.Sound.createAsync(
+        { uri: audioUrl },
+        { shouldPlay: true },
+        onPlaybackStatusUpdate
+      );
+      setSound(newSound);
+      setIsPlaying(true);
+    } catch (err) {
+      console.log("Error loading audio:", err);
+    } finally {
+      setLoading(false);
     }
-    const { sound: newSound } = await Audio.Sound.createAsync(
-      { uri: audioUrl },
-      { shouldPlay: true },
-      onPlaybackStatusUpdate
-    );
-    setSound(newSound);
-    setIsPlaying(true);
-    setLoading(false);
   };
 
   const onPlaybackStatusUpdate = (status: any) => {
@@ -272,89 +293,104 @@ const NowPlayingScreen: React.FC = () => {
       setWavePath(generateWavePath(25 + value * 15));
     });
     return () => waveAmp.removeListener(idL);
-  }, []);
+  }, [waveAmp]);
 
-  // playlists actions
+  // ---------- Playlists actions with animated modals ----------
+
   const openAddPlaylist = async () => {
-  try {
-    const plRes = await getUserPlaylistRefetch();
-    setPlaylists(plRes?.playlists || []);
+    StatusBar.setBarStyle("light-content", true);
 
-    // re-check membership
-    const included: string[] = [];
-    let foundInAny = false;
-
-    await Promise.all(
-      (plRes?.playlists || []).map(async (p: any) => {
-        try {
-          const c = await checkPlaylistsRefetch({ mediaId: id });
-          const exists = c?.exists;
-          if (exists) {
-            included.push(p._id);
-            foundInAny = true; 
-          }
-        } catch (err) {
-          // ignore
-        }
-      })
-    );
-    setIsInAnyPlaylist(foundInAny); 
-  } catch (err) {
-    console.log("Error opening playlists:", err);
+     if (sound && isPlaying) {
+    await sound.pauseAsync();
+    setIsPlaying(false);
   }
+    setSelectedPlaylistId(null);
+    setShowAddPlaylist(true);
+    // start hidden below screen and animate up
+    addModalAnim.setValue(wHeight);
+    Animated.timing(addModalAnim, {
+      toValue: 0,
+      duration: 300,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+  };
 
-  setSelectedPlaylistId(null);
-  setShowAddPlaylist(true);
-};
-
-
-  const closeAddPlaylist = () => {
-    setShowAddPlaylist(false);
+  const closeAddPlaylist = async() => {
+    Animated.timing(addModalAnim, {
+      toValue: wHeight,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => setShowAddPlaylist(false));
+    if (sound && !isPlaying) {
+    await sound.playAsync();
+    setIsPlaying(true);
+  }
   };
 
   const openCreatePlaylist = () => {
+    setErrorText("");
     setNewPlaylistName("");
     setShowCreatePlaylist(true);
+    createModalAnim.setValue(wWidth);
+    Animated.timing(createModalAnim, {
+      toValue: 0,
+      duration: 300,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start();
   };
 
+ const closeCreatePlaylist = (returnToAdd = false) => {
+  // animate off to the right
+  Animated.timing(createModalAnim, {
+    toValue: wWidth,             
+    duration: 350,
+    easing: Easing.inOut(Easing.exp),
+    useNativeDriver: true,
+  }).start(() => {
+    setShowCreatePlaylist(false);
+    if (returnToAdd) {
+      openAddPlaylist();
+      setTimeout(() => triggerToast("Playlist created 🎵"), 320);
+    }
+    // reset position so next open starts offscreen to the right
+    createModalAnim.setValue(wWidth);
+  });
+};
+
   const handleConfirmAddOrCreate = async () => {
-  if (!selectedPlaylistId) {
-    openCreatePlaylist();
-    return;
-  }
+    if (!selectedPlaylistId) {
+      openCreatePlaylist();
+      return;
+    }
 
+    try {
+      await addMediaRefetch({ playlistId: selectedPlaylistId, mediaId: id, mediaType });
+      setIsInAnyPlaylist(true);
+      // close add modal with animation
+      closeAddPlaylist();
+      setTimeout(() => triggerToast("Added to playlist 🎶"), 200);
+    } catch (err) {
+      triggerToast("Failed to add to playlist");
+    }
+  };
+
+  const handleCreatePlaylistPress = async () => {
   try {
-    await addMediaRefetch({ playlistId: selectedPlaylistId, mediaId: id, mediaType });
-    setIsInAnyPlaylist(true);
-    setShowAddPlaylist(false);
-
-    setTimeout(() => triggerToast("Added to playlist 🎶"), 200);
+    const res = await createPlaylistRefetch({ title: newPlaylistName.trim() });
+    if (res?.playlist) {
+      const plRes = await getUserPlaylistRefetch();
+      setPlaylists(plRes?.playlists || []);
+      closeCreatePlaylist(true);
+    } else {
+      setErrorText(error || "Failed to create playlist");
+    }
   } catch (err) {
-    console.log("Error adding media to playlist:", err);
-    triggerToast("Failed to add to playlist");
+    triggerToast("Failed to create playlist");
   }
 };
 
-
-  const handleCreatePlaylistPress = async () => {
-    if (!newPlaylistName.trim()) {
-      triggerToast("Please enter a name");
-      return;
-    }
-    try {
-      await createPlaylistRefetch({ title: newPlaylistName.trim() });
-      triggerToast("Playlist created ✅");
-      // refetch playlists
-      const plRes = await getUserPlaylistRefetch();
-      setPlaylists(plRes?.playlists || []);
-      // close create and return to add overlay
-      setShowCreatePlaylist(false);
-      setShowAddPlaylist(true);
-    } catch (err) {
-      console.log("Error creating playlist:", err);
-      triggerToast("Failed to create playlist");
-    }
-  };
 
   // favourite (keep behavior unchanged)
   const handleToggleFavourite = async () => {
@@ -373,39 +409,42 @@ const NowPlayingScreen: React.FC = () => {
   };
 
   const handleTogglePlaylist = () => {
-  if (isInAnyPlaylist) {
-    triggerToast("Already in Playlist 🎶");
-  } else {
-    setSelectedPlaylistId(null);
-    setShowAddPlaylist(true);
-  }
-};
+    if (isInAnyPlaylist) {
+      triggerToast("Already in Playlist 🎶");
+    } else {
+      setSelectedPlaylistId(null);
+      openAddPlaylist();
+    }
+  };
 
-
+  // ----------------- UI -----------------
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { paddingHorizontal: Math.max(16, wWidth * 0.05) }]}>
       {/* header back */}
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Image source={images.cross} style={{ width: 32, height: 32 }} />
+      <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { left: Math.max(24, wWidth * 0.03), top: Math.max(50, wHeight * 0.035) }]}>
+        <Image source={images.cross} style={{ width: Math.min(32, wWidth * 0.08), height: Math.min(32, wWidth * 0.08) }} />
       </TouchableOpacity>
 
-      <Text style={styles.nowPlaying}>NOW PLAYING</Text>
+      <Text style={[styles.nowPlaying, { fontSize: Math.min(36, wWidth * 0.09), marginTop: Math.max(28, wHeight * 0.06) }]}>NOW PLAYING</Text>
 
       {/* CD + Waves */}
-      <View style={styles.cdContainer}>
-        <Animated.View style={[styles.waveWrapper, { left: width / 2 - 250 }]}>
+      <View style={[styles.cdContainer, { height: cdSize + 100 }]}>
+        <Animated.View style={[styles.waveWrapper, { left: wWidth / 2 - cdSize - 40 }]}>
           <Svg height="220" width="140">
             <Path d={wavePath} fill="none" stroke="#553434" strokeWidth="3" strokeLinecap="round" />
           </Svg>
         </Animated.View>
 
-        <View style={styles.cdShadowLayer} />
+        <View style={[styles.cdShadowLayer, { width: cdSize, height: cdSize, borderRadius: cdSize / 2, top: (cdSize / 3.4), left: (wWidth - cdSize) /2.4 }]} />
 
         <Animated.View
           style={[
             styles.cdWrapper,
             {
+              width: cdSize,
+              height: cdSize,
+              borderRadius: cdSize / 2,
               transform: [
                 {
                   rotate: rotateAnim.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }),
@@ -414,12 +453,12 @@ const NowPlayingScreen: React.FC = () => {
             },
           ]}
         >
-          <Image source={{ uri: imageUrl }} style={styles.cdImage} />
-          <View style={styles.cdCenterShadow} />
-          <View style={styles.cdCenter} />
+          <Image source={{ uri: imageUrl }} style={[styles.cdImage, { width: cdSize, height: cdSize, borderRadius: cdSize / 2 }]} />
+          <View style={[styles.cdCenterShadow, { width: Math.max(28, cdSize * 0.18), height: Math.max(28, cdSize * 0.18), top: 4, left: 4 }]} />
+          <View style={[styles.cdCenter, { width: Math.max(28, cdSize * 0.18), height: Math.max(28, cdSize * 0.18) }]} />
         </Animated.View>
 
-        <Animated.View style={[styles.waveWrapper, { right: width / 2 - 250 }]}>
+        <Animated.View style={[styles.waveWrapper, { right: wWidth / 2 - cdSize - 40 }]}>
           <Svg height="220" width="140">
             <Path d={wavePath} fill="none" stroke="#553434" strokeWidth="3" strokeLinecap="round" />
           </Svg>
@@ -427,25 +466,24 @@ const NowPlayingScreen: React.FC = () => {
       </View>
 
       {/* song info */}
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.by}>By: {by}</Text>
+      <Text style={[styles.title, { fontSize: textSizeTitle }]} numberOfLines={1}>{title}</Text>
+      <Text style={[styles.by, { fontSize: textSizeBy }]}>By: {by}</Text>
 
       {/* controls */}
-      <View style={styles.controlsRow}>
-        <TouchableOpacity onPress={handleToggleFavourite}>
-          {isFavourite ? <Heart fill="#553434" color="#553434" size={28} /> : <Heart color="#553434" size={28} />}
+      <View style={[styles.controlsRow, { marginBottom: Math.max(8, wHeight * 0.01) }]}>
+        <TouchableOpacity onPress={handleToggleFavourite} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          {isFavourite ? <Heart fill="#553434" color="#553434" size={Math.min(28, wWidth * 0.07)} /> : <Heart color="#553434" size={Math.min(28, wWidth * 0.07)} />}
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={handleTogglePlaylist}>
-          {isInAnyPlaylist ? <ListCheck color="#553434" size={28} /> : <ListPlus color="#553434" size={28} />}
+        <TouchableOpacity onPress={handleTogglePlaylist} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          {isInAnyPlaylist ? <ListCheck color="#553434" size={Math.min(28, wWidth * 0.07)} /> : <ListPlus color="#553434" size={Math.min(28, wWidth * 0.07)} />}
         </TouchableOpacity>
-
       </View>
 
       {/* slider */}
       <View style={styles.sliderContainer}>
         <Slider
-          style={styles.slider}
+          style={[styles.slider, { width: "100%" }]}
           minimumValue={0}
           maximumValue={duration}
           value={position}
@@ -455,13 +493,13 @@ const NowPlayingScreen: React.FC = () => {
           onSlidingComplete={handleSeek}
         />
         <View style={styles.timeRow}>
-          <Text style={styles.time}>{formatTime(position)}</Text>
-          <Text style={styles.time}>{formatTime(duration)}</Text>
+          <Text style={[styles.time, { fontSize: Math.min(14, wWidth * 0.035) }]}>{formatTime(position)}</Text>
+          <Text style={[styles.time, { fontSize: Math.min(14, wWidth * 0.035) }]}>{formatTime(duration)}</Text>
         </View>
       </View>
 
       {/* main controls */}
-      <View style={styles.mainControls}>
+      <View style={[styles.mainControls, { gap: Math.min(36, wWidth * 0.06), marginTop: Math.max(12, wHeight * 0.02) }]}>
         <TouchableOpacity
           onPress={async () => {
             if (sound) {
@@ -474,15 +512,15 @@ const NowPlayingScreen: React.FC = () => {
           }}
           style={styles.skipButton}
         >
-          <RotateCcw size={34} color="#553434" />
-          <Text style={styles.skipText}>10s</Text>
+          <RotateCcw size={Math.min(34, wWidth * 0.08)} color="#553434" />
+          <Text style={[styles.skipText, { fontSize: Math.min(12, wWidth * 0.03) }]}>10s</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPressIn={handlePlayPressIn} onPressOut={handlePlayPressOut} onPress={loadAndPlay} activeOpacity={1}>
-          <Animated.View style={[styles.playButtonContainer, { transform: [{ scale: playScale }] }]}>
-            <View style={styles.playShadowLayer} />
-            <View style={styles.playButton}>
-              {loading ? <Text style={{ color: "#fff" }}>...</Text> : isPlaying ? <Pause size={36} color="#fff" /> : <Play size={36} color="#fff" />}
+          <Animated.View style={[styles.playButtonContainer, { width: playButtonSize, height: playButtonSize, transform: [{ scale: playScale }] }]}>
+            <View style={[styles.playShadowLayer, { width: playButtonSize, height: playButtonSize, borderRadius: playButtonSize / 2, top: 2, left: 2 }]} />
+            <View style={[styles.playButton, { width: playButtonSize, height: playButtonSize, borderRadius: playButtonSize / 2 }]}>
+              {loading ? <Text style={{ color: "#fff" }}>...</Text> : isPlaying ? <Pause size={Math.min(36, playButtonSize * 0.45)} color="#fff" /> : <Play size={Math.min(36, playButtonSize * 0.45)} color="#fff" />}
             </View>
           </Animated.View>
         </TouchableOpacity>
@@ -499,28 +537,37 @@ const NowPlayingScreen: React.FC = () => {
           }}
           style={styles.skipButton}
         >
-          <RotateCw size={34} color="#553434" />
-          <Text style={styles.skipText}>10s</Text>
+          <RotateCw size={Math.min(34, wWidth * 0.08)} color="#553434" />
+          <Text style={[styles.skipText, { fontSize: Math.min(12, wWidth * 0.03) }]}>10s</Text>
         </TouchableOpacity>
       </View>
 
-    
-
-      {/* Add Playlist Modal */}
-      <Modal visible={showAddPlaylist} transparent animationType="slide">
-        <TouchableWithoutFeedback onPress={() => setShowAddPlaylist(false)}>
+      {/* ---------- Add Playlist Modal (slide up + overlay) ---------- */}
+      <Modal visible={showAddPlaylist} transparent animationType="none" statusBarTranslucent={true}>
+        {/* Instant dim background */}
+        <TouchableWithoutFeedback onPress={closeAddPlaylist}>
           <View style={styles.overlayBackdrop} />
         </TouchableWithoutFeedback>
 
-        <View style={styles.modalContainer}>
+        <Animated.View
+          style={[
+            styles.modalContainer,
+            {
+               height: height * 0.32, 
+              transform: [{ translateY: addModalAnim }],
+              paddingHorizontal: Math.max(12, wWidth * 0.04),
+            },
+          ]}
+        >
           <View style={styles.modalHeader}>
             <TouchableOpacity onPress={closeAddPlaylist}>
-          <Image source={images.cross} style={{ width: 28, height: 28 }} />
-        </TouchableOpacity>
+              <Image source={images.cross} style={{ width: 28, height: 28 }} />
+            </TouchableOpacity>
 
             <Text style={styles.modalTitle}>Add to playlist</Text>
-            <TouchableOpacity onPress={() => setShowAddPlaylist(false)}>
-              <Image source={images.cross} style={{ width: 28, height: 28 }} />
+
+            <TouchableOpacity onPress={closeAddPlaylist}>
+              <Image source={images.cross} style={{ width: 28, height: 28, opacity: 0 }} />
             </TouchableOpacity>
           </View>
 
@@ -528,68 +575,126 @@ const NowPlayingScreen: React.FC = () => {
             {playlists.length === 0 ? (
               <View style={styles.noPlaylistContainer}>
                 <Text style={styles.noPlaylistsText}>No playlists yet</Text>
-                <Button label="Create Playlist" onPress={() => { setShowAddPlaylist(false); setShowCreatePlaylist(true); }}/>
+          
               </View>
             ) : (
               <FlatList
-                data={playlists}
-                keyExtractor={(item) => item._id}
-                renderItem={({ item }) => {
-    
-                  const isSelected = selectedPlaylistId === item._id;
-                  return (
-                    <TouchableOpacity
-                      onPress={() => setSelectedPlaylistId(item._id)}
-                      style={[styles.playlistRow, isSelected ? styles.playlistRowSelected : null]}
-                    >
-                      <Image source={{ uri: item.imageUrl || undefined }} style={styles.playlistImage} />
-                      <View style={styles.playlistTextWrap}>
-                        <Text style={styles.playlistTitle}>{item.title}</Text>
-                        <Text style={styles.playlistCount}>{(item.totalVideos ?? 0) + " items"}</Text>
+              data={playlists}
+              showsVerticalScrollIndicator={false}
+              keyExtractor={(item) => item._id}
+              renderItem={({ item }) => {
+                const isSelected = selectedPlaylistId === item._id;
+                return (
+                  <TouchableOpacity
+                  onPress={() => setSelectedPlaylistId(item._id)}
+                  style={[styles.playlistRow, isSelected ? styles.playlistRowSelected : null]}
+                >
+                  {/* Playlist image */}
+                <View style={styles.imageContainer}>
+                  <View style={styles.shadowLayer} />
+                  <View style={styles.imageWrapper}>
+                    <Image
+                      source={{uri: item.imageUrl || undefined}}
+                      style={styles.image}
+                      resizeMode="cover"
+                    />
+                  </View>
+                </View>
+
+                    {/* Playlist text */}
+                    <View style={styles.playlistTextWrap}>
+                      <Text style={styles.playlistTitle}>{item.title}</Text>
+                      <Text style={styles.playlistCount}>{(item.totalVideos ?? 0) + " items"}</Text>
+                    </View>
+
+                    {/* Circle with tick */}
+                    <View style={{ position: "relative", width: 28, height: 28 }}>
+                      {/* Shadow Layer */}
+                      <View
+                        style={{
+                          position: "absolute",
+                          top: 2,
+                          left: 2,
+                          width: 28,
+                          height: 28,
+                          borderRadius: 6,
+                          borderWidth: 2,
+                          borderColor: "#264B3A",
+                          backgroundColor: "#264B3A",
+                        }}
+                      />
+                      
+                      {/* Main Circle */}
+                      <View
+                        style={[
+                          styles.selectCircle,
+                          isSelected && styles.selectCircleActive,
+                        ]}
+                      >
+                        {isSelected && <Check color="#fff"/>}
                       </View>
-                    </TouchableOpacity>
-                  );
-                }}
-              />
+                    </View>
+
+                  </TouchableOpacity>
+                );
+              }}
+            />
+
             )}
           </View>
 
           <View style={styles.modalFooter}>
-            <Button label={selectedPlaylistId ? "Add to playlist" : "Create playlist"} onPress={handleConfirmAddOrCreate}/>
+            <Button label={selectedPlaylistId ? "Add to playlist" : "Create playlist"} onPress={handleConfirmAddOrCreate} />
           </View>
-        </View>
+        </Animated.View>
       </Modal>
 
-      {/* Create Playlist Modal */}
-      <Modal visible={showCreatePlaylist} transparent animationType="slide">
-        <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss(); }}>
-          <View style={styles.overlayBackdrop} />
-        </TouchableWithoutFeedback>
+      <Modal visible={showCreatePlaylist} transparent animationType="none">
+        <Animated.View
+          style={[
+            styles.createModalOuter,
+            {
+              width: wWidth,
+              
+              transform: [{ translateX: createModalAnim }],
+            },
+          ]}
+        >
+          <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss(); }}>
+            <View style={[styles.modalContainer, {  height: height * 0.3,  borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingHorizontal: Math.max(12, wWidth * 0.06),  }]}>
+              <View style={styles.modalHeader}>
+                <TouchableOpacity onPress={() => { closeCreatePlaylist(false) }} >
+                  <Image source={images.arrowBack} style={{width:26, height:26}}/>
+                </TouchableOpacity>
+                <Text style={[styles.modalTitle, { marginLeft: 8 }]}>Create playlist</Text>
+                <View style={{ width: 28 }} />
+              </View>
 
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => { setShowCreatePlaylist(false); setShowAddPlaylist(true); }}>
-              <ChevronLeft color="#553434" size={26} />
-            </TouchableOpacity>
-            <Text style={[styles.modalTitle, { marginLeft: 8 }]}>Create playlist</Text>
+              <View style={styles.modalContent}>
+              <TextInput
+                placeholder="Playlist name"
+                value={newPlaylistName}
+                onChangeText={setNewPlaylistName}
+                style={styles.input}
+                placeholderTextColor="#553434"
+              />
 
-            {/* empty right element to keep header balanced */}
-            <View style={{ width: 28 }} />
-          </View>
+              {/* Error Message Placeholder */}
+              <View style={{ height: 26, marginBottom:2, justifyContent: "center", alignItems: "center" }}>
+                {errorText ? (
+                  <Text style={styles.errorText}>{errorText}</Text>
+                ) : null}
+              </View>
 
-          <View style={styles.modalContent}>
-            <TextInput
-              placeholder="Playlist name"
-              value={newPlaylistName}
-              onChangeText={setNewPlaylistName}
-              style={styles.input}
-            />
-            <Button label="Create Playlist" onPress={handleCreatePlaylistPress}/>
-           
-          </View>
-        </View>
+              <Button label="Create Playlist" onPress={handleCreatePlaylistPress} />
+            </View>
+
+            </View>
+          </TouchableWithoutFeedback>
+        </Animated.View>
       </Modal>
-        {/* toast */}
+
+      {/* toast */}
       {showToast && (
         <Animated.View
           style={[
@@ -618,29 +723,23 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
-    paddingHorizontal: 24,
-    paddingVertical: 16,
+    paddingHorizontal: 24
   },
 
   backButton: {
     position: "absolute",
-    top: 50,
-    left: 24,
     zIndex: 10,
   },
 
   nowPlaying: {
     fontFamily: "Schoolbell",
     color: "#553434",
-    fontSize: 30,
     textAlign: "center",
-    marginTop: 40,
   },
 
   cdContainer: {
-    marginVertical: 30,
+    marginVertical: 16,
     width: "100%",
-    height: 260,
     justifyContent: "center",
     alignItems: "center",
     position: "relative",
@@ -648,48 +747,30 @@ const styles = StyleSheet.create({
 
   cdShadowLayer: {
     position: "absolute",
-    width: 180,
-    height: 180,
-    borderRadius: 90,
     borderWidth: 4,
     borderColor: "#553434",
     backgroundColor: "#fff",
-    top: 40,
-    left: 80,
   },
 
   cdWrapper: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
     overflow: "hidden",
     borderWidth: 4,
     borderColor: "#553434",
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#fff",
+    zIndex:100
   },
 
   cdImage: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
+    borderRadius: 999,
   },
 
   cdCenterShadow: {
     position: "absolute",
-    width: 36,
-    height: 36,
-    backgroundColor: "#553434",
-    borderRadius: 4,
-    top: 2,
-    left: 2,
-    transform: [{ rotate: "45deg" }],
   },
 
   cdCenter: {
-    width: 36,
-    height: 36,
     backgroundColor: "#fff",
     borderColor: "#553434",
     borderWidth: 3,
@@ -704,16 +785,16 @@ const styles = StyleSheet.create({
 
   title: {
     fontFamily: "KodchasanSemiBold",
-    fontSize: 30,
     color: "#553434",
     textAlign: "center",
+    marginTop: 6,
+    paddingHorizontal: 8,
   },
 
   by: {
     fontFamily: "KodchasanMedium",
-    fontSize: 20,
     color: "#553434",
-    marginBottom: 40,
+    marginBottom: 6,
     textAlign: "center",
   },
 
@@ -721,13 +802,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     gap: 20,
-    marginBottom: 12,
+    marginTop:36
+
   },
 
   sliderContainer: {
     width: "100%",
-    marginTop: 12,
     alignItems: "center",
+    paddingHorizontal: 6,
   },
 
   slider: {
@@ -750,13 +832,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 40,
     marginTop: 20,
   },
 
   playButtonContainer: {
-    width: 80,
-    height: 80,
     position: "relative",
     alignItems: "center",
     justifyContent: "center",
@@ -764,9 +843,7 @@ const styles = StyleSheet.create({
 
   playShadowLayer: {
     position: "absolute",
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    borderRadius: 999,
     borderWidth: 4,
     borderColor: "#553434",
     backgroundColor: "#fff",
@@ -775,9 +852,7 @@ const styles = StyleSheet.create({
   },
 
   playButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    borderRadius: 999,
     borderWidth: 4,
     borderColor: "#553434",
     backgroundColor: "#C76350",
@@ -798,25 +873,24 @@ const styles = StyleSheet.create({
   },
 
   // toast
- toast: {
-  position: "absolute",
-  bottom: 60,
-  left: "10%",
-  right: "10%",
-  backgroundColor: "rgba(255,255,255,0.95)",
-  borderWidth: 2,
-  borderColor: "#553434",
-  borderRadius: 12,
-  paddingVertical: 10,
-  paddingHorizontal: 16,
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 10,
-  zIndex: 9999,          
-  elevation: 9999,       
-},
-
+  toast: {
+    position: "absolute",
+    bottom: 60,
+    left: "10%",
+    right: "10%",
+    backgroundColor: "rgba(255,255,255,0.95)",
+    borderWidth: 3,
+    borderColor: "#553434",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    zIndex: 9999,
+    elevation: 9999,
+  },
 
   toastText: {
     fontFamily: "KodchasanMedium",
@@ -831,23 +905,24 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
+modalContainer: {
+  position: "absolute",
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: "#fff",
+  borderTopLeftRadius: 16,
+  borderTopRightRadius: 16,
+  borderColor: "#553434",
+  borderWidth: 4, 
+  borderBottomWidth: 0,
+  overflow: "hidden",
+  paddingTop: 12,
+  paddingBottom: 10,
+},
 
-  modalContainer: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: "30%",
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingBottom: 24,
-    overflow: "hidden",
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
 
   modalHeader: {
     width: "100%",
@@ -867,7 +942,9 @@ const styles = StyleSheet.create({
 
   modalContent: {
     flex: 1,
+    maxHeight: 100,
     paddingTop: 8,
+    
   },
 
   noPlaylistContainer: {
@@ -878,20 +955,8 @@ const styles = StyleSheet.create({
   noPlaylistsText: {
     fontFamily: "KodchasanMedium",
     color: "#553434",
+    textAlign:"center",
     fontSize: 16,
-  },
-
-  createBtnSecondary: {
-    marginTop: 12,
-    backgroundColor: "#C76350",
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-  },
-
-  createBtnText: {
-    color: "#fff",
-    fontFamily: "KodchasanSemiBold",
   },
 
   playlistRow: {
@@ -903,16 +968,39 @@ const styles = StyleSheet.create({
   },
 
   playlistRowSelected: {
-    backgroundColor: "#f8e6e0",
     borderRadius: 8,
   },
-
-  playlistImage: {
-    width: 56,
-    height: 56,
+   imageContainer: { width: 50, height: 50, position: 'relative' },
+  shadowLayer: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
     borderRadius: 8,
-    backgroundColor: "#eee",
-    marginRight: 12,
+    borderWidth: 4,
+    borderColor: '#553434',
+    backgroundColor: '#553434',
+    top: 2,
+    left: 2,
+  },
+  imageWrapper: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#553434',
+    backgroundColor: '#fff',
+    overflow: 'hidden',
+  },
+  errorText: {
+  color: "red",
+  fontFamily: "KodchasanMedium",
+},
+
+  image: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 4,
   },
 
   playlistTextWrap: {
@@ -924,28 +1012,31 @@ const styles = StyleSheet.create({
     fontFamily: "KodchasanSemiBold",
     color: "#553434",
     fontSize: 16,
+    marginLeft:12
   },
 
   playlistCount: {
     fontFamily: "KodchasanMedium",
     color: "#553434",
     fontSize: 12,
+    marginLeft:12
+
   },
 
   selectCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 28,
+    height: 28,
+    borderRadius: 6,
     borderWidth: 2,
-    borderColor: "#553434",
+    borderColor: "#264B3A",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#fff",
   },
 
   selectCircleActive: {
-    backgroundColor: "#C76350",
-    borderColor: "#C76350",
+    backgroundColor: "#1D9D66",
+    borderColor: "#264B3A",
   },
 
   smallTick: {
@@ -960,28 +1051,20 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 
-  modalSecondaryBtn: {
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#e6d6d3",
-    backgroundColor: "#fff",
-  },
-
-  modalSecondaryBtnText: {
-    fontFamily: "KodchasanMedium",
-    color: "#553434",
-  },
-
   input: {
-    borderWidth: 1,
-    borderColor: "#e6d6d3",
+    marginTop:8,
+    borderBottomWidth: 1,
+  borderBottomColor: "#553434",
     borderRadius: 8,
     padding: 12,
     fontFamily: "KodchasanMedium",
     marginBottom: 12,
+  },
+
+  createModalOuter: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    right: 0,
   },
 });
