@@ -9,31 +9,43 @@ const Playlist = require('../models/playlistModel');
  * @access  Private
  */
 const createPlaylist = asyncHandler(async (req, res) => {
-  try{
+  try {
     const { title } = req.body;
     const patientId = req.user.id;
 
-    if (!patientId || !title) {
-      return res.status(400).json({ message: "Patient ID and title are required" });
+    // Check if patientId and title are provided
+    if (!patientId || !title || !title.trim()) {
+      return res.status(400).json({ message: "Playlist title is required" });
     }
 
-    const patient = await Patient.findById(patientId);
+    // Find patient
+    const patient = await Patient.findById(patientId).populate("playlists");
     if (!patient) {
       return res.status(404).json({ message: "Patient not found" });
     }
 
+    // Check if a playlist with the same title already exists for this patient
+    const titleExists = patient.playlists.some(
+      (pl) => pl.title.toLowerCase() === title.trim().toLowerCase()
+    );
+    if (titleExists) {
+      return res.status(400).json({ message: "Playlist title already exists" });
+    }
+
     // Create playlist
-    const playlist = await Playlist.create({ patientId, title });
+    const playlist = await Playlist.create({ patientId, title: title.trim() });
 
     // Add to patient's playlist array
     patient.playlists.push(playlist._id);
     await patient.save();
 
     res.status(201).json({ message: "Playlist created successfully", playlist });
-  }catch(e){
-    return res.status(500).json({message: e.message});
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ message: e.message });
   }
 });
+
 
 /**
  * @route   GET /api/playlist
