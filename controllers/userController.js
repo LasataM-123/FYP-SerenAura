@@ -41,28 +41,11 @@ const sendPasswordResetEmail = async (email, otp) => {
   });
 };
 
-//@route DELETE /api/users/delete-account
-//@desc Delete unverified account after OTP expiry
-//@access Public
-const deleteAccount =asyncHandler( async (req, res) => {
-  try {
-    const token = req.headers.authorization?.split(" ")[1];
-    if (!token) return res.status(401).json({ message: "No token" });
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
-
-   await Patient.findOneAndDelete({ email: decoded.email });
-
-
-    return res.json({ message: "Account deleted due to OTP expiry" });
-  } catch (err) {
-    return res.status(400).json({ message: "Invalid token" });
-  }
-});
-
-//@route POST /api/users/forgot-password
-//@desc Enter email of user to send OTP code
-//@access public
+/**
+ * @route  POST /api/users/forgot-password
+ * @desc   Enter email of user to send OTP code
+ * @access Public
+ */
 const forgotPassword = asyncHandler(async(req,res)=>{
   try{
     const {email} = req.body;
@@ -91,11 +74,11 @@ const forgotPassword = asyncHandler(async(req,res)=>{
   }
 })
 
-
-
-//@route POST /api/users/reset-password
-//@desc Reset password after OTP verification
-//@access public
+/**
+ * @route  POST /api/users/reset-password
+ * @desc   Reset password after OTP verification
+ * @access Public
+ */
 const resetPassword = asyncHandler(async(req,res)=>{
   try{
     const { email, newPassword, confirmPassword } = req.body;
@@ -128,9 +111,11 @@ const resetPassword = asyncHandler(async(req,res)=>{
   }
 });
 
-// @route POST /api/users/add-dob
-// @desc Add date of birth for patients registered via Google
-// @access private
+/**
+ * @route  POST /api/users/add-dob
+ * @desc   Add date of birth for patients registered via Google
+ * @access Private (patient only)
+ */
 const addDOB = asyncHandler(async (req, res) => {
   try{
     const { dateOfBirth } = req.body;
@@ -185,7 +170,6 @@ const addDOB = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
-  deleteAccount,
   forgotPassword,
   resetPassword,
   addDOB,

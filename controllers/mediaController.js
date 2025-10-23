@@ -5,6 +5,7 @@ const Meditation = require('../models/meditationModel')
 const moodCategoryMap = require('../utils/moodCategoryMap');
 const axios = require('axios');
 const mm = require('music-metadata'); 
+const Mood = require('../models/moodModel');
 
 //Helper function to get random N items
 function getRandomItems(arr,n){
@@ -34,32 +35,48 @@ function getCategoriesFromOnboarding(responses){
   return [...new Set(categories)];
 }
 
-//@route GET /api/media/get-recommendations
-//@desc get personalized recommendations
-//@access public
+/**
+ * @route GET /api/media/get-recommendations
+ * @desc  Get personalized recommendations
+ * @access Public
+ */
 const getRecommendations = asyncHandler(async(req,res)=>{
   try{
-    const mood = req.query.mood?.replace(/"/g, '').toLowerCase();
     const userId = req.user.id;
-    let source = 'random' ;
+    let source = "random";
     let categories = [];
-  
-    //Mood-based
-    if(mood && moodCategoryMap[mood]) {
+    let mood;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    const todayMood = await Mood.findOne({
+      patientId: userId,
+      entryDate: { $gte: today, $lt: tomorrow },
+    });
+
+    if (todayMood && todayMood.mood) {
+      mood = todayMood.mood.toLowerCase();
+    } 
+
+    if (mood && moodCategoryMap[mood]) {
       categories = moodCategoryMap[mood];
-      source = 'mood';
-  
+
       const recommendations = {};
-      for(const category of categories){
-        const music = await Music.find({moodCategory: category});
+      for (const category of categories) {
+       const music = await Music.find({ moodCategory: new RegExp(`^${category}$`, "i") });
+
         recommendations[category] = {
-        title: `${category} Music`,
-        data: getRandomItems(music, 3),
-      };
+          title: `${category} Music`,
+          data: getRandomItems(music, 3),
+        };
       }
-      
-    return res.status(200).json({ success: true, source, recommendations });
+
+      return res.status(200).json({ success: true, recommendations });
     }
+
 
     //onboarding-based
     if(userId){
@@ -105,9 +122,11 @@ const getRecommendations = asyncHandler(async(req,res)=>{
   }
 })
 
-//@route GET /api/media/filter
-//@desc filter music or meditation by category
-//@access private (patient only)
+/**
+ * @route GET /api/media/filter
+//@desc   Filter music or meditation by category
+//@access Private (patient only)
+ */
 const filterByCategory = asyncHandler(async (req, res) => {
   try {
     const category = req.query.category?.toLowerCase();
@@ -158,10 +177,11 @@ const filterByCategory = asyncHandler(async (req, res) => {
   }
 });
 
-
-//@route GET /api/media/individual/:id
-//@desc get music or meditation by id
-//@access public
+/**
+ * @route  GET /api/media/individual/:id
+ * @desc   Get music or meditation by id
+ * @access Private (patient only)
+ */
 const getIndividualMedia = asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
@@ -210,9 +230,11 @@ const getIndividualMedia = asyncHandler(async (req, res) => {
   }
 });
 
-//@route GET /api/media/search
-//@desc Search meditation or music by keyword and tag
-//@access private (patient only)
+/**
+ * @route  GET /api/media/search
+ * @desc   Search meditation or music by keyword and tag
+ * @access Private (patient only)
+ */
 const searchContent = asyncHandler(async (req, res) => {
   try {
     const tag = req.query.tag?.toLowerCase();
@@ -308,6 +330,5 @@ const searchContent = asyncHandler(async (req, res) => {
     return res.status(500).json({ message: err.message });
   }
 });
-
 
 module.exports = { getRecommendations, filterByCategory, getIndividualMedia, searchContent};

@@ -2,9 +2,11 @@ const asyncHandler = require('express-async-handler');
 const RecentSearch = require('../models/recentSearchModel');
 const Patient = require('../models/patientModel');
 
-//@route POST /api/recent-search/add
-//@desc Add recent search of the user
-//access private (patient only)
+/**
+ * @route  POST /api/recent-search/add
+ * @desc   Add recent search of the user
+ * @access Private (patient only)
+ */
 const addRecentSearch = asyncHandler(async (req, res) => {
   try {
     const { content } = req.body;
@@ -48,10 +50,11 @@ const addRecentSearch = asyncHandler(async (req, res) => {
   }
 });
 
-
-//@route GET /api/recent-search/get
-//@desc get recent searches of the patient
-//@access private (patient only)
+/**
+ * @route  GET /api/recent-search/get
+ * @desc   Get recent searches of the patient
+ * @access Private (patient only)
+ */
 const getRecentSearches = asyncHandler(async (req, res) => {
     try{
         const patientId = req.user.id;
@@ -67,9 +70,11 @@ const getRecentSearches = asyncHandler(async (req, res) => {
     }
 });
 
-//@route DELETE /api/recent-search/delete/:id
-//@desc delete recent search of the patient
-//@access private (patient only)
+/**
+ * @route DELETE /api/recent-search/delete/:id
+ * @desc   Delete recent search of the patient
+ * @access Private (patient only)
+ */
 const deleteRecentSearch = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
@@ -89,9 +94,11 @@ const deleteRecentSearch = asyncHandler(async (req, res) => {
   res.status(200).json({ message: "Recent search deleted successfully" });
 });
 
-//@route GET /api/recent-search/suggest
-//@desc Suggest recent searches
-//@access private
+/**
+ * @route  GET /api/recent-search/suggest
+ * @desc   Suggest recent searches
+ * @access Private (patient only)
+ */
 const suggestRecentSearch = asyncHandler(async (req, res) => {
   try {
     const patientId = req.user?.id;

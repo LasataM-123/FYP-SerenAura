@@ -29,6 +29,7 @@ app.use('/api/media',require('./routes/mediaRoutes'));
 app.use('/api/recent-search',require('./routes/recentSearchRoutes'));
 app.use('/api/favourite',require('./routes/favouriteRoutes'));
 app.use('/api/playlist',require('./routes/playlistRoutes'));
+app.use('/api/mood',require('./routes/moodRoutes'));
 app.use(errorHandler);
 const port = process.env.PORT || 5000;
 

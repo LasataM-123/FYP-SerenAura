@@ -2,9 +2,11 @@ const asyncHandler = require('express-async-handler');
 const Patient = require('../models/patientModel');
 const Favourite = require('../models/favouriteModel');
 
-//@route POST /api/favourite/add
-//@desc add media to favourites
-//@access private
+/**
+ * @route  POST /api/favourite/add
+ * @desc   Add media to favourites
+ * @access Private (patient only)
+ */
 const addFavourite = asyncHandler(async(req, res)=>{
     try{
         const {mediaId, mediaType} = req.body;
@@ -32,8 +34,11 @@ const addFavourite = asyncHandler(async(req, res)=>{
     }
 })
 
-// GET /api/favourite/get
-// Get all favourite media for the logged-in patient
+/**
+ * @route GET /api/favourite/get
+ * @desc Get all favourite media for the logged-in patient
+ * @access Private (patient only)
+ */
 const getFavourites = asyncHandler(async (req, res) => {
   try {
     const patientId = req.user.id;
@@ -66,9 +71,13 @@ const getFavourites = asyncHandler(async (req, res) => {
   }
 });
 
+/**
+ * @route  DELETE /api/favourite/remove/:id
+ * @desc   Remove a favourite media by ID
+ * @access Private (patient only)
+ */
 
-// DELETE /api/favourite/remove/:id
-// Remove a favourite media by ID
+
 const removeFavourite = asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
@@ -100,7 +109,7 @@ const removeFavourite = asyncHandler(async (req, res) => {
 /**
  * @route  GET /api/favourite/check/:mediaId
  * @desc   Check if the item is in favourite or not
- * @access Private
+ * @access Private (patient only)
  */
 const checkFavourite = asyncHandler(async (req, res) => {
   try {

@@ -13,10 +13,11 @@ const deleteUploadedFile = async (file) => {
     }
 };
 
-
-//@ROUTE POST /api/counselor/create
-//@DESC Create counselor account
-//@ACCESS Public
+/**
+ * @route  POST /api/counselor/create
+ * @desc   Create counselor account
+ * @access Public
+ */
 const createCounselor=asyncHandler(async(req, res) => {
     try{
         const { name, email, password, dateOfBirth, experience, speciality } = req.body;

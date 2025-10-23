@@ -1,10 +1,11 @@
 const asyncHandler = require("express-async-handler");
 const Onboarding = require("../models/onboardingModel");
 
-// @route POST /create
-// @desc Create onboarding responses
-// @access private
-
+/**
+ * @route  POST /create
+ * @desc   Create onboarding responses
+ * @access Private (patient only)
+ */
 const createOnboarding = asyncHandler(async (req, res) => {
   const { responses } = req.body;
 

@@ -43,9 +43,11 @@ const deleteUploadedAudio = async (fileUrl) => {
   }
 };
 
-//@route POST /meditation/create
-//@desc Add new meditation
-//@access public
+/**
+ * @route  POST /meditation/create
+ * @desc   Add new meditation
+ * @access Public
+ */
 const createMeditation = asyncHandler(async (req, res) => {
   try {
     const { title, description, by, moodCategory, isLocked } = req.body;
@@ -98,9 +100,11 @@ const createMeditation = asyncHandler(async (req, res) => {
   }
 });
 
-//@route PUT /api/mediotation/update/:meditationId
-//@desc update meditation
-//@access public
+/**
+ * @route  PUT /api/mediotation/update/:meditationId
+ * @desc   Update meditation
+ * @access Public
+ */
 const updateMeditation = asyncHandler(async(req,res)=>{
     try{
 

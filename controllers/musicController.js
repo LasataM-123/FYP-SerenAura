@@ -45,9 +45,11 @@ const deleteUploadedAudio = async (fileUrl) => {
   }
 };
 
-//@route POST /api/music/create
-//@desc Add new music
-//@access public
+/**
+ * @route  POST /api/music/create
+ * @desc   Add new music
+ * @access Public
+ */
 const createMusic = asyncHandler(async (req, res) => {
   try {
     const { title, description, by, moodCategory, isLocked } = req.body;
@@ -98,9 +100,12 @@ const createMusic = asyncHandler(async (req, res) => {
   }
 });
 
-//@route PUT /api/music/update/:musicId
-//@desc update music
-//@access public
+/**
+ * @route  PUT /api/music/update/:musicId
+ * @desc   Update music
+ * @access Public
+ */
+//
 const updateMusic = asyncHandler(async(req,res)=>{
     try{
 

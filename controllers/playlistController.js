@@ -6,7 +6,7 @@ const Playlist = require('../models/playlistModel');
 /**
  * @route   POST /api/playlist/create
  * @desc    Create a new playlist for a patient
- * @access  Private
+ * @access  Private (patient only)
  */
 const createPlaylist = asyncHandler(async (req, res) => {
   try {
@@ -50,7 +50,7 @@ const createPlaylist = asyncHandler(async (req, res) => {
 /**
  * @route   GET /api/playlist
  * @desc    Get all playlists for a specific patient 
- * @access  Private
+ * @access  Private (patient only)
  */
 const getUserPlaylists = asyncHandler(async (req, res) => {
   try{
@@ -100,7 +100,7 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
 /**
  * @route   GET /api/playlist/get/:id
  * @desc    Get single playlist details with all media
- * @access  Private
+ * @access  Private (patient only)
  */
 const getPlaylistById = asyncHandler(async (req, res) => {
   try{
@@ -163,7 +163,7 @@ const getPlaylistById = asyncHandler(async (req, res) => {
 /**
  * @route   POST /api/playlist/add/:playlistId
  * @desc    Add media to playlist (Music or Meditation)
- * @access  Private
+ * @access  Private (patient only)
  */
 const addMediaToPlaylist = asyncHandler(async (req, res) => {
   try{
@@ -196,7 +196,7 @@ const addMediaToPlaylist = asyncHandler(async (req, res) => {
 /**
  * @route   DELETE /api/playlist/remove/:playlistId/:junctionId
  * @desc    Remove a media item from playlist
- * @access  Private
+ * @access  Private (patient only)
  */
 const removeMediaFromPlaylist = asyncHandler(async (req, res) => {
   try{
@@ -222,7 +222,7 @@ const removeMediaFromPlaylist = asyncHandler(async (req, res) => {
 /**
  * @route   DELETE /api/playlist/delete/:id
  * @desc    Delete an entire playlist (and its junction entries)
- * @access  Private
+ * @access  Private (patient only)
  */
 const deletePlaylist = asyncHandler(async (req, res) => {
   try{
@@ -253,7 +253,7 @@ const deletePlaylist = asyncHandler(async (req, res) => {
 /**
  * @route  POST /api/playlist/check/:mediaId
  * @desc   Check if the media exists in the playlist
- * @access Private
+ * @access Private (patient only)
  */
 const checkMediaInPlaylist = asyncHandler(async (req, res) => {
   const patientId = req.user.id;

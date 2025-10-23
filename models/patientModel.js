@@ -40,10 +40,6 @@ const patientSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Chat'
     }],
-    moodEntry:[{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'MoodEntry'
-    }],
     recentSearch:[{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'RecentSearch'
