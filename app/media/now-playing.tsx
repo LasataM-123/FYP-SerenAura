@@ -120,6 +120,7 @@ const NowPlayingScreen: React.FC = () => {
 
   // initial fetch: favourite, playlist membership, user playlists
   useEffect(() => {
+    
     (async () => {
       try {
         const favRes = await checkFavouriteRefetch({ mediaId: id });
@@ -317,6 +318,8 @@ const NowPlayingScreen: React.FC = () => {
   };
 
   const closeAddPlaylist = async() => {
+        StatusBar.setBarStyle("dark-content", true);
+
     Animated.timing(addModalAnim, {
       toValue: wHeight,
       duration: 200,

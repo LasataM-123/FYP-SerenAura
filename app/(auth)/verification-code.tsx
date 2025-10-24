@@ -5,6 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  Keyboard,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Top from "@/components/top";
@@ -38,6 +39,8 @@ const Verification = () => {
   const { refetch, loading, error } = useBackend({ fn: verifyOTP });
   const { refetch: refetchCreate, loading: loadingCreate, error: errorCreate } =
   useBackend({ fn: verifyOTPAndCreate });
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
 
   const [otp, setOtp] = useState(["", "", "", ""]);
   const [timer, setTimer] = useState(30);
@@ -47,6 +50,7 @@ const Verification = () => {
 
   const otpValue = otp.join("");
   const handleContinue = async () => {
+    Keyboard.dismiss();
     try {
       if (!otpToken) return;
 
@@ -127,6 +131,19 @@ const Verification = () => {
     }
     
   };
+  
+  useEffect(() => {
+    // Whenever any backend error changes, update errorMessage
+    if (error) {
+      setErrorMessage(error);
+    } else if (errorCreate) {
+      setErrorMessage(errorCreate);
+    } else if (errorResend) {
+      setErrorMessage(errorResend);
+    } else {
+      setErrorMessage(null); // clear if no errors
+    }
+  }, [error, errorCreate, errorResend]);
 
   return (
     <>
@@ -162,9 +179,10 @@ const Verification = () => {
             ))}
           </View>
 
-          {error && <Text style={styles.errorText}>{error}</Text>}
-          {errorCreate && <Text style={styles.errorText}>{errorCreate}</Text>}
-          {errorResend && <Text style={styles.errorText}>{errorResend}</Text>}
+          {errorMessage && (
+  <Text style={styles.errorText}>{errorMessage}</Text>
+)}
+
 
           <View style={styles.resendContainer}>
             <Text style={styles.resendText}>You didn't receive any code?</Text>
@@ -197,7 +215,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#ffffff",
     paddingHorizontal: 24,
-    paddingTop: 16,
   },
   content: {
     marginTop: 24,

@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Keyboard } from "react-native";
 import React, { useState } from "react";
 import Top from "@/components/top";
 import CustomInput from "@/components/CustomInput";
@@ -18,6 +18,7 @@ const ForgotPassword = () => {
   const [form, setForm] = useState({ email: "" });
 
   const handleSubmit = async () => {
+        Keyboard.dismiss();
     try {
       const res = await refetch(form);
       if (res?.otpToken) {
@@ -68,7 +69,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#ffffff",
     paddingHorizontal: 24,
-    paddingTop: 16,
   },
   content: {
     marginTop: 24,

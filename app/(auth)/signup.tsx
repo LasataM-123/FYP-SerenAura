@@ -1,10 +1,13 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  StatusBar,
 } from "react-native";
 import Top from "@/components/top";
 import CustomInput from "@/components/CustomInput";
@@ -15,6 +18,7 @@ import { signup } from "@/lib/api/auth";
 import { useAuthStore } from "@/store/authStore";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { images } from "@/constants";
+import { ScrollView } from "react-native";
 
 const Signup = () => {
   const { setOtpToken } = useAuthStore();
@@ -46,67 +50,81 @@ const Signup = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Top label="Create your Relaxation Account" onBack={() => router.push("/welcome")} />
+  <KeyboardAvoidingView
+    style={{ flex: 1 }}
+    behavior={Platform.OS === "ios" ? "padding" : "height"}
+  >
+    <ScrollView
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: 30, paddingHorizontal: 24 }}
+      keyboardShouldPersistTaps="handled"
+    >
+      
+        <Top
+          label="Create your Relaxation Account"
+          onBack={() => router.push("/welcome")}
+        />
 
-      <View style={styles.formContainer}>
-        <CustomInput
-          placeholder="Full Name"
-          value={form.name}
-          onChangeText={(text) => setForm({ ...form, name: text })}
-   
-        />
-        <CustomInput
-          placeholder="Email"
-          value={form.email}
-          onChangeText={(text) => setForm({ ...form, email: text })}
-          keyboardType="email-address"
-          
-        />
-        <CustomInput
-          placeholder="Date of Birth (yyyy-mm-dd)"
-          value={form.dateOfBirth}
-          onChangeText={(text) => setForm({ ...form, dateOfBirth: text })}
-          keyboardType="numeric"
-        
-        />
-        <CustomInput
-          placeholder="Password"
-          value={form.password}
-          onChangeText={(text) => setForm({ ...form, password: text })}
-          secureTextEntry
-          
-        />
-        {error && <Text style={styles.errorText}>{error}</Text>}
-      </View>
-
-      <View style={styles.buttonContainer}>
-        <Button
-          label={loading ? "Signing up..." : "Sign Up"}
-          onPress={handleSignUp}
-          variant="solid"
-        />
-        <View style={styles.signInContainer}>
-          <Text style={styles.signInText}>Already have an account? </Text>
-          <Link href="/login" asChild>
-            <Text style={styles.signInLink}>Sign In</Text>
-          </Link>
+        {/* Form Section */}
+        <View style={styles.formContainer}>
+          <CustomInput
+            placeholder="Full Name"
+            value={form.name}
+            onChangeText={(text) => setForm({ ...form, name: text })}
+          />
+          <CustomInput
+            placeholder="Email"
+            value={form.email}
+            onChangeText={(text) => setForm({ ...form, email: text })}
+            keyboardType="email-address"
+          />
+          <CustomInput
+            placeholder="Date of Birth (yyyy-mm-dd)"
+            value={form.dateOfBirth}
+            onChangeText={(text) => setForm({ ...form, dateOfBirth: text })}
+            keyboardType="numeric"
+          />
+          <CustomInput
+            placeholder="Password"
+            value={form.password}
+            onChangeText={(text) => setForm({ ...form, password: text })}
+            secureTextEntry
+          />
+          {error && <Text style={styles.errorText}>{error}</Text>}
         </View>
 
-        <View style={styles.orContainer}>
-          <View style={styles.line} />
-          <Text style={styles.orText}>or</Text>
-          <View style={styles.line} />
-        </View>
+        {/* Buttons Section */}
+        <View style={styles.buttonContainer}>
+          <Button
+            label={loading ? "Signing up..." : "Sign Up"}
+            onPress={handleSignUp}
+            variant="solid"
+          />
 
-         <Button
-          label="Sign In with Google"
-          onPress={() => {}}
-          variant="outline"
-          imageSource={images.google}
-        />
-      </View>
-    </SafeAreaView>
-  );
+          <View style={styles.signInContainer}>
+            <Text style={styles.signInText}>Already have an account? </Text>
+            <Link href="/login" asChild>
+              <Text style={styles.signInLink}>Sign In</Text>
+            </Link>
+          </View>
+
+          <View style={styles.orContainer}>
+            <View style={styles.line} />
+            <Text style={styles.orText}>or</Text>
+            <View style={styles.line} />
+          </View>
+
+          <Button
+            label="Sign In with Google"
+            onPress={() => {}}
+            variant="outline"
+            imageSource={images.google}
+          />
+        </View>
+    </ScrollView>
+  </KeyboardAvoidingView>
+  </SafeAreaView>
+);
+
 };
 
 export default Signup;
@@ -115,8 +133,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#ffffff",
-    paddingHorizontal: 24,
-    paddingTop: 16,
   },
   formContainer: {
     marginTop: 30,

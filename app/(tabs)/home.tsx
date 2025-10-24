@@ -100,7 +100,7 @@ const Home = () => {
   const name = useAuthStore((state) => state.name);
 
   const features = [
-    { id: '1', color: "#CB9DF0", image: images.mood, text: "Mood Tracker", description: "How's your mood today?", route: '/media' },
+    { id: '1', color: "#CB9DF0", image: images.mood, text: "Mood Tracker", description: "How's your mood today?", route: '../media/moodTracker' },
     { id: '2', color: "#74CEE2", image: images.media, text:"Media",description: "Meditations and music", route: '/media' },
     { id: '3', color: "#FFE37A", image: images.breathe, text: "Breathe", description: "Guided Breathing Exercises", route: '/breathe' },
     { id: '4', color: "#CFDAED", image: images.chat, text: "Counselor Chat", description: "Talk to someone", route: '/chat' },
@@ -174,7 +174,6 @@ const Home = () => {
 
   useEffect(() => {
     refetch();
-    
   }, []);
 
   useEffect(() => {
@@ -189,7 +188,11 @@ const Home = () => {
     StatusBar.setBarStyle("light-content");
     setIsRefreshing(true);
     await refetch();
-    setTimeout(() => setIsRefreshing(false), 500);
+    setTimeout(() => {
+    setIsRefreshing(false);
+    // Revert to dark content once done
+    StatusBar.setBarStyle("dark-content");
+  }, 500);
   };
 
   const handleLogout = () => {
@@ -258,19 +261,99 @@ const Home = () => {
 export default Home;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF"},
-  heroContainer: { flexDirection: 'column', justifyContent: 'center', alignItems: 'center' },
-  mainTextContainer: { marginTop: 12, justifyContent: 'center', alignItems: 'center', gap: 2 },
-  mainWelcomeText: { fontSize: 22, fontFamily: 'KodchasanSemiBold', color: '#553434' },
-  timeText: { fontFamily: "KodchasanMedium", fontSize: 18, color: "#553434" },
-  subtitle: { marginTop: 12, fontSize: 16, color: '#553434', fontFamily: "KodchasanMedium" },
-  wellnessContainer: { marginTop: 20 },
-  featureText: { fontFamily: "KodchasanSemiBold", fontSize: 20, color: "#553434", marginBottom: 16 },
-  recommendationContainer: { marginTop: 20 },
-  recommendationText: { fontSize: 20, fontFamily: "KodchasanSemiBold", color: "#553434" },
-  overlay: { position: "absolute", top: 0, bottom: 0, left: 0, right: 0, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", zIndex: 9999 },
-  cardWrapper: { position: "relative", width: 255, height: 180, justifyContent: "center", alignItems: "center" },
-  cardShadowLayer: { position: "absolute", width: "100%", height: "100%", borderRadius: 20, borderWidth: 3, borderColor: "#553434", backgroundColor: "#553434", top: 3, left: 3 },
-  cardMain: { width: "100%", height: "100%", borderRadius: 20, borderWidth: 3, borderColor: "#553434", backgroundColor: "#FFF", justifyContent: "center", alignItems: "center", padding: 20 },
-  loggingText: { marginTop: 20, fontFamily: "Schoolbell", fontSize: 20, color: "#553434", textAlign: "center" },
+  container: { 
+    flex:1,
+    backgroundColor: "#FFFFFF"
+  },
+  heroContainer: { 
+    flexDirection: 'column', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  mainTextContainer: { 
+    marginTop: 12, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    gap: 2 
+  },
+  mainWelcomeText: { 
+    fontSize: 22, 
+    fontFamily: 'KodchasanSemiBold', 
+    color: '#553434' 
+  },
+  timeText: { 
+    fontFamily: "KodchasanMedium", 
+    fontSize: 18, 
+    color: "#553434" 
+  },
+  subtitle: { 
+    marginTop: 12, 
+    fontSize: 16, 
+    color: '#553434', 
+    fontFamily: "KodchasanMedium" 
+  },
+  wellnessContainer: { 
+    marginTop: 20 
+  },
+  featureText: { 
+    fontFamily: "KodchasanSemiBold", 
+    fontSize: 20, 
+    color: "#553434", 
+    marginBottom: 16 
+  },
+  recommendationContainer: { 
+    marginTop: 20 
+  },
+  recommendationText: { 
+    fontSize: 20, 
+    fontFamily: "KodchasanSemiBold", 
+    color: "#553434" 
+  },
+  overlay: { 
+    position: "absolute", 
+    top: 0, 
+    bottom: 0, 
+    left: 0, 
+    right: 0, 
+    backgroundColor: "rgba(0,0,0,0.5)", 
+    justifyContent: "center", 
+    alignItems: "center", 
+    zIndex: 9999 
+  },
+  cardWrapper: { 
+    position: "relative", 
+    width: 255, 
+    height: 180, 
+    justifyContent: "center", 
+    alignItems: "center" 
+  },
+  cardShadowLayer: { 
+    position: "absolute", 
+    width: "100%", 
+    height: "100%", 
+    borderRadius: 20, 
+    borderWidth: 3, 
+    borderColor: "#553434", 
+    backgroundColor: "#553434", 
+    top: 3, 
+    left: 3 
+  },
+  cardMain: { 
+    width: "100%", 
+    height: "100%", 
+    borderRadius: 20, 
+    borderWidth: 3, 
+    borderColor: "#553434", 
+    backgroundColor: "#FFF", 
+    justifyContent: "center", 
+    alignItems: "center", 
+    padding: 20 
+  },
+  loggingText: { 
+    marginTop: 20, 
+    fontFamily: "Schoolbell", 
+    fontSize: 20, 
+    color: "#553434", 
+    textAlign: "center" 
+  },
 });

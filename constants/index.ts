@@ -26,6 +26,19 @@ import chat from '@/assets/icons/Chat.png';
 import media from '@/assets/icons/Media.png';
 import breathe from '@/assets/icons/Breathe.png';
 import play from '@/assets/icons/Play.png';
+import Happy from '@/assets/icons/Happy.png';
+import Sad from '@/assets/icons/Sad.png';
+import Okay from '@/assets/icons/Okay.png';
+import Good from '@/assets/icons/Good.png';
+import Angry from '@/assets/icons/Angry.png';
+import Anxious from '@/assets/icons/Anxious.png';
+import Plus from '@/assets/icons/Plus.png';
+import Grateful from '@/assets/icons/Grateful.png';
+import Energetic from '@/assets/icons/Energetic.png';
+import Calm from '@/assets/icons/Calm.png';
+import Stressed from '@/assets/icons/Stressed.png';
+import Tired from '@/assets/icons/Tired.png';
+import Excited from '@/assets/icons/Excited.png';
 export const images={
     welcomeImage,
     ribbon,
@@ -54,5 +67,18 @@ export const images={
     chat,
     breathe,
     media,
-    play
+    play,
+    Happy,
+    Sad,
+    Okay,
+    Good,
+    Angry,
+    Anxious,
+    Plus,
+    Grateful,
+    Energetic,
+    Calm,
+    Stressed,
+    Tired,
+    Excited
 }

@@ -63,12 +63,7 @@ useEffect(() => {
 
  return (
     <>
-      <StatusBar
-        barStyle="dark-content"      
-        translucent                   
-        backgroundColor="transparent"  
-      />
-      <Stack screenOptions={{ headerShown: false }} />
+      <Stack screenOptions={{ headerShown: false , statusBarStyle: "dark" }} />
     </>
   );
 }

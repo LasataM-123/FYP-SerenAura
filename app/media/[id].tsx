@@ -6,7 +6,8 @@ import {
   TouchableOpacity, 
   View, 
   ScrollView, 
-  Dimensions 
+  Dimensions, 
+  StatusBar
 } from 'react-native';
 import React, { useEffect } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -29,6 +30,7 @@ const Media = () => {
   const mediaId = Array.isArray(id) ? id[0] : id;
 
   useEffect(() => {
+    StatusBar.setBarStyle('dark-content');
     refetch({ id: mediaId });
   }, []);
 
