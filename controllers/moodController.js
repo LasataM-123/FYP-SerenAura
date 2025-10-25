@@ -13,6 +13,9 @@ const createOrUpdateMood = asyncHandler(async(req,res)=>{
         if(!mood){
             return res.status(400).json({message: "Mood is required"});
         }
+        if (journal && journal.length > 100) {
+            return res.status(400).json({ message: "Journal cannot exceed 100 characters." });
+        }
         // Define today's start and end (00:00 → 23:59)
         const today = new Date();
         today.setHours(0, 0, 0, 0);

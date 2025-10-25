@@ -47,26 +47,33 @@ const getRecommendations = asyncHandler(async(req,res)=>{
     let categories = [];
     let mood;
 
+    // Define today and recent 3-day window
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
+    const threeDaysAgo = new Date(today);
+    threeDaysAgo.setDate(today.getDate() - 3);
 
-    const todayMood = await Mood.findOne({
+    // Fetch most recent mood entry within 3 days
+    const recentMood = await Mood.findOne({
       patientId: userId,
-      entryDate: { $gte: today, $lt: tomorrow },
-    });
+      entryDate: { $gte: threeDaysAgo },
+    }).sort({ entryDate: -1 }); // latest mood first
 
-    if (todayMood && todayMood.mood) {
-      mood = todayMood.mood.toLowerCase();
-    } 
+    if (recentMood && recentMood.mood) {
+      mood = recentMood.mood.toLowerCase();
+    }
 
+    // If mood found and mapped, get mood-based recommendations
     if (mood && moodCategoryMap[mood]) {
+      source = "mood";
       categories = moodCategoryMap[mood];
 
       const recommendations = {};
       for (const category of categories) {
-       const music = await Music.find({ moodCategory: new RegExp(`^${category}$`, "i") });
+        // case-insensitive match for moodCategory in DB
+        const music = await Music.find({
+          moodCategory: new RegExp(`^${category}$`, "i"),
+        });
 
         recommendations[category] = {
           title: `${category} Music`,
@@ -74,9 +81,12 @@ const getRecommendations = asyncHandler(async(req,res)=>{
         };
       }
 
-      return res.status(200).json({ success: true, recommendations });
+      return res.status(200).json({
+        success: true,
+        source,
+        recommendations,
+      });
     }
-
 
     //onboarding-based
     if(userId){
