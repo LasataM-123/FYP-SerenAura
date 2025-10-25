@@ -5,10 +5,9 @@ import {
   Image,
   StyleSheet,
   TouchableOpacity,
-  Keyboard
+  Keyboard,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as NavigationBar from "expo-navigation-bar";
 import { StatusBar } from "expo-status-bar";
 import { OverlayProps } from "@/types";
 import Button from "./Button";
@@ -28,22 +27,14 @@ const Overlay: React.FC<OverlayProps> = ({
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
-   Keyboard.dismiss();
+    Keyboard.dismiss();
   }, []);
 
   return (
-    <View
-      style={[
-        styles.overlay,
-        {
-          paddingTop: insets.top,
-          paddingBottom: insets.bottom,
-        },
-      ]}
-    >
+    <View style={styles.overlay}>
       <StatusBar backgroundColor="rgba(0,0,0,0.5)" style="light" />
 
-      <View style={styles.wrapper}>
+      <View style={[styles.wrapper, { paddingBottom: insets.bottom + 16 }]}>
         {/* Shadow Layer */}
         <View style={styles.shadowLayer} />
 
@@ -62,7 +53,6 @@ const Overlay: React.FC<OverlayProps> = ({
             </TouchableOpacity>
           )}
 
-          {/* Icon */}
           {imageSource && (
             <View style={styles.iconWrapper}>
               <Image
@@ -73,16 +63,11 @@ const Overlay: React.FC<OverlayProps> = ({
             </View>
           )}
 
-          {/* Title */}
           <Text style={styles.title}>{title}</Text>
-
-          {/* Description */}
           <Text style={styles.description}>{description}</Text>
 
-          {/* Solid Button */}
           <Button label={label} onPress={onPress} variant="solid" />
 
-          {/* Optional Outlined Button */}
           {includeOutlinedButton && (
             <Button
               label={outlineLabel ?? ""}
@@ -101,13 +86,14 @@ export default Overlay;
 const styles = StyleSheet.create({
   overlay: {
     position: "absolute",
-    inset: 0,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
     zIndex: 999,
-    width: "100%",
-    height: "100%",
   },
   wrapper: {
     width: "80%",
@@ -127,10 +113,9 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: "#ffffff",
     borderRadius: 20,
-    padding: 24,
+    padding: 16,
     alignItems: "center",
     position: "relative",
-    zIndex: 10,
     borderWidth: 4,
     borderColor: "#553434",
   },
@@ -148,17 +133,16 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: "KodchasanSemiBold",
     color: "#553434",
     textAlign: "center",
-    marginBottom: 8,
   },
   description: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#553434",
     textAlign: "center",
-    fontFamily: "KodchasanMedium",
+    fontFamily: "KodchasanLight",
     marginBottom: 24,
   },
 });

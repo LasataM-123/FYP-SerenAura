@@ -20,6 +20,7 @@ import { images } from "@/constants";
 import Button from "@/components/Button";
 import { useBackend } from "@/lib/useBackend";
 import { createOrUpdateMood } from "@/lib/api/mood";
+import Overlay from "@/components/Overlay";
 
 const moods = [
   { id: "1", name: "Happy", image: images.Happy, color: "#FFE37A" },
@@ -86,13 +87,30 @@ const MoodTracker = () => {
     }, 2000);
   };
 
-  const handleLogMood = () => {
-    if (!selectedMood) {
-      showToastMessage("❌ Please select your mood!");
-    } else {
-      setShowOverlay(true);
-    }
-  };
+  const handleLogMood = async () => {
+  if (!selectedMood) {
+    showToastMessage("❌ Please select your mood!");
+    return;
+  }
+
+  // Find mood and feeling names based on selected IDs
+  const selectedMoodObj = moods.find((m) => m.id === selectedMood);
+  const selectedFeelingObj = feelings.find((f) => f.id === feeling);
+
+  const moodName = selectedMoodObj ? selectedMoodObj.name : null;
+  const feelingName = selectedFeelingObj ? selectedFeelingObj.name : null;
+
+  const res = await refetch({
+    mood: moodName,
+    feeling: feelingName,
+    journal,
+  });
+
+  if (res?.success) {
+    setShowOverlay(true);
+  }
+};
+
 
   const MoodItem = ({
     item,
@@ -312,6 +330,9 @@ const MoodTracker = () => {
         >
           <Text style={styles.toastText}>{toastMessage}</Text>
         </Animated.View>
+      )}
+      {showOverlay && (
+        <Overlay title="Mood Added Successfully!" description="Your mood has been recorded. Keep tracking your emotional wellness journey." label="Continue" onPress={()=>{router.push("/home")}} imageSource={images.tick}/>
       )}
     </SafeAreaView>
   );
