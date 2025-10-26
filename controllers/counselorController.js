@@ -27,7 +27,7 @@ const createCounselor=asyncHandler(async(req, res) => {
         }
         const existingPatient = await Counselor.findOne({ email });
         if(existingPatient){
-            res.status(400).json({ message: 'Patient already exists' });
+            res.status(400).json({ message: 'Counselor already exists' });
         }
         // Regex: min 8 chars, at least 1 uppercase, 1 lowercase, 1 number, 1 special character
         const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;

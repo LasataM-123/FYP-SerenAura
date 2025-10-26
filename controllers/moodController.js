@@ -45,7 +45,7 @@ const createOrUpdateMood = asyncHandler(async(req,res)=>{
             const moodEntry = await existingMood.save();
             return res.status(200).json({
             success: true,
-            message: "Mood updated successfully.",
+            successMessage: "Mood updated successfully.",
             data: moodEntry,
         });
 
@@ -60,7 +60,7 @@ const createOrUpdateMood = asyncHandler(async(req,res)=>{
             });
             return res.status(201).json({
             success: true,
-            message: "Mood added successfully.",
+            successMessage: "Mood added successfully.",
             data: moodEntry,
             });
         }
