@@ -50,7 +50,7 @@
       "reactCompiler": true
     },
     "extra": {
-      "API_URL": "http://192.168.1.7:5000/api",
+      "API_URL": "http://192.168.1.6:5000/api",
       "GOOGLE_CLIENT_ID": "795417114491-nuqrncq7d1tjhnjldc0dua98685gbqea.apps.googleusercontent.com",
       "WEB_CLIENT_ID": "795417114491-ktvjjmgq6q3tcnh58lca64577hohhqk3.apps.googleusercontent.com",
       "router": {},

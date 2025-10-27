@@ -15,7 +15,7 @@ import {
 import React, { useEffect, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Top from "@/components/top";
-import { router } from "expo-router";
+import { router, useSegments } from "expo-router";
 import { images } from "@/constants";
 import Button from "@/components/Button";
 import { useBackend } from "@/lib/useBackend";
@@ -48,16 +48,14 @@ const MoodTracker = () => {
   const toastAnim = useRef(new Animated.Value(0)).current;
   const [showOverlay, setShowOverlay] = useState(false);
   const [journal, setJournal] = useState("");
-
-  const handleChange = (input: string) => {
-    if (input.length <= 100) {
-      setJournal(input);
-    }
-  };
+  const [successMessage, setSuccessMessage] = useState("");
 
   const { refetch } = useBackend({
     fn: createOrUpdateMood,
   });
+
+  const segments = useSegments() as string[];
+  const isFromBreathe = segments.includes("breathe");
 
   useEffect(() => {
     StatusBar.setBarStyle("dark-content");
@@ -66,6 +64,10 @@ const MoodTracker = () => {
       StatusBar.setTranslucent(false);
     }
   }, []);
+
+  const handleChange = (input: string) => {
+    if (input.length <= 100) setJournal(input);
+  };
 
   const showToastMessage = (message: string) => {
     setToastMessage(message);
@@ -88,29 +90,28 @@ const MoodTracker = () => {
   };
 
   const handleLogMood = async () => {
-  if (!selectedMood) {
-    showToastMessage("❌ Please select your mood!");
-    return;
-  }
+    if (!selectedMood) {
+      showToastMessage("❌ Please select your mood!");
+      return;
+    }
 
-  // Find mood and feeling names based on selected IDs
-  const selectedMoodObj = moods.find((m) => m.id === selectedMood);
-  const selectedFeelingObj = feelings.find((f) => f.id === feeling);
+    const selectedMoodObj = moods.find((m) => m.id === selectedMood);
+    const selectedFeelingObj = feelings.find((f) => f.id === feeling);
 
-  const moodName = selectedMoodObj ? selectedMoodObj.name : null;
-  const feelingName = selectedFeelingObj ? selectedFeelingObj.name : null;
+    const moodName = selectedMoodObj ? selectedMoodObj.name : null;
+    const feelingName = selectedFeelingObj ? selectedFeelingObj.name : null;
 
-  const res = await refetch({
-    mood: moodName,
-    feeling: feelingName,
-    journal,
-  });
+    const res = await refetch({
+      mood: moodName,
+      feeling: feelingName,
+      journal,
+    });
 
-  if (res?.success) {
-    setShowOverlay(true);
-  }
-};
-
+    if (res?.success) {
+      setSuccessMessage(res?.successMessage || "Mood Added Successfully!");
+      setShowOverlay(true);
+    }
+  };
 
   const MoodItem = ({
     item,
@@ -228,7 +229,40 @@ const MoodTracker = () => {
           contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24 }}
           keyboardShouldPersistTaps="handled"
         >
-          <Top label="Select Your Mood" onBack={() => router.back()} />
+          {/* === CONDITIONAL HEADER === */}
+          {isFromBreathe ? (
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                marginTop: 12,
+                marginBottom: 12,
+              }}
+            >
+              <TouchableWithoutFeedback onPress={() => router.back()}>
+                <Image
+                  source={images.cross}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    tintColor: "#553434",
+                  }}
+                />
+              </TouchableWithoutFeedback>
+              <Text
+                style={{
+                  fontSize: 20,
+                  fontFamily: "KodchasanSemiBold",
+                  color: "#553434",
+                  marginLeft: 10,
+                }}
+              >
+                Log Your Mood After Breathing
+              </Text>
+            </View>
+          ) : (
+            <Top label="Select Your Mood" onBack={() => router.back()} />
+          )}
 
           {/* === MOOD SECTION === */}
           <View style={styles.section}>
@@ -276,29 +310,35 @@ const MoodTracker = () => {
           <View style={styles.section}>
             <Text style={styles.journalHeaderText}>Journal Entry</Text>
             <View style={styles.messageContainer}>
-            <View style={styles.shadowLayerInput} />
-            <View style={styles.inputBox}>
-              <Text style={styles.label}>Share Your Thoughts</Text>
-              <Text style={{fontFamily:"KodchasanMedium", fontStyle:"italic", fontSize: 16, color:"#553434"}}>(optional)</Text>
+              <View style={styles.shadowLayerInput} />
+              <View style={styles.inputBox}>
+                <Text style={styles.label}>Share Your Thoughts</Text>
+                <Text
+                  style={{
+                    fontFamily: "KodchasanMedium",
+                    fontStyle: "italic",
+                    fontSize: 16,
+                    color: "#553434",
+                  }}
+                >
+                  (optional)
+                </Text>
 
-              {/* 🔥 Shadowed TextInput starts here */}
-              <View style={styles.inputContainer}>
-                <View style={styles.inputShadowLayer} />
-                <TextInput
-                  style={styles.input}
-                  value={journal}
-                  onChangeText={handleChange}
-                  placeholder="What’s on your mind today? How are you feeling? What made you happy or worried? Write anything you’d like to remember about today..."
-                  multiline
-                  placeholderTextColor="#553434"
-                />
+                <View style={styles.inputContainer}>
+                  <View style={styles.inputShadowLayer} />
+                  <TextInput
+                    style={styles.input}
+                    value={journal}
+                    onChangeText={handleChange}
+                    placeholder="What’s on your mind today? How are you feeling? What made you happy or worried? Write anything you’d like to remember about today..."
+                    multiline
+                    placeholderTextColor="#553434"
+                  />
+                </View>
+
+                <Text style={styles.counter}>{journal.length}/100</Text>
               </View>
-              {/* 🔥 Shadowed TextInput ends here */}
-
-              <Text style={styles.counter}>{journal.length}/100</Text>
             </View>
-        </View>
-
           </View>
 
           <View style={{ marginTop: 30, marginBottom: 30 }}>
@@ -311,6 +351,7 @@ const MoodTracker = () => {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {/* === TOAST === */}
       {showToast && (
         <Animated.View
           style={[
@@ -331,8 +372,16 @@ const MoodTracker = () => {
           <Text style={styles.toastText}>{toastMessage}</Text>
         </Animated.View>
       )}
+
+      {/* === OVERLAY === */}
       {showOverlay && (
-        <Overlay title="Mood Added Successfully!" description="Your mood has been recorded. Keep tracking your emotional wellness journey." label="Continue" onPress={()=>{router.push("/home")}} imageSource={images.tick}/>
+        <Overlay
+          title={successMessage}
+          description="Your mood has been recorded. Keep tracking your emotional wellness journey."
+          label="Continue"
+          onPress={() => router.push("/home")}
+          imageSource={images.tick}
+        />
       )}
     </SafeAreaView>
   );
@@ -341,15 +390,8 @@ const MoodTracker = () => {
 export default MoodTracker;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-
-  section: {
-    marginTop: 24,
-  },
-
+  container: { flex: 1, backgroundColor: "#fff" },
+  section: { marginTop: 24 },
   headerText: {
     fontSize: 18,
     color: "#553434",
@@ -357,37 +399,31 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 20,
   },
-
   feelingHeaderText: {
     fontSize: 18,
     color: "#553434",
     fontFamily: "KodchasanSemiBold",
     marginBottom: 12,
   },
-
   journalHeaderText: {
     fontSize: 18,
     color: "#553434",
     fontFamily: "KodchasanSemiBold",
     marginBottom: 12,
   },
-
   listContainer: {
     paddingBottom: 12,
     justifyContent: "center",
     alignItems: "center",
   },
-
   row: { gap: 16 },
   feelingRow: { gap: 10 },
-
   moodContainer: {
     width: 92,
     height: 114,
     marginVertical: 10,
     position: "relative",
   },
-
   shadowLayer: {
     position: "absolute",
     width: "100%",
@@ -400,7 +436,6 @@ const styles = StyleSheet.create({
     left: 2,
     zIndex: 0,
   },
-
   moodBox: {
     flex: 1,
     borderRadius: 16,
@@ -410,33 +445,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 1,
   },
-
   moodImage: {
     width: 45,
     height: 45,
     resizeMode: "contain",
     marginBottom: 4,
   },
-
   moodText: {
     fontSize: 15,
     color: "#553434",
     fontFamily: "KodchasanSemiBold",
   },
-
   feelingItem: {
     position: "relative",
     marginVertical: 8,
     alignItems: "center",
     justifyContent: "center",
   },
-
   shadowLayerFeeling: {
     position: "absolute",
     top: 1,
     left: 1,
-    right: 0,
-    bottom: 0,
     width: "100%",
     height: "100%",
     borderRadius: 12,
@@ -445,7 +474,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     zIndex: 0,
   },
-
   feelingBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -459,13 +487,11 @@ const styles = StyleSheet.create({
     zIndex: 1,
     gap: 6,
   },
-
   feelingImage: {
     width: 22,
     height: 22,
     resizeMode: "contain",
   },
-
   feelingText: {
     fontSize: 13,
     color: "#553434",
@@ -473,13 +499,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     textAlign: "center",
   },
-
-  messageContainer: {
-    position: "relative",
-    marginTop: 10,
-    marginBottom: 10,
-  },
-
+  messageContainer: { position: "relative", marginTop: 10, marginBottom: 10 },
   shadowLayerInput: {
     position: "absolute",
     width: "100%",
@@ -492,7 +512,6 @@ const styles = StyleSheet.create({
     left: 2,
     zIndex: 0,
   },
-
   inputBox: {
     borderRadius: 12,
     borderWidth: 3,
@@ -501,12 +520,7 @@ const styles = StyleSheet.create({
     padding: 16,
     zIndex: 1,
   },
-
-    inputContainer: {
-    position: "relative",
-    marginTop: 10,
-  },
-
+  inputContainer: { position: "relative", marginTop: 10 },
   inputShadowLayer: {
     position: "absolute",
     top: 2,
@@ -519,7 +533,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     zIndex: 0,
   },
-
   input: {
     borderWidth: 2,
     borderColor: "#553434",
@@ -533,7 +546,6 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     zIndex: 1,
   },
-
   counter: {
     textAlign: "right",
     marginTop: 4,
@@ -541,7 +553,6 @@ const styles = StyleSheet.create({
     fontFamily: "KodchasanRegular",
     fontSize: 14,
   },
-
   toast: {
     position: "absolute",
     bottom: 60,
@@ -553,20 +564,16 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 16,
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
     zIndex: 9999,
     elevation: 9999,
   },
-
   toastText: {
     fontFamily: "KodchasanMedium",
     color: "#553434",
     fontSize: 16,
   },
-
   label: {
     fontSize: 16,
     fontFamily: "KodchasanSemiBold",

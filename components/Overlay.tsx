@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: "KodchasanSemiBold",
     color: "#553434",
     textAlign: "center",

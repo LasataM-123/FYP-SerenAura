@@ -14,7 +14,7 @@ export type MoodEntry = {
 
 export type CreateOrUpdateMoodResponse = {
   success: boolean;
-  message: string;
+  successMessage: string;
   data: MoodEntry;
 }
 
