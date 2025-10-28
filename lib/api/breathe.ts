@@ -38,3 +38,19 @@ export async function getAllExercises(): Promise<IBreathingResponse> {
         }
     return res.json();
 }
+
+export async function getExerciseById(params?:{breatheId:string}): Promise<IBreathingExercise> {
+      const accessToken = useAuthStore.getState().accessToken;
+    const res = await fetch(`${API_URL}/breathe/get/${params?.breatheId}`, {
+      method: "GET",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${accessToken}`
+     },
+    });
+        if (!res.ok) {
+        const errBody = await res.json();
+        throw new Error(errBody.message || "Get request failed")
+        }
+    return res.json();
+}
