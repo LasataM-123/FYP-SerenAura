@@ -518,7 +518,6 @@ const NowPlayingScreen: React.FC = () => {
           <RotateCcw size={Math.min(34, wWidth * 0.08)} color="#553434" />
           <Text style={[styles.skipText, { fontSize: Math.min(12, wWidth * 0.03) }]}>10s</Text>
         </TouchableOpacity>
-
         <TouchableOpacity onPressIn={handlePlayPressIn} onPressOut={handlePlayPressOut} onPress={loadAndPlay} activeOpacity={1}>
           <Animated.View style={[styles.playButtonContainer, { width: playButtonSize, height: playButtonSize, transform: [{ scale: playScale }] }]}>
             <View style={[styles.playShadowLayer, { width: playButtonSize, height: playButtonSize, borderRadius: playButtonSize / 2, top: 2, left: 2 }]} />

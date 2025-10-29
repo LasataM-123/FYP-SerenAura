@@ -14,7 +14,13 @@ const TAGS = ["All", "Meditation", "Calm", "Stress relief", "Focus", "Sleep", "A
 
 const Library = () => {
   const { tag } = useLocalSearchParams(); 
-  const [selectedTag, setSelectedTag] = useState("All");
+  const initialTag = Array.isArray(tag) ? tag[0] : tag;
+const [selectedTag, setSelectedTag] = useState(
+  initialTag
+    ? initialTag.charAt(0).toUpperCase() + initialTag.slice(1)
+    : "All"
+);
+
 
   // Set tag when navigated from MusicSection
   useEffect(() => {

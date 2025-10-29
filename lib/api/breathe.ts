@@ -9,6 +9,9 @@ export type IBreathingExercise = {
   exhaleTime: number;
   cycles: number;
   imageUrl?: string;
+  inhaleDescription: string;
+  holdDescription: string;
+  exhaleDescription: string;
 }
 
 export type IFormattedExercise = {
@@ -18,9 +21,13 @@ export type IFormattedExercise = {
   imageUrl?: string;
 }
 
-interface IBreathingResponse {
+export interface IBreathingResponse {
   success: boolean;
   breathingExercises: IFormattedExercise[];
+}
+export interface IBreathingIndividualResponse {
+  success: boolean;
+  breathingExercise: IBreathingExercise;
 }
 
 export async function getAllExercises(): Promise<IBreathingResponse> {
@@ -39,7 +46,7 @@ export async function getAllExercises(): Promise<IBreathingResponse> {
     return res.json();
 }
 
-export async function getExerciseById(params?:{breatheId:string}): Promise<IBreathingExercise> {
+export async function getExerciseById(params?:{breatheId:string}): Promise<IBreathingIndividualResponse> {
       const accessToken = useAuthStore.getState().accessToken;
     const res = await fetch(`${API_URL}/breathe/get/${params?.breatheId}`, {
       method: "GET",

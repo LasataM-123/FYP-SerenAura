@@ -26,6 +26,7 @@ import chat from '@/assets/icons/Chat.png';
 import media from '@/assets/icons/Media.png';
 import breathe from '@/assets/icons/Breathe.png';
 import play from '@/assets/icons/Play.png';
+import pause from '@/assets/icons/Pause.png';
 import Happy from '@/assets/icons/Happy.png';
 import Sad from '@/assets/icons/Sad.png';
 import Okay from '@/assets/icons/Okay.png';
@@ -80,5 +81,6 @@ export const images={
     Calm,
     Stressed,
     Tired,
-    Excited
+    Excited,
+    pause
 }

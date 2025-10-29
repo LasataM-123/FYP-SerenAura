@@ -1,4 +1,5 @@
 import { IFormattedExercise } from "@/lib/api/breathe";
+import { router } from "expo-router";
 import { useRef } from "react";
 import { Animated, Dimensions, Image, StyleSheet, Text, TouchableWithoutFeedback, View } from "react-native";
 
@@ -48,7 +49,7 @@ const ExerciseCard = ({
     <TouchableWithoutFeedback
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      onPress={() => {}}
+      onPress={() => {router.push(`/breathe/${item._id}`)}}
     >
       <Animated.View
         style={[

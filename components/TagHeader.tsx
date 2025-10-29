@@ -72,11 +72,6 @@ const TagHeader: React.FC<TagHeaderProps> = ({ tags, selectedTag, onSelect }) =>
   const hasMounted = useRef(false);
 
 useEffect(() => {
-  if (!hasMounted.current) {
-    hasMounted.current = true;
-    return; // skip first mount
-  }
-
   const index = tags.findIndex((tag) => tag === selectedTag);
   if (index !== -1) {
     flatListRef.current?.scrollToIndex({
@@ -85,7 +80,8 @@ useEffect(() => {
       viewPosition: 0.5,
     });
   }
-}, [selectedTag]);
+}, [selectedTag, tags]);
+
 
 
   return (
