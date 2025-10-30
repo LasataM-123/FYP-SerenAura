@@ -55,7 +55,7 @@ const createExercise = asyncHandler(async(req,res)=>{
 /**
  * @route  GET /api/breathe/get
  * @desc   Get breathing exercises
- * @access Public
+ * @access Private (patient only)
  */
 const getBreathing = asyncHandler(async(req,res)=>{
     try{
@@ -63,7 +63,7 @@ const getBreathing = asyncHandler(async(req,res)=>{
         if(!breathingExercise){
             return res.status(404).json({message: "No breathing exercises found"})
         }
-        const formattedExercises = exercises.map((ex) => {
+        const formattedExercises = breathingExercise.map((ex) => {
         const totalSeconds = (ex.inhaleTime + ex.holdTime + ex.exhaleTime) * ex.cycles;
         const totalMinutes = (totalSeconds / 60).toFixed(1); // round to 1 decimal
         return {

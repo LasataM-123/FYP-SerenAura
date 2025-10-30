@@ -19,7 +19,7 @@ const upload = multer({ storage });
 
 router.post('/create',upload.single('imageUrl'),createExercise);
 
-router.get('/get',getBreathing);
+router.get('/get',tokenHandler, validPatient, getBreathing);
 
 router.get('/get/:breatheId',tokenHandler, validPatient, getBreathingById);
 
