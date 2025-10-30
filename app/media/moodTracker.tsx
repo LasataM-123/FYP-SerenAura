@@ -15,7 +15,7 @@ import {
 import React, { useEffect, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Top from "@/components/top";
-import { router, useSegments } from "expo-router";
+import { router, useLocalSearchParams, useSegments } from "expo-router";
 import { images } from "@/constants";
 import Button from "@/components/Button";
 import { useBackend } from "@/lib/useBackend";
@@ -54,8 +54,9 @@ const MoodTracker = () => {
     fn: createOrUpdateMood,
   });
 
-  const segments = useSegments() as string[];
-  const isFromBreathe = segments.includes("breathe");
+  const { from } = useLocalSearchParams();
+const isFromBreathe = from === "breathe";
+
 
   useEffect(() => {
     StatusBar.setBarStyle("dark-content");
@@ -229,46 +230,24 @@ const MoodTracker = () => {
           contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24 }}
           keyboardShouldPersistTaps="handled"
         >
-          {/* === CONDITIONAL HEADER === */}
-          {isFromBreathe ? (
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                marginTop: 12,
-                marginBottom: 12,
-              }}
-            >
-              <TouchableWithoutFeedback onPress={() => router.back()}>
-                <Image
-                  source={images.cross}
-                  style={{
-                    width: 28,
-                    height: 28,
-                    tintColor: "#553434",
-                  }}
-                />
-              </TouchableWithoutFeedback>
-              <Text
-                style={{
-                  fontSize: 20,
-                  fontFamily: "KodchasanSemiBold",
-                  color: "#553434",
-                  marginLeft: 10,
-                }}
-              >
-                Log Your Mood After Breathing
-              </Text>
-            </View>
-          ) : (
-            <Top label="Select Your Mood" onBack={() => router.back()} />
-          )}
+         <Top
+          label="Select Your Mood"
+          onBack={() => {
+            if (isFromBreathe) {
+              router.push("/breathe"); 
+            } else {
+              router.back();
+            }
+          }}
+        />
 
           {/* === MOOD SECTION === */}
           <View style={styles.section}>
-            <Text style={styles.headerText}>
-              How would you describe your overall mood today?
-            </Text>
+             <Text style={styles.headerText}>
+        {isFromBreathe
+          ? "Great job completing your breathing exercise! How do you feel now?"
+          : "How would you describe your overall mood today?"}
+      </Text>
             <FlatList
               scrollEnabled={false}
               data={moods}
@@ -288,7 +267,16 @@ const MoodTracker = () => {
 
           {/* === FEELINGS SECTION === */}
           <View style={styles.section}>
+            <View style={{flexDirection:'row', alignItems:"center", gap: 10}}>
+
             <Text style={styles.feelingHeaderText}>Additional Feelings</Text>
+            <Text style={{
+                    fontFamily: "KodchasanMedium",
+                    fontStyle: "italic",
+                    fontSize: 16,
+                    color: "#553434",
+                  }}>(optional)</Text>
+            </View>
             <FlatList
               scrollEnabled={false}
               data={feelings}
@@ -376,12 +364,19 @@ const MoodTracker = () => {
       {/* === OVERLAY === */}
       {showOverlay && (
         <Overlay
-          title={successMessage}
-          description="Your mood has been recorded. Keep tracking your emotional wellness journey."
-          label="Continue"
-          onPress={() => router.push("/home")}
-          imageSource={images.tick}
+        title={successMessage}
+        description="Your mood has been recorded. Keep tracking your emotional wellness journey."
+        label="Continue"
+        onPress={() => {
+          if (isFromBreathe) {
+            router.push("/breathe");
+          } else {
+            router.back();
+          }
+        }}
+        imageSource={images.tick}
         />
+
       )}
     </SafeAreaView>
   );

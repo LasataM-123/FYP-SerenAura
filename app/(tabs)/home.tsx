@@ -10,7 +10,7 @@ import {
   Text, 
   View 
 } from 'react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { images } from '@/constants';
 import Header from '@/components/Header';
@@ -23,6 +23,7 @@ import { getRecommendations } from '@/lib/api/media';
 import { jwtDecode } from "jwt-decode";
 import { API_URL } from "@/config";
 import MusicSection from '@/components/MusicSection';
+import { useFocusEffect } from '@react-navigation/native';
 
 const getTokenExpiry = (token: string | null): number | null => {
   if (!token) return null;
@@ -172,9 +173,17 @@ const Home = () => {
 }, [accessToken, refreshToken]);
 
 
-  useEffect(() => {
-    refetch();
-  }, []);
+  useFocusEffect(
+  useCallback(() => {
+    const refresh = async () => {
+      setIsRefreshing(true);
+      await refetch();
+      setTimeout(() => setIsRefreshing(false), 600);
+    };
+    refresh();
+  }, [])
+);
+
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
