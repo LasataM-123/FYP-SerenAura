@@ -96,6 +96,8 @@ const Home = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const today = new Date();
+  const [isTokenReady, setIsTokenReady] = useState(false);
+
 
   const { accessToken, refreshToken, updateToken, logout } = useAuthStore();
   const name = useAuthStore((state) => state.name);
@@ -125,7 +127,7 @@ const Home = () => {
     fn: () => getRecommendations(),
   });
 
-  useEffect(() => {
+ useEffect(() => {
   if (!accessToken || !refreshToken) {
     logout();
     return;
@@ -136,13 +138,12 @@ const Home = () => {
     const accessExpiry = getTokenExpiry(accessToken);
     const refreshExpiry = getTokenExpiry(refreshToken);
 
-    // Refresh token expired → logout
     if (!refreshExpiry || now > refreshExpiry) {
       logout();
       return;
     }
 
-    // Access token expired or about to expire → refresh it
+    // Refresh access token if expired or about to expire
     if (!accessExpiry || accessExpiry - now < 2 * 60 * 1000) {
       try {
         const res = await fetch(`${API_URL}/auth/refresh`, {
@@ -154,6 +155,7 @@ const Home = () => {
         if (res.ok) {
           const data = await res.json();
           updateToken(data.accessToken);
+          setIsTokenReady(true);
         } else {
           console.error("Token refresh failed, logging out");
           logout();
@@ -162,27 +164,29 @@ const Home = () => {
         console.error("Auto-refresh failed:", error);
         logout();
       }
+    } else {
+      setIsTokenReady(true); // Access token still valid
     }
   };
 
   checkAndRefreshToken();
-
   const interval = setInterval(checkAndRefreshToken, 60 * 1000);
-
   return () => clearInterval(interval);
 }, [accessToken, refreshToken]);
 
-
-  useFocusEffect(
+useFocusEffect(
   useCallback(() => {
+    if (!isTokenReady) return;
+
     const refresh = async () => {
       setIsRefreshing(true);
       await refetch();
       setTimeout(() => setIsRefreshing(false), 600);
     };
     refresh();
-  }, [])
+  }, [isTokenReady])
 );
+
 
 
   useEffect(() => {
