@@ -2,6 +2,7 @@ const Counselor = require('../models/counselorModel');
 const asyncHandler = require('express-async-handler');
 const bcrypt = require('bcrypt');
 const cloudinary = require('../config/cloudinaryConfig');
+const mongoose = require('mongoose');
 
 const deleteUploadedFile = async (file) => {
     if (!file || !file.path) return;
@@ -14,7 +15,7 @@ const deleteUploadedFile = async (file) => {
 };
 
 /**
- * @route  POST /api/counselor/create
+ * @route  POST /api/counselors/create
  * @desc   Create counselor account
  * @access Public
  */
@@ -58,4 +59,64 @@ const createCounselor=asyncHandler(async(req, res) => {
         res.status(500).json({ message: e.message });
     }
 });
-module.exports = { createCounselor };
+
+/**
+ * @route  GET /api/counselors/get
+ * @desc   Get all counselors
+ * @access Public 
+ */
+const getCounselor = asyncHandler(async (req, res) => {
+  try {
+    const counselors = await Counselor.find().select(
+      "_id name profileUrl experience speciality"
+    );
+
+    if (counselors.length === 0) {
+      return res.status(404).json({message: "No counselors found." });
+    }
+
+    return res.status(200).json({
+      success: true,
+      counselors,
+    });
+  } catch (e) {
+    return res.status(500).json({message: e.message });
+  }
+});
+
+
+/**
+ * @route  GET /api/counselor/get/:id
+ * @desc   Get counselor by Id
+ * @access Private (patient and counselor)
+ */
+const getCounselorById = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ message: "Id is required." });
+    }
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({message: "Invalid counselor ID format." });
+    }
+
+    const foundCounselor = await Counselor.findById(id).select(
+      "_id name profileUrl experience speciality"
+    );
+
+    if (!foundCounselor) {
+      return res.status(404).json({message: "Counselor not found." });
+    }
+
+    return res.status(200).json({
+      success: true,
+      counselor: foundCounselor,
+    });
+  } catch (e) {
+    return res.status(500).json({message: e.message });
+  }
+});
+module.exports = { createCounselor, getCounselor, getCounselorById };

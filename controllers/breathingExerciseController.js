@@ -1,6 +1,8 @@
 const asyncHandler = require('express-async-handler');
 const BreathingExercise = require('../models/breathingExerciseModel');
 const cloudinary = require('../config/cloudinaryConfig');
+const mongoose = require('mongoose');
+
 
 const deleteUploadedFile = async (file) => {
     if (!file || !file.path) return;
@@ -90,6 +92,9 @@ const getBreathingById = asyncHandler(async(req,res)=>{
         if(!breatheId){
             return res.status(400).json({message: "Breathe Id is required"});
         }
+        if (!mongoose.Types.ObjectId.isValid(breatheId)) {
+      return res.status(400).json({ message: "Invalid breathing exercise ID format." });
+    }
         const breathingExercise = await BreathingExercise.findById(breatheId);
         if(!breathingExercise){
             return res.status(404).json({message: "Breathing exercise not found"});

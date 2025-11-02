@@ -72,7 +72,7 @@ const createOrUpdateMood = asyncHandler(async(req,res)=>{
 
 /**
  * @route   GET /api/mood/calendar
- * @desc    Get mood entries for a specific month (calendar-friendly)
+ * @desc    Get mood entries for a specific month(calendar-friendly)
  * @access  Private (patient only)
  */
 const getCalendarMoodEntries = asyncHandler(async (req, res) => {

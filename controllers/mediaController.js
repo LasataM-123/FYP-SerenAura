@@ -6,6 +6,8 @@ const moodCategoryMap = require('../utils/moodCategoryMap');
 const axios = require('axios');
 const mm = require('music-metadata'); 
 const Mood = require('../models/moodModel');
+const mongoose = require('mongoose');
+
 
 //Helper function to get random N items
 function getRandomItems(arr,n){
@@ -133,9 +135,9 @@ const getRecommendations = asyncHandler(async(req,res)=>{
 })
 
 /**
- * @route GET /api/media/filter
-//@desc   Filter music or meditation by category
-//@access Private (patient only)
+ * @route  GET /api/media/filter
+ * @desc   Filter music or meditation by category
+ * @access Private (patient only)
  */
 const filterByCategory = asyncHandler(async (req, res) => {
   try {
@@ -197,6 +199,9 @@ const getIndividualMedia = asyncHandler(async (req, res) => {
     const { id } = req.params;
     if (!id) {
       return res.status(400).json({ message: "Id is required" });
+    }
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({message: "Invalid media ID format." });
     }
 
     // Fetch from Meditation first, then Music

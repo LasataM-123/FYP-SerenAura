@@ -1,6 +1,7 @@
 const asyncHandler = require('express-async-handler');
 const Music = require('../models/musicModel');
 const cloudinary = require('../config/cloudinaryConfig');
+const mongoose = require('mongoose');
 
 
 const extractPublicId = (fileUrl) => {
@@ -110,6 +111,9 @@ const updateMusic = asyncHandler(async(req,res)=>{
     try{
 
         const {musicId} = req.params;
+        if (!mongoose.Types.ObjectId.isValid(musicId)) {
+          return res.status(400).json({message: "Invalid music ID format." });
+        }
          const updateFields = { ...req.body };
         const imageFile = req.files?.image?.[0];
         const audioFile = req.files?.audio?.[0];

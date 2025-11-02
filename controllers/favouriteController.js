@@ -1,6 +1,8 @@
 const asyncHandler = require('express-async-handler');
 const Patient = require('../models/patientModel');
 const Favourite = require('../models/favouriteModel');
+const mongoose = require('mongoose');
+
 
 /**
  * @route  POST /api/favourite/add
@@ -12,6 +14,9 @@ const addFavourite = asyncHandler(async(req, res)=>{
         const {mediaId, mediaType} = req.body;
         if(!mediaId || !mediaType){
             return res.status(400).json({message:"Media Id and media type are required."});
+        }
+        if (!mongoose.Types.ObjectId.isValid(mediaId)) {
+          return res.status(400).json({message: "Invalid media ID format." });
         }
         const patientId = req.user.id;
         const patient = await Patient.findById(patientId);
@@ -76,12 +81,13 @@ const getFavourites = asyncHandler(async (req, res) => {
  * @desc   Remove a favourite media by ID
  * @access Private (patient only)
  */
-
-
 const removeFavourite = asyncHandler(async (req, res) => {
   try {
     const { id } = req.params;
     const patientId = req.user.id;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({message: "Invalid favourite ID format." });
+    }
 
     // Check if favourite exists
     const favourite = await Favourite.findOne({ _id: id, patientId });
@@ -119,7 +125,9 @@ const checkFavourite = asyncHandler(async (req, res) => {
     if (!patientId) {
       return res.status(401).json({ message: "User not authenticated." });
     }
-
+    if (!mongoose.Types.ObjectId.isValid(mediaId)) {
+      return res.status(400).json({message: "Invalid media ID format." });
+    }
     const favourite = await Favourite.findOne({ patientId, mediaId });
     const isFavourite = !!favourite;
     res.status(200).json({ isFavourite });
