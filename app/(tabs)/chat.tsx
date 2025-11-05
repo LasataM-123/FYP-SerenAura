@@ -23,8 +23,12 @@ const Chat = () => {
       <Header />
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24, gap: 16 }}
+        contentContainerStyle={{ paddingHorizontal: 24, gap: 22 }}
       >
+        <View>
+         <Text style={styles.headerText}>Choose Your Counselor</Text>
+         <Text style={{fontFamily:"KodchasanRegular", color:"#553434", fontSize:16}}>Find the right therapist for you</Text>
+        </View>
         {counselors.map((counselor) => (
           <CounselorCard key={counselor._id} {...counselor} />
         ))}
@@ -39,5 +43,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#ffffff',
+  },
+  headerText: {
+    marginTop: 4,
+    fontFamily: "KodchasanSemiBold",
+    fontSize: 22,
+    color: "#553434",
   },
 });

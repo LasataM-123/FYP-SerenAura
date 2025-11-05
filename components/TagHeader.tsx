@@ -77,7 +77,7 @@ useEffect(() => {
     flatListRef.current?.scrollToIndex({
       index,
       animated: true,
-      viewPosition: 0.1,
+      viewPosition: 0.004,
     });
   }
 }, [selectedTag, tags]);

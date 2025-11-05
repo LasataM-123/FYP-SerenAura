@@ -11,10 +11,11 @@ import React, { useRef } from 'react';
 import { CounselorType } from '../lib/api/counselor';
 import Button from '@/components/Button'; 
 import { Hourglass, Stethoscope, UserRound } from 'lucide-react-native';
+import { router } from 'expo-router';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = width - 48; // considering paddingHorizontal: 24
-const CARD_HEIGHT = CARD_WIDTH * 0.38;
+const CARD_WIDTH = width - 48; 
+const CARD_HEIGHT = CARD_WIDTH * 0.4;
 const BORDER_COLOR = '#553434';
 
 const CounselorCard: React.FC<CounselorType> = ({
@@ -25,6 +26,7 @@ const CounselorCard: React.FC<CounselorType> = ({
   speciality,
 }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const counselorId = _id;
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, { toValue: 0.96, friction: 4, useNativeDriver: true }).start();
@@ -44,7 +46,7 @@ const CounselorCard: React.FC<CounselorType> = ({
           {/* Image section with its own shadow layer */}
           <View style={styles.imageWrapper}>
             <View style={styles.imageShadow} />
-            <Image source={{ uri: profileUrl }} style={styles.profileImage} />
+            <Image source={{ uri: profileUrl }} style={styles.profileImage} resizeMode='cover' />
           </View>
 
           {/* Info section */}
@@ -65,7 +67,7 @@ const CounselorCard: React.FC<CounselorType> = ({
 
           {/* Bottom-right button */}
           <View style={styles.buttonContainer}>
-            <Button label="Select" width={80} height={28} onPress={() => {}} />
+            <Button label="Select" width={80} height={38} onPress={() => {router.push(`/counselors/${counselorId}`)}} />
           </View>
         </View>
       </Animated.View>
@@ -99,15 +101,16 @@ const styles = StyleSheet.create({
     borderColor: BORDER_COLOR,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#E6F2EA',
     overflow: 'hidden',
     position: 'relative',
     paddingRight: 90, 
   },
   imageWrapper: {
-    height: '60%',
-    width: CARD_HEIGHT * 0.5,
+    height: '68%',
+    width: CARD_HEIGHT * 0.58,
     marginRight: 14,
+    marginLeft:12,
     position: 'relative',
   },
   imageShadow: {
@@ -115,7 +118,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 10,
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: BORDER_COLOR,
     backgroundColor: '#fff',
     top: 2,
@@ -125,27 +128,31 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 10,
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: BORDER_COLOR,
   },
   infoSection: {
     flex: 1,
     justifyContent: 'center',
   },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 3,
-  },
-  infoText: {
-    fontSize: 14,
-    marginLeft: 6,
-    color: '#333',
-    fontWeight: '500',
-  },
+ infoRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  flexWrap: 'nowrap', 
+  width: '100%',
+},
+infoText: {
+  fontSize: 12,
+  marginLeft: 6,
+  color: '#553434',
+  fontWeight: '500',
+  fontFamily: 'KodchasanSemiBold',
+  flexShrink: 1, 
+},
+
   buttonContainer: {
     position: 'absolute',
-    bottom: 10,
-    right: 10,
+    bottom: 12,
+    right: 12,
   },
 });
