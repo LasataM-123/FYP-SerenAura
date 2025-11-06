@@ -15,17 +15,6 @@ const sendChatRequest = asyncHandler(async (req, res) => {
     return res.status(400).json({ message: "All fields are required" });
   }
 
-  // Check if any pending chat already exists
-  const existingChat = await Chat.findOne({
-    patientId,
-    counselorId,
-    status: { $in: ["pending", "active"] },
-  });
-
-  if (existingChat) {
-    return res.status(400).json({ message: "Chat already exists or the request is pending" });
-  }
-
   const chat = await Chat.create({
     patientId,
     counselorId,
@@ -37,9 +26,155 @@ const sendChatRequest = asyncHandler(async (req, res) => {
   await Patient.findByIdAndUpdate(patientId, { $push: { chat: chat._id } });
   await Counselor.findByIdAndUpdate(counselorId, { $push: { chat: chat._id } });
 
-  return res.status(201).json({ message: "Chat request sent", chat });
+  return res.status(201).json({
+    success: true,
+    message: "Chat request sent successfully",
+    chat,
+  });
 });
+
+
+/**
+ * @route   PUT /api/chat/accept/:chatId
+ * @desc    Accept chat request
+ * @access  Private (counselor only)
+ */
+const acceptChatRequest = asyncHandler(async (req, res) => {
+  const { chatId } = req.params;
+
+  const chat = await Chat.findById(chatId);
+  if (!chat) {
+    return res.status(404).json({ success: false, message: "Chat not found" });
+  }
+
+  if (chat.status !== "pending") {
+    return res.status(400).json({ success: false, message: "Chat already processed" });
+  }
+
+  // Check if counselor already has an active chat with same appointment date/time
+  const conflictingChat = await Chat.findOne({
+    counselorId: chat.counselorId,
+    status: "active",
+    appointmentDate: chat.appointmentDate,
+  });
+
+  if (conflictingChat) {
+    return res.status(400).json({
+      success: false,
+      message: "You already have an active chat at this appointment time",
+    });
+  }
+  chat.status = "active";
+  await chat.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "Chat request accepted successfully",
+    chat,
+  });
+});
+
+
+/**
+ * @route   DELETE /api/chat/cancel/:chatId
+ * @desc    Cancel chat request
+ * @access  Private (counselor only)
+ */
+const cancelChatRequest = asyncHandler(async (req, res) => {
+  const { chatId } = req.params;
+
+  const chat = await Chat.findById(chatId);
+  if (!chat) return res.status(404).json({ message: "Chat not found" });
+
+  // Remove chat reference from both users
+  await Patient.findByIdAndUpdate(chat.patientId, { $pull: { chats: chat._id } });
+  await Counselor.findByIdAndUpdate(chat.counselorId, { $pull: { chats: chat._id } });
+
+  await Chat.findByIdAndDelete(chatId);
+  return res.status(200).json({ message: "Chat request cancelled" });
+});
+
+/**
+ * @route   DELETE /api/chat/cleanup/expired/:chatId
+ * @desc    Delete pending chats older than 24 hours for a specific user
+ * @access  Private
+ */
+const deleteExpiredChatRequests = asyncHandler(async (req, res) => {
+  const {chatId } = req.params;
+  const now = new Date();
+  const expiryTime = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24 hours ago
+
+  const chat = await Chat.findById(chatId);
+  if (!chat) {
+    return res.status(200).json({ status: "closed" });
+  }
+
+  // If chat exists but is pending and older than 24h, treat as expired
+  if (chat.status === "pending" && chat.requestSentDate < expiryTime) {
+    // Optionally delete expired chat immediately
+    await Patient.findByIdAndUpdate(chat.patientId, { $pull: { chats: chat._id } });
+    await Counselor.findByIdAndUpdate(chat.counselorId, { $pull: { chats: chat._id } });
+    await Chat.deleteOne({ _id: chat._id });
+
+    return res.status(200).json({ status: "closed" });
+  }
+
+  // If chat is accepted or cancelled
+  return res.status(200).json({ status: chat.status });
+});
+
+/**
+ * @route   DELETE /api/chat/cleanup/inactive/:userId
+ * @desc    Delete inactive chats (no messages within 1 hour of appointment) for a specific user
+ * @access  Private
+ */
+const deleteInactiveChatsAfterAppointment = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+  const now = new Date();
+
+  // Find chats where 1 hour has passed since appointment
+  const chats = await Chat.find({
+    status: "active",
+    appointmentDate: { $lt: new Date(now.getTime() - 60 * 60 * 1000) },
+    $or: [{ patientId: userId }, { counselorId: userId }],
+  }).populate({
+    path: "messages",
+    select: "senderRole", // we only need senderRole to check
+  });
+
+  const expiredChats = [];
+
+  for (const chat of chats) {
+    const senderRoles = chat.messages?.map(msg => msg.senderRole) || [];
+
+    // Check if both participants have NOT sent any messages
+    const patientSent = senderRoles.includes("patient");
+    const counselorSent = senderRoles.includes("counselor");
+
+    // If neither or only one side sent messages → consider session inactive
+    if (!(patientSent && counselorSent)) {
+      expiredChats.push(chat);
+      await Patient.findByIdAndUpdate(chat.patientId, { $pull: { chats: chat._id } });
+      await Counselor.findByIdAndUpdate(chat.counselorId, { $pull: { chats: chat._id } });
+      await Chat.findByIdAndDelete(chat._id);
+    }
+  }
+
+  if (expiredChats.length === 0) {
+    return res.status(200).json({ message: "No expired or inactive chats found" });
+  }
+
+  return res.status(200).json({
+    message: `${expiredChats.length} inactive chat(s) deleted — session expired`,
+    deletedChats: expiredChats.map(c => c._id),
+  });
+});
+
 
 module.exports = {
   sendChatRequest,
+  acceptChatRequest,
+  cancelChatRequest,
+  deleteExpiredChatRequests,
+  deleteInactiveChatsAfterAppointment,
 };
