@@ -2,39 +2,37 @@ import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
-  Image,
   StyleSheet,
-  TouchableOpacity,
   Keyboard,
   Animated,
   Easing,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { OverlayProps } from "@/types";
-import Button from "./Button";
-import { images } from "@/constants";
+import Button from "../Button";
+import { useSessionStore } from "@/store/sessionStore";
 
-const Overlay: React.FC<OverlayProps> = ({
-  title,
-  description,
-  label,
-  imageSource,
-  outlineLabel,
+interface RequestOverlayProps {
+  includeOutlinedButton?: boolean;
+  onClose: () => void;
+}
+
+const RequestOverlay: React.FC<RequestOverlayProps> = ({
   includeOutlinedButton = false,
-  crossIcon = false,
   onClose,
-  onPress,
 }) => {
   const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  const { chatId, counselorName, appointmentDate } = useSessionStore();
 
   useEffect(() => {
     Keyboard.dismiss();
 
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 250, // fade in speed
+      duration: 250,
       easing: Easing.out(Easing.ease),
       useNativeDriver: true,
     }).start();
@@ -42,54 +40,60 @@ const Overlay: React.FC<OverlayProps> = ({
     return () => {
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: 200, // fade out speed
+        duration: 200,
         easing: Easing.in(Easing.ease),
         useNativeDriver: true,
       }).start();
     };
   }, []);
 
+  // ✅ Format appointment date
+  const formattedAppointmentDate = appointmentDate
+    ? new Date(appointmentDate).toLocaleString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+        hour12: true,
+      })
+    : "Not Scheduled";
+
   return (
     <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
       <StatusBar backgroundColor="rgba(0,0,0,0.5)" style="light" />
 
       <View style={[styles.wrapper, { paddingBottom: insets.bottom + 16 }]}>
-        {/* Shadow Layer */}
         <View style={styles.shadowLayer} />
 
-        {/* Main Card */}
         <View style={styles.card}>
-          {crossIcon && (
-            <TouchableOpacity
-              style={styles.crossIconContainer}
-              onPress={onClose}
-            >
-              <Image
-                source={images.cross}
-                style={styles.crossIcon}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
-          )}
+          <ActivityIndicator
+            size="large"
+            color="#553434"
+            style={{ transform: [{ scale: 2 }], marginTop: 24 }}
+          />
+          <Text style={styles.title}>Booking Request Sent</Text>
 
-          {imageSource && (
-            <View style={styles.iconWrapper}>
-              <Image
-                source={imageSource}
-                style={{ width: 88, height: 88 }}
-                resizeMode="contain"
-              />
-            </View>
-          )}
+          <Text style={styles.description}>
+            We’re waiting for Dr.{counselorName} to confirm your chat request
+            within the booking time.
+          </Text>
 
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.description}>{description}</Text>
+          <View style={styles.sessionContainer}>
+            <Text style={styles.sessionText}>
+              Appointment: 
+            </Text>
+            <Text style={styles.sessionText}>
+              {formattedAppointmentDate}
+            </Text>
+          </View>
 
-          <Button label={label} onPress={onPress} variant="solid" />
+          <Button label="Start Chat" onPress={onClose} variant="solid" />
 
           {includeOutlinedButton && (
             <Button
-              label={outlineLabel ?? ""}
+              label="Another Action"
               onPress={() => {}}
               variant="outline"
             />
@@ -100,7 +104,7 @@ const Overlay: React.FC<OverlayProps> = ({
   );
 };
 
-export default Overlay;
+export default RequestOverlay;
 
 const styles = StyleSheet.create({
   overlay: {
@@ -138,30 +142,37 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: "#553434",
   },
-  crossIconContainer: {
-    position: "absolute",
-    top: 12,
-    left: 12,
-    padding: 6,
-  },
-  crossIcon: {
-    width: 20,
-    height: 20,
-  },
-  iconWrapper: {
-    marginBottom: 24,
-  },
   title: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: "KodchasanSemiBold",
     color: "#553434",
     textAlign: "center",
+    marginTop: 24,
   },
   description: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#553434",
     textAlign: "center",
     fontFamily: "KodchasanLight",
-    marginBottom: 24,
+  },
+  sessionText: {
+    fontSize: 13,
+    color: "#553434",
+    textAlign: "center",
+    fontFamily: "KodchasanMedium",
+  },
+  sessionContainer: {
+    width:"100%",
+    marginTop: 24,
+    backgroundColor: "#F5EFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderColor: "#553434",
+    borderWidth: 2,
+    boxShadow: '2px 2px 0px rgb(85, 52, 52)',
   },
 });

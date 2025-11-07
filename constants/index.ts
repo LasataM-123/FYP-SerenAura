@@ -40,6 +40,8 @@ import Calm from '@/assets/icons/Calm.png';
 import Stressed from '@/assets/icons/Stressed.png';
 import Tired from '@/assets/icons/Tired.png';
 import Excited from '@/assets/icons/Excited.png';
+import BlockCross from '@/assets/icons/BlockCross.png';
+import ButtonChat from '@/assets/icons/ButtonChat.png';
 
 export const images={
     welcomeImage,
@@ -83,5 +85,7 @@ export const images={
     Stressed,
     Tired,
     Excited,
-    pause
+    pause,
+    BlockCross,
+    ButtonChat
 }

@@ -36,7 +36,7 @@ const Button: React.FC<ButtonProps> = ({
   const buttonHeight = height || Math.max(56, wWidth * 0.13);
   const fontSize = textSize || Math.max(14, buttonHeight * 0.33);
   const borderRadius = 10;
-  const borderWidth = Math.max(2, buttonHeight * 0.07);
+  const borderWidth = Math.max(2, buttonHeight * 0.05);
   const imageSize = buttonHeight * 0.45;
   const shadowOffset = Math.max(2, buttonHeight * 0.05);
 

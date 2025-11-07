@@ -73,15 +73,19 @@ const TagHeader: React.FC<TagHeaderProps> = ({ tags, selectedTag, onSelect }) =>
 
 useEffect(() => {
   const index = tags.findIndex((tag) => tag === selectedTag);
+  if (!hasMounted.current) {
+    hasMounted.current = true; 
+    return;
+  }
+
   if (index !== -1) {
     flatListRef.current?.scrollToIndex({
       index,
       animated: true,
-      viewPosition: 0.004,
+      viewPosition: 0.5,
     });
   }
 }, [selectedTag, tags]);
-
 
 
   return (
@@ -101,7 +105,7 @@ useEffect(() => {
           />
         )}
         getItemLayout={(_, index) => ({
-          length: 94, // approximate width of each tag including marginRight
+          length: 94,
           offset: 94 * index,
           index,
         })}
