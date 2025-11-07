@@ -41,6 +41,7 @@ const sendChatRequest = asyncHandler(async (req, res) => {
  */
 const acceptChatRequest = asyncHandler(async (req, res) => {
   const { chatId } = req.params;
+  const io = req.app.get("io");
 
   const chat = await Chat.findById(chatId);
   if (!chat) {
@@ -51,7 +52,7 @@ const acceptChatRequest = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: "Chat already processed" });
   }
 
-  // Check if counselor already has an active chat with same appointment date/time
+  // Check for conflict
   const conflictingChat = await Chat.findOne({
     counselorId: chat.counselorId,
     status: "active",
@@ -61,11 +62,14 @@ const acceptChatRequest = asyncHandler(async (req, res) => {
   if (conflictingChat) {
     return res.status(400).json({
       success: false,
-      message: "You already have an active chat at this appointment time",
+      message: "You already have an active chat at this time",
     });
   }
+
   chat.status = "active";
   await chat.save();
+
+  io.to(chatId).emit("chatStatusUpdated", { chatId, status: "active" });
 
   return res.status(200).json({
     success: true,
@@ -78,21 +82,25 @@ const acceptChatRequest = asyncHandler(async (req, res) => {
 /**
  * @route   DELETE /api/chat/cancel/:chatId
  * @desc    Cancel chat request
- * @access  Private (counselor only)
+ * @access  Private 
  */
 const cancelChatRequest = asyncHandler(async (req, res) => {
   const { chatId } = req.params;
+  const io = req.app.get("io");
 
   const chat = await Chat.findById(chatId);
   if (!chat) return res.status(404).json({ message: "Chat not found" });
 
-  // Remove chat reference from both users
-  await Patient.findByIdAndUpdate(chat.patientId, { $pull: { chats: chat._id } });
-  await Counselor.findByIdAndUpdate(chat.counselorId, { $pull: { chats: chat._id } });
+  await Patient.findByIdAndUpdate(chat.patientId, { $pull: { chat: chat._id } });
+  await Counselor.findByIdAndUpdate(chat.counselorId, { $pull: { chat: chat._id } });
 
   await Chat.findByIdAndDelete(chatId);
-  return res.status(200).json({ message: "Chat request cancelled" });
+
+  io.to(chatId).emit("chatStatusUpdated", { chatId, status: "closed" });
+
+  return res.status(200).json({ message: "Chat request cancelled" , status:"closed"});
 });
+
 
 /**
  * @route   DELETE /api/chat/cleanup/expired/:chatId
@@ -100,26 +108,44 @@ const cancelChatRequest = asyncHandler(async (req, res) => {
  * @access  Private
  */
 const deleteExpiredChatRequests = asyncHandler(async (req, res) => {
-  const {chatId } = req.params;
-  const now = new Date();
-  const expiryTime = new Date(now.getTime() - 24 * 60 * 60 * 1000); // 24 hours ago
+  const { chatId } = req.params;
+  const io = req.app.get("io"); 
 
+  const now = new Date();
   const chat = await Chat.findById(chatId);
   if (!chat) {
-    return res.status(200).json({ status: "closed" });
+    return res.status(200).json({ status: "" });
   }
 
-  // If chat exists but is pending and older than 24h, treat as expired
-  if (chat.status === "pending" && chat.requestSentDate < expiryTime) {
-    // Optionally delete expired chat immediately
-    await Patient.findByIdAndUpdate(chat.patientId, { $pull: { chats: chat._id } });
-    await Counselor.findByIdAndUpdate(chat.counselorId, { $pull: { chats: chat._id } });
-    await Chat.deleteOne({ _id: chat._id });
+  let isExpired = false;
 
-    return res.status(200).json({ status: "closed" });
+  if (chat.status === "pending") {
+    if (chat.appointmentDate) {
+      const appointmentDate = new Date(chat.appointmentDate);
+
+      // If appointmentDate is in the past or less than 24 hours from now, expire it
+      if (appointmentDate <= now) {
+        isExpired = true;
+      }
+    } else {
+      // fallback: check 24 hours since requestSentDate
+      const expiryTime = new Date(chat.requestSentDate.getTime() + 24 * 60 * 60 * 1000);
+      if (expiryTime <= now) {
+        isExpired = true;
+      }
+    }
+
+    if (isExpired) {
+      // remove references
+      await Patient.findByIdAndUpdate(chat.patientId, { $pull: { chat: chat._id } });
+      await Counselor.findByIdAndUpdate(chat.counselorId, { $pull: { chat: chat._id } });
+      await Chat.deleteOne({ _id: chat._id });
+
+      io.to(chatId).emit("chatStatusUpdated", { chatId, status: "closed" });
+      return res.status(200).json({ status: "closed" });
+    }
   }
 
-  // If chat is accepted or cancelled
   return res.status(200).json({ status: chat.status });
 });
 
