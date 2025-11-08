@@ -67,3 +67,39 @@ export async function deleteExpired(params?:{chatId:string}): Promise<DeleteExpi
         }
     return res.json();
 }
+
+export async function deleteInactiveChats(params?: { userId: string }): Promise<DeleteExpiredChatsResponse> {
+  const accessToken = useAuthStore.getState().accessToken;
+  const res = await fetch(`${API_URL}/chat/cleanup/inactive/${params?.userId}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json();
+    throw new Error(errBody.message || "Failed to delete inactive chats");
+  }
+
+  return res.json();
+}
+
+export async function cancelRequest(params?: { chatId: string }): Promise<DeleteExpiredChatsResponse> {
+  const accessToken = useAuthStore.getState().accessToken;
+  const res = await fetch(`${API_URL}/chat/cancel/${params?.chatId}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json();
+    throw new Error(errBody.message || "Failed to delete inactive chats");
+  }
+
+  return res.json();
+}

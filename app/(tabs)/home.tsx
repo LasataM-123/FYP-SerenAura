@@ -174,19 +174,36 @@ const Home = () => {
   return () => clearInterval(interval);
 }, [accessToken, refreshToken]);
 
+
 useFocusEffect(
   useCallback(() => {
-    if (!isTokenReady) return;
+    // Set initial bar style when screen is focused
+    StatusBar.setBarStyle("dark-content");
+    StatusBar.setBackgroundColor("#FFFFFF");
 
     const refresh = async () => {
+      if (!isTokenReady) return;
       setIsRefreshing(true);
       await refetch();
       setTimeout(() => setIsRefreshing(false), 600);
     };
     refresh();
+
+    return () => {
+      // reset bar style when unfocused
+      StatusBar.setBarStyle("light-content");
+    };
   }, [isTokenReady])
 );
 
+useEffect(() => {
+  if (isRefreshing) {
+    StatusBar.setBarStyle("light-content"); 
+  } else {
+    StatusBar.setBarStyle("dark-content"); 
+    StatusBar.setBackgroundColor("#FFFFFF");
+  }
+}, [isRefreshing]);
 
 
   useEffect(() => {
@@ -198,13 +215,10 @@ useFocusEffect(
   }, [isRefreshing]);
 
   const handleRefresh = async () => {
-    StatusBar.setBarStyle("light-content");
     setIsRefreshing(true);
     await refetch();
     setTimeout(() => {
     setIsRefreshing(false);
-    // Revert to dark content once done
-    StatusBar.setBarStyle("dark-content");
   }, 500);
   };
 

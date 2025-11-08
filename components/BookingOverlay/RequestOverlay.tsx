@@ -32,7 +32,6 @@ const RequestOverlay: React.FC<RequestOverlayProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
-
   const { counselorName, appointmentDate } = useSessionStore();
 
   useEffect(() => {
@@ -89,7 +88,7 @@ const RequestOverlay: React.FC<RequestOverlayProps> = ({
         return (
           <Image
             source={images.BlockCross}
-            style={{ width: 60, height: 60,marginTop: 24 }}
+            style={{ width: 60, height: 60, marginTop: 24 }}
             resizeMode="contain"
           />
         );
@@ -102,16 +101,25 @@ const RequestOverlay: React.FC<RequestOverlayProps> = ({
     if (status === "active") {
       return (
         <>
-          <Button label="Start Chat" onPress={onPrimaryAction} variant="solid" imageSource={images.ButtonChat}/>
+          <Button
+            label="Start Chat"
+            onPress={onPrimaryAction}
+            variant="solid"
+            imageSource={images.ButtonChat}
+          />
           {onSecondaryAction && (
-            <Button label="Go back to counselors" onPress={onSecondaryAction} variant="outline" />
+            <Button
+              label="Go back to counselors"
+              onPress={onSecondaryAction}
+              variant="outline"
+            />
           )}
         </>
       );
     } else if (status === "closed") {
       return (
         <Button
-          label="Go back to counselors"
+          label="Go back"
           onPress={onSecondaryAction || onPrimaryAction}
           variant="outline"
         />
@@ -129,7 +137,7 @@ const RequestOverlay: React.FC<RequestOverlayProps> = ({
 
   return (
     <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
-      <StatusBar backgroundColor="rgba(0,0,0,0.5)" style="light" />
+      <StatusBar style="light" backgroundColor="rgba(0,0,0,0.5)" />
 
       <View style={[styles.wrapper, { paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.shadowLayer} />
@@ -225,7 +233,5 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderColor: "#553434",
     borderWidth: 2,
-    boxShadow: '2px 2px 0px rgb(85, 52, 52)',
-
   },
 });

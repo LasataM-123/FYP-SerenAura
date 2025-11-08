@@ -31,9 +31,7 @@ export default function BreathingScreen(): JSX.Element {
   const [phaseSecondIndex, setPhaseSecondIndex] = useState(0);
 
   // Animation refs
-  const rotation = useRef(new Animated.Value(0)).current;
-  const groupScale = useRef(new Animated.Value(0.9)).current;
-  const petalsTranslate = useRef(new Animated.Value(0)).current;
+  const lungsScale = useRef(new Animated.Value(0.9)).current;
   const holdPulse = useRef(new Animated.Value(1)).current;
 
   // Timer refs
@@ -44,7 +42,6 @@ export default function BreathingScreen(): JSX.Element {
 
   const { refetch } = useBackend({ fn: getExerciseById });
 
-  // Load breathing exercise
   useEffect(() => {
     async function load() {
       try {
@@ -59,23 +56,15 @@ export default function BreathingScreen(): JSX.Element {
       }
     }
     load();
-
-    return () => {
-      cleanupTimers();
-      rotation.stopAnimation();
-    };
+    return () => cleanupTimers();
   }, [breatheId]);
 
-  // Start breathing cycle
   useEffect(() => {
-    if (!loading && exercise && isPlaying) {
-      startCycleFromPhase(phase);
-    }
+    if (!loading && exercise && isPlaying) startCycleFromPhase(phase);
   }, [loading, exercise]);
 
   function startCycleFromPhase(startPhase: Phase) {
     cleanupTimers();
-    startRotation();
     setPhase(startPhase);
     beginPhase(startPhase);
   }
@@ -88,12 +77,12 @@ export default function BreathingScreen(): JSX.Element {
       phaseRemainingMsRef.current = Math.max(0, phaseDuration - elapsed);
     }
     cleanupTimers();
-    rotation.stopAnimation();
+    lungsScale.stopAnimation();
+    holdPulse.stopAnimation();
   }
 
   function resumeAll() {
     setIsPlaying(true);
-    startRotation();
     const remaining = phaseRemainingMsRef.current;
     beginPhase(phase, remaining ?? undefined);
   }
@@ -150,55 +139,32 @@ export default function BreathingScreen(): JSX.Element {
       setPhaseSecondIndex(idx);
     }, 1000);
 
-    // Animations
+    const animDuration = totalMs + 1000; 
+
     if (p === "inhale") {
-      Animated.parallel([
-        Animated.timing(petalsTranslate, {
-          toValue: 0,
-          duration: totalMs,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(groupScale, {
-          toValue: 1.05,
-          duration: totalMs,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]).start();
+      Animated.timing(lungsScale, {
+        toValue: 1.2,
+        duration: animDuration,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }).start();
     } else if (p === "hold") {
-      Animated.parallel([
-        Animated.timing(petalsTranslate, {
-          toValue: 1,
-          duration: 400,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(groupScale, {
-          toValue: 0.95,
-          duration: 400,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]).start(() => startHoldPulse(totalMs));
+      Animated.timing(lungsScale, {
+        toValue: 1.15,
+        duration: 800,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }).start(() => startHoldPulse(totalMs));
     } else {
-      Animated.parallel([
-        Animated.timing(petalsTranslate, {
-          toValue: 0,
-          duration: totalMs,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(groupScale, {
-          toValue: 0.9,
-          duration: totalMs,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]).start();
+      Animated.timing(lungsScale, {
+        toValue: 0.9,
+        duration: animDuration,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }).start();
     }
 
-    // Transition
+    // --- Transition logic ---
     if (phaseTimerRef.current) clearTimeout(phaseTimerRef.current);
     phaseTimerRef.current = setTimeout(() => {
       if (perSecondIntervalRef.current) {
@@ -213,7 +179,6 @@ export default function BreathingScreen(): JSX.Element {
         setPhase("exhale");
         beginPhase("exhale");
       } else {
-        // Increment cycle after exhale
         setCycleIndex((prev) => {
           const total = exercise.cycles ?? 1;
           const isLast = prev + 1 >= total;
@@ -234,7 +199,7 @@ export default function BreathingScreen(): JSX.Element {
             setTimeout(() => {
               setPhase("inhale");
               beginPhase("inhale");
-            }, 100);
+            }, 150);
             return next;
           }
         });
@@ -242,35 +207,22 @@ export default function BreathingScreen(): JSX.Element {
     }, totalMs);
   }
 
-  function startRotation() {
-    rotation.setValue(0);
-    Animated.loop(
-      Animated.timing(rotation, {
-        toValue: 1,
-        duration: 12000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    ).start();
-  }
-
   function startHoldPulse(durationMs: number) {
     holdPulse.setValue(1);
     const pulseAnim = Animated.loop(
       Animated.sequence([
         Animated.timing(holdPulse, {
-          toValue: 1.05,
-          duration: 800,
+          toValue: 1.08,
+          duration: 1000,
           easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
         Animated.timing(holdPulse, {
           toValue: 1.0,
-          duration: 800,
+          duration: 1000,
           easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
-        Animated.delay(400),
       ])
     );
     pulseAnim.start();
@@ -288,17 +240,6 @@ export default function BreathingScreen(): JSX.Element {
     );
   }
 
-  const petals = new Array(6).fill(0);
-  const maxTranslate = width * 0.06;
-  const rotateInter = rotation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
-  const petalTranslateInter = petalsTranslate.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0],
-  });
-
   const currentPhaseTime =
     phase === "inhale"
       ? exercise.inhaleTime
@@ -313,44 +254,30 @@ export default function BreathingScreen(): JSX.Element {
         onBack={() => router.back()}
       />
 
-      <View style={styles.mainContent}>
-        <View style={styles.centerContainer}>
-          <Animated.View
+      <View style={styles.mainWrapper}>
+        <View style={styles.lungsFixedContainer}>
+          <Text style={styles.phaseLabel}>{phase.toUpperCase()}</Text>
+          <Animated.Image
+            source={images.Lungs}
+            resizeMode="contain"
             style={[
-              styles.petalsGroup,
+              styles.lungsImage,
               {
                 transform: [
-                  { rotate: rotateInter },
-                  { scale: Animated.multiply(groupScale, holdPulse) },
+                  {
+                    scale: Animated.multiply(lungsScale, holdPulse),
+                  },
                 ],
               },
             ]}
-          >
-            {petals.map((_, i) => {
-              const angle = (i / petals.length) * Math.PI * 2;
-              const tx = Animated.multiply(
-                petalTranslateInter,
-                Math.cos(angle) * maxTranslate
-              );
-              const ty = Animated.multiply(
-                petalTranslateInter,
-                Math.sin(angle) * maxTranslate
-              );
-              return (
-                <Animated.View
-                  key={i}
-                  style={[
-                    styles.petal,
-                    { transform: [{ translateX: tx }, { translateY: ty }] },
-                  ]}
-                />
-              );
-            })}
-          </Animated.View>
-          <Text style={styles.phaseLabel}>{phase.toUpperCase()}</Text>
+          />
         </View>
 
-        <View style={styles.descriptionContainer}>
+        <View
+          style={
+            styles.descriptionContainer
+            }
+        >
           <Text style={styles.descriptionText}>
             {phase === "inhale"
               ? exercise.inhaleDescription
@@ -361,7 +288,7 @@ export default function BreathingScreen(): JSX.Element {
         </View>
       </View>
 
-      {/* Fixed Bottom Section */}
+      {/* Bottom Section */}
       <View style={styles.bottomFixed}>
         <View style={styles.dotsRow}>
           {new Array(currentPhaseTime).fill(0).map((_, idx) => {
@@ -392,7 +319,7 @@ export default function BreathingScreen(): JSX.Element {
   );
 }
 
-const PETAL_SIZE = Math.round(width * 0.8);
+const LUNGS_SIZE = Math.round(width * 0.75);
 
 const styles = StyleSheet.create({
   screen: {
@@ -400,40 +327,35 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     paddingHorizontal: 24,
   },
-  mainContent: {
-    flexGrow: 1,
+  mainWrapper: {
+    flex: 1,
     justifyContent: "center",
-  },
-  centerContainer: {
-    width: "100%",
-    height: PETAL_SIZE + 20,
     alignItems: "center",
-    justifyContent: "center",
-  },
-  petalsGroup: {
-    width: PETAL_SIZE,
-    height: PETAL_SIZE,
-    alignItems: "center",
-    justifyContent: "center",
     position: "relative",
   },
-  petal: {
-    position: "absolute",
-    width: PETAL_SIZE * 0.6,
-    height: PETAL_SIZE * 0.6,
-    borderRadius: PETAL_SIZE * 0.3,
-    backgroundColor: "rgba(235, 135, 120, 0.4)",
-    opacity: 0.85,
+  lungsFixedContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    height: LUNGS_SIZE + 80,
+  },
+  lungsImage: {
+    width: LUNGS_SIZE,
+    height: LUNGS_SIZE,
   },
   phaseLabel: {
     position: "absolute",
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "600",
+    top: "1%", 
+    color: "#4F2F2F",
+    fontSize: 22,
+    fontWeight: "700",
+    fontFamily: "KodchasanSemiBold",
     letterSpacing: 1,
   },
   descriptionContainer: {
-    paddingHorizontal: 20,
+    position: "absolute",
+    bottom: 20,
+    width: "90%",
+    alignSelf: "center",
   },
   descriptionText: {
     textAlign: "center",
@@ -481,9 +403,9 @@ const styles = StyleSheet.create({
   },
   cyclesText: {
     marginTop: 8,
-    marginBottom:12,
+    marginBottom: 12,
     color: "#553434",
-    fontFamily:"KodchasanMedium"
+    fontFamily: "KodchasanMedium",
   },
   centered: {
     flex: 1,
