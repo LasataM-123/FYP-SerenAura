@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import io, { Socket } from "socket.io-client";
 import { SOCKET_URL } from "@/config";
-import { deleteExpired, deleteInactiveChats } from "./api/chat"; 
+import { deleteExpired, deleteInactiveChats } from "./api/chat";
 import { useBackend } from "./useBackend";
 import { useAuthStore } from "@/store/authStore";
 
@@ -14,11 +14,12 @@ export function useChatStatus(
 ) {
   const [status, setStatus] = useState<ChatStatus>("");
   const { refetch } = useBackend({ fn: deleteExpired });
-  const { refetch: refetchInactive } = useBackend({ fn: deleteInactiveChats }); 
+  const { refetch: refetchInactive } = useBackend({ fn: deleteInactiveChats });
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const userId = useAuthStore.getState().userId;
 
+  // --- Socket connection setup ---
   useEffect(() => {
     if (!chatId) {
       if (socketRef.current) {
@@ -28,7 +29,10 @@ export function useChatStatus(
       return;
     }
 
-    const socket = io(SOCKET_URL, { transports: ["websocket"], withCredentials: true });
+    const socket = io(SOCKET_URL, {
+      transports: ["websocket"],
+      withCredentials: true,
+    });
     socketRef.current = socket;
 
     socket.on("connect", () => {
@@ -52,6 +56,7 @@ export function useChatStatus(
     };
   }, [chatId]);
 
+  // --- Fetch initial status from backend ---
   useEffect(() => {
     if (!chatId) {
       setStatus("");
@@ -74,6 +79,7 @@ export function useChatStatus(
     };
   }, [chatId]);
 
+  // --- Check for inactive active chats ---
   useEffect(() => {
     if (status === "active" && userId) {
       (async () => {
@@ -86,6 +92,7 @@ export function useChatStatus(
     }
   }, [status, userId]);
 
+  // --- Expiry logic for pending requests ---
   useEffect(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -97,9 +104,17 @@ export function useChatStatus(
     const now = Date.now();
     let expiryTime: number | null = null;
 
-    if (appointmentDate) {
+    if (appointmentDate && chatRequestSentDate) {
       const appointment = new Date(appointmentDate).getTime();
-      expiryTime = appointment <= now ? now : appointment;
+      const requestTime = new Date(chatRequestSentDate).getTime();
+      const twentyFourHoursLater = requestTime + 24 * 60 * 60 * 1000;
+
+      // If appointment is within 24h → expire at appointment
+      // If appointment > 24h → expire after 24h
+      expiryTime =
+        appointment - requestTime <= 24 * 60 * 60 * 1000
+          ? appointment
+          : twentyFourHoursLater;
     } else if (chatRequestSentDate) {
       const requestTime = new Date(chatRequestSentDate).getTime();
       expiryTime = requestTime + 24 * 60 * 60 * 1000;

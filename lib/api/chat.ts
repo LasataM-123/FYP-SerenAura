@@ -25,16 +25,6 @@ export type Chat = {
   updatedAt: string;
 };
 
-export type SendChatRequestResponse = {
-  success: boolean;
-  message: string;
-  chat: Chat;
-};
-
-export type DeleteExpiredChatsResponse = {
-  status: "closed" | "active" | "pending" | "";
-};
-
 export type PatientInfo = {
   _id: string;
   name: string;
@@ -52,8 +42,7 @@ export type GetResponse = {
   messages: Message[];
   createdAt: string;
   updatedAt: string;
-}
-
+};
 
 export type GetChatResponse = {
   success: boolean;
@@ -61,46 +50,91 @@ export type GetChatResponse = {
   chats: GetResponse[];
 };
 
-export async function sendChatRequest(params?:{patientId: string, counselorId: string, appointmentDate: string}): Promise<SendChatRequestResponse> {
-    const accessToken = useAuthStore.getState().accessToken;
-    const res = await fetch(`${API_URL}/chat/request`, {
-      method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${accessToken}`
-     },
-     body: JSON.stringify(params)
-    });
-        if (!res.ok) {
-        const errBody = await res.json();
-        throw new Error(errBody.message || "Post request failed")
-        }
-    return res.json();
-}
+export type SendChatRequestResponse = {
+  success: boolean;
+  message: string;
+  chat: Chat;
+};
 
-export async function deleteExpired(params?:{chatId:string}): Promise<DeleteExpiredChatsResponse> {
-    const accessToken = useAuthStore.getState().accessToken;
-    const res = await fetch(`${API_URL}/chat/cleanup/expired/${params?.chatId}`, {
-      method: "DELETE",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${accessToken}`
-     },
-    });
-        if (!res.ok) {
-        const errBody = await res.json();
-        throw new Error(errBody.message || "Post request failed")
-        }
-    return res.json();
-}
+export type DeleteExpiredChatsResponse = {
+  status: "closed" | "active" | "pending" | "";
+};
 
-export async function deleteInactiveChats(params?: { userId: string }): Promise<DeleteExpiredChatsResponse> {
+export type DeleteInactiveChatsResponse = {
+  message: string;
+  deletedChats?: string[];
+};
+
+export type CancelChatResponse = {
+  message: string;
+  status: "closed";
+};
+
+export type AcceptChatResponse = {
+  success: boolean;
+  message: string;
+  status: "active" | "pending" ;
+};
+
+export async function sendChatRequest(params?: {
+  patientId: string;
+  counselorId: string;
+  appointmentDate: string;
+}): Promise<SendChatRequestResponse> {
   const accessToken = useAuthStore.getState().accessToken;
+
+  const res = await fetch(`${API_URL}/chat/request`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      patientId: params?.patientId,
+      counselorId: params?.counselorId,
+      appointmentDate: params?.appointmentDate,
+    }),
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json();
+    throw new Error(errBody.message || "Failed to send chat request");
+  }
+
+  return res.json();
+}
+
+export async function deleteExpired(
+  params?: { chatId: string }
+): Promise<DeleteExpiredChatsResponse> {
+  const accessToken = useAuthStore.getState().accessToken;
+
+  const res = await fetch(`${API_URL}/chat/cleanup/expired/${params?.chatId}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json();
+    throw new Error(errBody.message || "Failed to delete expired chat");
+  }
+
+  return res.json();
+}
+
+export async function deleteInactiveChats(
+  params?: { userId: string }
+): Promise<DeleteInactiveChatsResponse> {
+  const accessToken = useAuthStore.getState().accessToken;
+
   const res = await fetch(`${API_URL}/chat/cleanup/inactive/${params?.userId}`, {
     method: "DELETE",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${accessToken}`,
+      Authorization: `Bearer ${accessToken}`,
     },
   });
 
@@ -112,13 +146,16 @@ export async function deleteInactiveChats(params?: { userId: string }): Promise<
   return res.json();
 }
 
-export async function cancelRequest(params?: { chatId: string }): Promise<DeleteExpiredChatsResponse> {
+export async function cancelRequest(
+  params?: { chatId: string }
+): Promise<CancelChatResponse> {
   const accessToken = useAuthStore.getState().accessToken;
+
   const res = await fetch(`${API_URL}/chat/cancel/${params?.chatId}`, {
     method: "DELETE",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${accessToken}`,
+      Authorization: `Bearer ${accessToken}`,
     },
   });
 
@@ -130,13 +167,35 @@ export async function cancelRequest(params?: { chatId: string }): Promise<Delete
   return res.json();
 }
 
+export async function acceptRequest(
+  params?: { chatId: string }
+): Promise<AcceptChatResponse> {
+  const accessToken = useAuthStore.getState().accessToken;
+
+  const res = await fetch(`${API_URL}/chat/accept/${params?.chatId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json();
+    throw new Error(errBody.message || "Failed to accept request");
+  }
+
+  return res.json();
+}
+
 export async function getAllChatRequests(): Promise<GetChatResponse> {
   const accessToken = useAuthStore.getState().accessToken;
+
   const res = await fetch(`${API_URL}/chat/get`, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${accessToken}`,
+      Authorization: `Bearer ${accessToken}`,
     },
   });
 

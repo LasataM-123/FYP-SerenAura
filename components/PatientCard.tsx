@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -7,11 +7,13 @@ import {
   Text,
   TouchableWithoutFeedback,
   View,
+  StyleSheet as RNStyleSheet,
 } from "react-native";
 import { CalendarDays, Clock, UserRound } from "lucide-react-native";
 import Button from "@/components/Button";
-import { router } from "expo-router";
 import { images } from "@/constants";
+import { useBackend } from "@/lib/useBackend";
+import { acceptRequest, cancelRequest } from "@/lib/api/chat";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = width - 48;
@@ -24,6 +26,8 @@ interface UserCardProps {
   profileUrl?: string;
   appointmentDate: string;
   status: "pending" | "active" | "closed" | "";
+  onStatusChange?: (chatId: string, newStatus: string) => void;
+   showToast?: (message: string) => void;
 }
 
 const UserCard: React.FC<UserCardProps> = ({
@@ -32,8 +36,14 @@ const UserCard: React.FC<UserCardProps> = ({
   profileUrl,
   appointmentDate,
   status,
+  onStatusChange,
+  showToast
 }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const [isVisible, setIsVisible] = useState(true);
+
+  const { refetch: accept } = useBackend({ fn: acceptRequest });
+  const { refetch: cancel } = useBackend({ fn: cancelRequest });
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -63,86 +73,99 @@ const UserCard: React.FC<UserCardProps> = ({
     minute: "2-digit",
   });
 
-  const handleAccept = () => {
-    console.log("Accepted", _id);
-  };
+const handleAccept = async () => {
+  try {
+    const res = await accept({ chatId: _id });
+    if (res?.status === "active") {
+      showToast?.("✅ Chat accepted successfully");
+      onStatusChange?.(_id, "active");
+    }
+  } catch {
+    showToast?.("❌ Something went wrong");
+  }
+};
 
-  const handleDecline = () => {
-    console.log("Declined", _id);
-  };
+const handleDecline = async () => {
+  try {
+    const res = await cancel({ chatId: _id });
+    if (res?.status === "closed") {
+     showToast?.("✅ Chat declined successfully");
+      setIsVisible(false);
+      onStatusChange?.(_id, "closed");
+    }
+  } catch {
+    showToast?.("❌ Failed to decline chat");
+  }
+};
+
 
   const handleStartChat = () => {
-    // navigate to chat screen for this request
+    // navigate to chat screen
   };
 
   const isActive = status === "active";
 
+  if (!isVisible) return null;
+
   return (
-    <TouchableWithoutFeedback onPressIn={handlePressIn} onPressOut={handlePressOut}>
-      <Animated.View style={[styles.container, { transform: [{ scale: scaleAnim }] }]}>
-        <View style={styles.shadowLayer} />
+    <>
+      <TouchableWithoutFeedback onPressIn={handlePressIn} onPressOut={handlePressOut}>
+        <Animated.View style={[styles.container, { transform: [{ scale: scaleAnim }] }]}>
+          <View style={styles.shadowLayer} />
+          <View style={styles.card}>
+            <View style={styles.topRow}>
+              <View style={styles.imageWrapper}>
+                <View style={styles.imageShadow} />
+                {profileUrl ? (
+                  <Image source={{ uri: profileUrl }} style={styles.profileImage} resizeMode="cover" />
+                ) : (
+                  <Image source={images.Avatar} style={styles.profileImage} resizeMode="cover" />
+                )}
+              </View>
 
-        <View style={styles.card}>
-          {/* Top Row: Image + Info */}
-          <View style={styles.topRow}>
-            <View style={styles.imageWrapper}>
-              <View style={styles.imageShadow} />
-              {profileUrl ? (
-                <Image source={{ uri: profileUrl }} style={styles.profileImage} resizeMode="cover" />
-              ) : (
-                <Image source={images.Avatar} style={styles.profileImage} resizeMode="cover" />
-              )}
+              <View style={styles.infoSection}>
+                <View style={styles.infoRow}>
+                  <UserRound size={18} color={BORDER_COLOR} />
+                  <Text style={styles.infoText}>{name}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <CalendarDays size={18} color={BORDER_COLOR} />
+                  <Text style={styles.infoText}>{formattedDate}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Clock size={18} color={BORDER_COLOR} />
+                  <Text style={styles.infoText}>{formattedTime}</Text>
+                </View>
+              </View>
             </View>
 
-            <View style={styles.infoSection}>
-              <View style={styles.infoRow}>
-                <UserRound size={18} color={BORDER_COLOR} />
-                <Text style={styles.infoText}>{name}</Text>
+            {isActive ? (
+              <View style={[styles.buttonRow, styles.singleButtonRow]}>
+                <Button label="Start Chat" width={CARD_WIDTH - 48} height={40} onPress={handleStartChat} />
               </View>
-              <View style={styles.infoRow}>
-                <CalendarDays size={18} color={BORDER_COLOR} />
-                <Text style={styles.infoText}>{formattedDate}</Text>
+            ) : (
+              <View style={styles.buttonRow}>
+                <Button
+                  label="Accept"
+                  width={(CARD_WIDTH - 56) / 2}
+                  height={38}
+                  onPress={handleAccept}
+                  imageSource={images.SimpleTick}
+                />
+                <Button
+                  label="Decline"
+                  width={(CARD_WIDTH - 56) / 2}
+                  height={38}
+                  variant="outline"
+                  onPress={handleDecline}
+                  imageSource={images.SimpleCross}
+                />
               </View>
-              <View style={styles.infoRow}>
-                <Clock size={18} color={BORDER_COLOR} />
-                <Text style={styles.infoText}>{formattedTime}</Text>
-              </View>
-            </View>
+            )}
           </View>
-
-          {/* Bottom Buttons */}
-          {isActive ? (
-            <View style={[styles.buttonRow, styles.singleButtonRow]}>
-              <Button
-                label="Start Chat"
-                width={CARD_WIDTH - 48}
-                height={40}
-                onPress={handleStartChat}
-              />
-            </View>
-          ) : (
-            <View style={styles.buttonRow}>
-              <Button
-                label="Accept"
-                width={(CARD_WIDTH - 56) / 2}
-                height={38}
-                onPress={handleAccept}
-                imageSource={images.SimpleTick}
-              />
-              <Button
-                label="Decline"
-                width={(CARD_WIDTH - 56) / 2}
-                height={38}
-                variant="outline"
-                onPress={handleDecline}
-                 imageSource={images.SimpleCross}
-
-              />
-            </View>
-          )}
-        </View>
-      </Animated.View>
-    </TouchableWithoutFeedback>
+        </Animated.View>
+      </TouchableWithoutFeedback>
+    </>
   );
 };
 
@@ -174,16 +197,8 @@ const styles = StyleSheet.create({
     padding: 12,
     justifyContent: "space-between",
   },
-  topRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  imageWrapper: {
-    height: 90,
-    width: 80,
-    marginRight: 14,
-    position: "relative",
-  },
+  topRow: { flexDirection: "row", alignItems: "center" },
+  imageWrapper: { height: 90, width: 80, marginRight: 14, position: "relative" },
   imageShadow: {
     position: "absolute",
     width: "100%",
@@ -202,18 +217,8 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: BORDER_COLOR,
   },
-  emptyImage: {
-    backgroundColor: "#fff",
-  },
-  infoSection: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 2,
-  },
+  infoSection: { flex: 1, justifyContent: "center" },
+  infoRow: { flexDirection: "row", alignItems: "center", marginVertical: 2 },
   infoText: {
     fontSize: 12,
     marginLeft: 6,
@@ -222,12 +227,6 @@ const styles = StyleSheet.create({
     fontFamily: "KodchasanSemiBold",
     flexShrink: 1,
   },
-  buttonRow: {
-    flexDirection: "row",
-    marginTop: 8,
-    gap: 16, 
-  },
-  singleButtonRow: {
-    justifyContent: "center",
-  },
+  buttonRow: { flexDirection: "row", marginTop: 8, gap: 16 },
+  singleButtonRow: { justifyContent: "center" },
 });

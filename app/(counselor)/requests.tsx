@@ -6,8 +6,9 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
+  Animated,
 } from "react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Header from "@/components/Header";
 import Button from "@/components/Button";
@@ -16,7 +17,7 @@ import { router, useFocusEffect } from "expo-router";
 import { useBackend } from "@/lib/useBackend";
 import { getAllChatRequests } from "@/lib/api/chat";
 import { useChatStatus } from "@/lib/useChatSocket";
-import UserCard from "@/components/PatientCard";
+import UserCard from "@/components/PatientCard"; // your UserCard
 import { jwtDecode } from "jwt-decode";
 import { API_URL } from "@/config";
 
@@ -24,7 +25,7 @@ const getTokenExpiry = (token: string | null): number | null => {
   if (!token) return null;
   try {
     const decoded: any = jwtDecode(token);
-    return decoded.exp * 1000; // milliseconds
+    return decoded.exp * 1000;
   } catch {
     return null;
   }
@@ -33,13 +34,36 @@ const getTokenExpiry = (token: string | null): number | null => {
 const Requests = () => {
   const { logout, userId, accessToken, refreshToken, updateToken } = useAuthStore();
   const [requests, setRequests] = useState<any[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
   const [isTokenReady, setIsTokenReady] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [toastMessage, setToastMessage] = useState("");
+const [showToast, setShowToast] = useState(false);
+const toastAnim = useRef(new Animated.Value(0)).current;
+
+const showToastMessage = async (message: string) => {
+  setToastMessage(message);
+  setShowToast(true);
+  toastAnim.setValue(0);
+
+  Animated.timing(toastAnim, {
+    toValue: 1,
+    duration: 300,
+    useNativeDriver: true,
+  }).start();
+
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+
+  Animated.timing(toastAnim, {
+    toValue: 0,
+    duration: 300,
+    useNativeDriver: true,
+  }).start(() => setShowToast(false));
+};
+
+  const [isLoadingRequests, setIsLoadingRequests] = useState(false);
 
   const { refetch } = useBackend({ fn: getAllChatRequests });
 
-  // --- 🔐 Check and Refresh Tokens ---
   useEffect(() => {
     if (!accessToken || !refreshToken) {
       logout();
@@ -71,12 +95,10 @@ const Requests = () => {
             updateToken(data.accessToken);
             setIsTokenReady(true);
           } else {
-            console.error("Token refresh failed, logging out");
             logout();
             router.replace("/login");
           }
-        } catch (error) {
-          console.error("Auto-refresh failed:", error);
+        } catch {
           logout();
           router.replace("/login");
         }
@@ -94,25 +116,22 @@ const Requests = () => {
     if (isTokenReady) setIsCheckingAuth(false);
   }, [isTokenReady]);
 
-  // --- Fetch chat requests ---
   const fetchRequests = async () => {
     try {
-      setRefreshing(true);
+      setIsLoadingRequests(true);
       const res = await refetch({ userId });
       if (res?.chats) setRequests(res.chats);
     } catch (error) {
       console.error("Failed to fetch chat requests:", error);
     } finally {
-      setRefreshing(false);
+      setIsLoadingRequests(false);
     }
   };
 
-  // --- Refetch when screen focuses ---
   useFocusEffect(
     useCallback(() => {
       StatusBar.setBarStyle("dark-content");
       StatusBar.setBackgroundColor("#ffffff");
-
       if (isTokenReady) fetchRequests();
     }, [isTokenReady])
   );
@@ -122,11 +141,21 @@ const Requests = () => {
     router.replace("/login");
   };
 
-  // --- Split requests ---
+  const handleStatusChange = (chatId: string, newStatus: string) => {
+    if (newStatus === "closed") {
+      setRequests((prev) => prev.filter((r) => r._id !== chatId));
+    } else {
+      setRequests((prev) =>
+        prev.map((r) =>
+          r._id === chatId ? { ...r, status: newStatus } : r
+        )
+      );
+    }
+  };
+
   const pendingRequests = requests.filter((r) => r.status === "pending");
   const acceptedRequests = requests.filter((r) => r.status === "active");
 
-  // --- Component that correctly uses the hook ---
   const RequestItem = ({ item }: { item: any }) => {
     const status = useChatStatus(
       item._id,
@@ -135,21 +164,24 @@ const Requests = () => {
     );
     return (
       <UserCard
-        key={item._id}
-        _id={item._id}
-        name={item.patientId.name}
-        appointmentDate={item.appointmentDate}
-        profileUrl={item.patientId.profileUrl}
-        status={status}
-      />
+      key={item._id}
+      _id={item._id}
+      name={item.patientId.name}
+      appointmentDate={item.appointmentDate}
+      profileUrl={item.patientId.profileUrl}
+      status={status}
+      onStatusChange={handleStatusChange}
+      showToast={showToastMessage}
+    />
+
     );
   };
 
-  if (isCheckingAuth) {
+  if (isCheckingAuth || isLoadingRequests) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#553434" />
-        <Text style={styles.loadingText}>Checking authentication...</Text>
+        <Text style={styles.loadingText}>Loading requests...</Text>
       </View>
     );
   }
@@ -163,7 +195,6 @@ const Requests = () => {
       >
         <Text style={styles.headerText}>Manage Chat Requests</Text>
 
-        {/* Pending */}
         <Text style={styles.subHeader}>PENDING REQUESTS</Text>
         {pendingRequests.length === 0 ? (
           <Text style={styles.emptyText}>No Pending Requests</Text>
@@ -176,7 +207,6 @@ const Requests = () => {
           />
         )}
 
-        {/* Accepted */}
         <Text style={[styles.subHeader, { marginTop: 28 }]}>ACCEPTED REQUESTS</Text>
         {acceptedRequests.length === 0 ? (
           <Text style={styles.emptyText}>No Accepted Requests</Text>
@@ -193,6 +223,54 @@ const Requests = () => {
           <Button label="Logout" onPress={handleLogout} />
         </View>
       </ScrollView>
+      {showToast && (
+  <Animated.View
+    pointerEvents="none"
+    style={[
+      StyleSheet.absoluteFillObject,
+      {
+        justifyContent: "flex-end",
+        alignItems: "center",
+        paddingBottom: 100,
+        zIndex: 9999,
+        elevation: 9999,
+        opacity: toastAnim,
+        transform: [
+          {
+            translateY: toastAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [30, 0],
+            }),
+          },
+        ],
+      },
+    ]}
+  >
+    <View
+      style={{
+        backgroundColor: "rgba(255,255,255,0.95)",
+        borderWidth: 3,
+        borderColor: "#553434",
+        borderRadius: 12,
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: "KodchasanMedium",
+          color: "#553434",
+          fontSize: 16,
+        }}
+      >
+        {toastMessage}
+      </Text>
+    </View>
+  </Animated.View>
+)}
+
     </SafeAreaView>
   );
 };
@@ -200,14 +278,8 @@ const Requests = () => {
 export default Requests;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
+  container: { flex: 1, backgroundColor: "#FFFFFF" },
+  scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
   headerText: {
     marginTop: 4,
     marginBottom: 12,
