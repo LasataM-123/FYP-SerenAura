@@ -43,7 +43,9 @@ import Excited from '@/assets/icons/Excited.png';
 import BlockCross from '@/assets/icons/BlockCross.png';
 import ButtonChat from '@/assets/icons/ButtonChat.png';
 import Lungs from '@/assets/images/Lungs.png';
-
+import SimpleTick from '@/assets/icons/SimpleTick.png';
+import SimpleCross from '@/assets/icons/SimpleCross.png';
+import Avatar from '@/assets/images/Avatar.jpg';
 export const images={
     welcomeImage,
     ribbon,
@@ -90,4 +92,7 @@ export const images={
     BlockCross,
     ButtonChat,
     Lungs,
+    SimpleTick,
+    SimpleCross,
+    Avatar
 }

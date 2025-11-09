@@ -35,6 +35,32 @@ export type DeleteExpiredChatsResponse = {
   status: "closed" | "active" | "pending" | "";
 };
 
+export type PatientInfo = {
+  _id: string;
+  name: string;
+  profileUrl?: string;
+};
+
+export type GetResponse = {
+  _id: string;
+  patientId: string | PatientInfo;
+  counselorId: string;
+  status: ChatStatus;
+  appointmentDate: string;
+  requestSentDate: string;
+  endTime?: string;
+  messages: Message[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+
+export type GetChatResponse = {
+  success: boolean;
+  message: string;
+  chats: GetResponse[];
+};
+
 export async function sendChatRequest(params?:{patientId: string, counselorId: string, appointmentDate: string}): Promise<SendChatRequestResponse> {
     const accessToken = useAuthStore.getState().accessToken;
     const res = await fetch(`${API_URL}/chat/request`, {
@@ -98,7 +124,25 @@ export async function cancelRequest(params?: { chatId: string }): Promise<Delete
 
   if (!res.ok) {
     const errBody = await res.json();
-    throw new Error(errBody.message || "Failed to delete inactive chats");
+    throw new Error(errBody.message || "Failed to cancel request");
+  }
+
+  return res.json();
+}
+
+export async function getAllChatRequests(): Promise<GetChatResponse> {
+  const accessToken = useAuthStore.getState().accessToken;
+  const res = await fetch(`${API_URL}/chat/get`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json();
+    throw new Error(errBody.message || "Failed to get chat requests");
   }
 
   return res.json();

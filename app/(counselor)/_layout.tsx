@@ -1,3 +1,4 @@
+import CounselorNavBar from "@/components/CounselorNavbar";
 import CustomNavBar from "@/components/CustomNavbar";
 import { Tabs } from "expo-router";
 import { useEffect } from "react";
@@ -8,10 +9,10 @@ export default function CounselorLayout() {
         StatusBar.setBarStyle("dark-content", true);
     },[])
   return (
-    <Tabs screenOptions={{ headerShown: false }} tabBar={props=><CustomNavBar {...props}/>}>
-      <Tabs.Screen name="requests" options={{title:"Request"}} />
+    <Tabs screenOptions={{ headerShown: false }} tabBar={props=><CounselorNavBar {...props}/>}>
+      <Tabs.Screen name="requests" options={{title:"Requests"}} />
       <Tabs.Screen name="user-chat" options={{title:"Chat"}} />
-      <Tabs.Screen name="counselor-profile" />
+      <Tabs.Screen name="counselor-profile"  options={{title:"Profile"}} />
     </Tabs>
   );
 }
