@@ -17,7 +17,7 @@ import { router, useFocusEffect } from "expo-router";
 import { useBackend } from "@/lib/useBackend";
 import { getAllChatRequests } from "@/lib/api/chat";
 import { useChatStatus } from "@/lib/useChatSocket";
-import UserCard from "@/components/PatientCard"; // your UserCard
+import UserCard from "@/components/PatientCard";
 import { jwtDecode } from "jwt-decode";
 import { API_URL } from "@/config";
 
@@ -37,33 +37,32 @@ const Requests = () => {
   const [isTokenReady, setIsTokenReady] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [toastMessage, setToastMessage] = useState("");
-const [showToast, setShowToast] = useState(false);
-const toastAnim = useRef(new Animated.Value(0)).current;
-
-const showToastMessage = async (message: string) => {
-  setToastMessage(message);
-  setShowToast(true);
-  toastAnim.setValue(0);
-
-  Animated.timing(toastAnim, {
-    toValue: 1,
-    duration: 300,
-    useNativeDriver: true,
-  }).start();
-
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-
-  Animated.timing(toastAnim, {
-    toValue: 0,
-    duration: 300,
-    useNativeDriver: true,
-  }).start(() => setShowToast(false));
-};
-
+  const [showToast, setShowToast] = useState(false);
+  const toastAnim = useRef(new Animated.Value(0)).current;
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
-
   const { refetch } = useBackend({ fn: getAllChatRequests });
 
+  const showToastMessage = async (message: string) => {
+    setToastMessage(message);
+    setShowToast(true);
+    toastAnim.setValue(0);
+
+    Animated.timing(toastAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    Animated.timing(toastAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => setShowToast(false));
+  };
+
+  // 🔐 Token validation and refresh
   useEffect(() => {
     if (!accessToken || !refreshToken) {
       logout();
@@ -116,6 +115,7 @@ const showToastMessage = async (message: string) => {
     if (isTokenReady) setIsCheckingAuth(false);
   }, [isTokenReady]);
 
+  // 🧠 Fetch chat requests
   const fetchRequests = async () => {
     try {
       setIsLoadingRequests(true);
@@ -141,42 +141,61 @@ const showToastMessage = async (message: string) => {
     router.replace("/login");
   };
 
-  const handleStatusChange = (chatId: string, newStatus: string) => {
-    if (newStatus === "closed") {
-      setRequests((prev) => prev.filter((r) => r._id !== chatId));
-    } else {
-      setRequests((prev) =>
-        prev.map((r) =>
-          r._id === chatId ? { ...r, status: newStatus } : r
-        )
+  // 🧩 Handle socket or manual updates
+  // --- CHANGE 1: Wrap in useCallback ---
+  const handleStatusChange = useCallback((chatId: string, newStatus: string) => {
+    setRequests((prev) => {
+      if (newStatus === "closed") {
+        // permanently remove the closed chat
+        return prev.filter((r) => r._id !== chatId);
+      }
+
+      // Prevent reopening closed ones
+      const existing = prev.find((r) => r._id === chatId);
+      if (existing && existing.status === "closed") return prev;
+
+      // Update the status for "active" or "pending"
+      return prev.map((r) =>
+        r._id === chatId ? { ...r, status: newStatus } : r
       );
-    }
-  };
+    });
+  }, []); // Empty dependency array means this function never changes
 
-  const pendingRequests = requests.filter((r) => r.status === "pending");
-  const acceptedRequests = requests.filter((r) => r.status === "active");
-
+  // ✨ Individual card component
   const RequestItem = ({ item }: { item: any }) => {
-    const status = useChatStatus(
+    const statusFromHook = useChatStatus(
       item._id,
       item.chatRequestSentDate,
       item.appointmentDate
     );
+    
+    // The status as known by the parent's list
+    const statusFromParent = item.status;
+
+    // --- CHANGE 2: Update the useEffect logic ---
+    useEffect(() => {
+      // This effect syncs the parent's state (Brain 1) 
+      // with the socket's state (Brain 2)
+      if (statusFromHook && statusFromHook !== statusFromParent) {
+        handleStatusChange(item._id, statusFromHook);
+      }
+    }, [statusFromHook, statusFromParent, item._id, handleStatusChange]);
+
+    // Always render using the real-time status from the hook
     return (
       <UserCard
-      key={item._id}
-      _id={item._id}
-      name={item.patientId.name}
-      appointmentDate={item.appointmentDate}
-      profileUrl={item.patientId.profileUrl}
-      status={status}
-      onStatusChange={handleStatusChange}
-      showToast={showToastMessage}
-    />
-
+        key={item._id}
+        _id={item._id}
+        name={item.patientId.name}
+        appointmentDate={item.appointmentDate}
+        profileUrl={item.patientId.profileUrl}
+        status={statusFromHook || item.status} // Use hook's status, fallback to parent's
+        showToast={showToastMessage}
+      />
     );
   };
 
+  // 🌀 Loading
   if (isCheckingAuth || isLoadingRequests) {
     return (
       <View style={styles.loadingContainer}>
@@ -185,6 +204,10 @@ const showToastMessage = async (message: string) => {
       </View>
     );
   }
+
+  // 🧾 Separate by type
+  const pendingRequests = requests.filter((r) => r.status === "pending");
+  const acceptedRequests = requests.filter((r) => r.status === "active");
 
   return (
     <SafeAreaView style={styles.container}>
@@ -223,54 +246,54 @@ const showToastMessage = async (message: string) => {
           <Button label="Logout" onPress={handleLogout} />
         </View>
       </ScrollView>
-      {showToast && (
-  <Animated.View
-    pointerEvents="none"
-    style={[
-      StyleSheet.absoluteFillObject,
-      {
-        justifyContent: "flex-end",
-        alignItems: "center",
-        paddingBottom: 100,
-        zIndex: 9999,
-        elevation: 9999,
-        opacity: toastAnim,
-        transform: [
-          {
-            translateY: toastAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [30, 0],
-            }),
-          },
-        ],
-      },
-    ]}
-  >
-    <View
-      style={{
-        backgroundColor: "rgba(255,255,255,0.95)",
-        borderWidth: 3,
-        borderColor: "#553434",
-        borderRadius: 12,
-        paddingVertical: 10,
-        paddingHorizontal: 16,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <Text
-        style={{
-          fontFamily: "KodchasanMedium",
-          color: "#553434",
-          fontSize: 16,
-        }}
-      >
-        {toastMessage}
-      </Text>
-    </View>
-  </Animated.View>
-)}
 
+      {showToast && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFillObject,
+            {
+              justifyContent: "flex-end",
+              alignItems: "center",
+              paddingBottom: 100,
+              zIndex: 9999,
+              elevation: 9999,
+              opacity: toastAnim,
+              transform: [
+                {
+                  translateY: toastAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [30, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <View
+            style={{
+              backgroundColor: "rgba(255,255,255,0.95)",
+              borderWidth: 3,
+              borderColor: "#553434",
+              borderRadius: 12,
+              paddingVertical: 10,
+              paddingHorizontal: 16,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: "KodchasanMedium",
+                color: "#553434",
+                fontSize: 16,
+              }}
+            >
+              {toastMessage}
+            </Text>
+          </View>
+        </Animated.View>
+      )}
     </SafeAreaView>
   );
 };

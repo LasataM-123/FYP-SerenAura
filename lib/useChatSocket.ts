@@ -17,42 +17,67 @@ export function useChatStatus(
   const { refetch: refetchInactive } = useBackend({ fn: deleteInactiveChats });
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const socketRef = useRef<Socket | null>(null);
+  const lastChatIdRef = useRef<string | null>(null);
   const userId = useAuthStore.getState().userId;
 
-  // --- Socket connection setup ---
+  // --- Initialize socket connection only once ---
   useEffect(() => {
-    if (!chatId) {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-      return;
+    if (!socketRef.current) {
+      const socket = io(SOCKET_URL, {
+        transports: ["websocket"],
+        withCredentials: true,
+      });
+
+      socketRef.current = socket;
+
+      socket.on("connect", () => {
+        console.log("✅ Socket connected");
+        if (lastChatIdRef.current) {
+          socket.emit("joinChat", lastChatIdRef.current);
+          console.log(`[Socket Hook]: Reconnected & rejoined ${lastChatIdRef.current}`);
+        }
+      });
+
+      socket.on("chatStatusUpdated", (data) => {
+        if (data.chatId === lastChatIdRef.current && data.status) {
+          setStatus(data.status);
+        }
+      });
+
+      socket.on("disconnect", () => {
+        console.log("❌ Socket disconnected");
+      });
     }
 
-    const socket = io(SOCKET_URL, {
-      transports: ["websocket"],
-      withCredentials: true,
-    });
-    socketRef.current = socket;
+    return () => {
+      // Cleanly disconnect socket on full unmount
+      socketRef.current?.disconnect();
+      socketRef.current = null;
+    };
+  }, []);
 
-    socket.on("connect", () => {
-      if (chatId) {
-        console.log(`[Socket Hook]: Joining chat ${chatId}`);
-        socket.emit("joinChat", chatId);
-      }
-    });
+  // --- Join/Leave chat rooms when chatId changes ---
+  useEffect(() => {
+    if (!socketRef.current || !chatId) return;
 
-    socket.on("chatStatusUpdated", (data) => {
-      if (data.chatId === chatId && data.status) {
-        setStatus(data.status);
-      }
-    });
+    // If chatId didn’t actually change, don’t rejoin
+    if (lastChatIdRef.current === chatId) return;
 
+    // Leave previous room if it exists
+    if (lastChatIdRef.current) {
+      console.log(`[Socket Hook]: Leaving chat ${lastChatIdRef.current}`);
+      socketRef.current.emit("leaveChat", lastChatIdRef.current);
+    }
+
+    // Join new room
+    console.log(`[Socket Hook]: Joining chat ${chatId}`);
+    socketRef.current.emit("joinChat", chatId);
+    lastChatIdRef.current = chatId;
+
+    // Optional cleanup on unmount (not on every rerender)
     return () => {
       console.log(`[Socket Hook]: Leaving chat ${chatId}`);
-      socket.emit("leaveChat", chatId);
-      socket.disconnect();
-      socketRef.current = null;
+      socketRef.current?.emit("leaveChat", chatId);
     };
   }, [chatId]);
 
@@ -70,7 +95,9 @@ export function useChatStatus(
         if (isMounted && res?.status) {
           setStatus(res.status);
         }
-      } catch {}
+      } catch (err) {
+        console.warn("⚠️ Failed to fetch chat status:", err);
+      }
     };
 
     fetchInitialStatus();
@@ -79,20 +106,31 @@ export function useChatStatus(
     };
   }, [chatId]);
 
-  // --- Check for inactive active chats ---
+  // --- Inactive chat cleanup (1 hour after appointment) ---
   useEffect(() => {
-    if (status === "active" && userId) {
-      (async () => {
-        try {
-          await refetchInactive({ userId });
-        } catch (err) {
-          console.warn("⚠️ Failed to check inactive chats:", err);
-        }
-      })();
-    }
-  }, [status, userId]);
+    if (!appointmentDate || !userId) return;
 
-  // --- Expiry logic for pending requests ---
+    const appointmentTime = new Date(appointmentDate).getTime();
+    const oneHourAfter = appointmentTime + 60 * 60 * 1000;
+    const delay = oneHourAfter - Date.now();
+
+    const runCleanup = async () => {
+      try {
+        await refetchInactive({ userId });
+      } catch (err) {
+        console.warn("⚠️ Failed to check inactive chats:", err);
+      }
+    };
+
+    if (delay <= 0) {
+      runCleanup();
+    } else {
+      const timer = setTimeout(runCleanup, delay);
+      return () => clearTimeout(timer);
+    }
+  }, [appointmentDate, userId]);
+
+  // --- Pending chat expiry logic (24h or until appointment) ---
   useEffect(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -109,8 +147,7 @@ export function useChatStatus(
       const requestTime = new Date(chatRequestSentDate).getTime();
       const twentyFourHoursLater = requestTime + 24 * 60 * 60 * 1000;
 
-      // If appointment is within 24h → expire at appointment
-      // If appointment > 24h → expire after 24h
+      // expire at appointment if within 24h, else after 24h
       expiryTime =
         appointment - requestTime <= 24 * 60 * 60 * 1000
           ? appointment
@@ -124,20 +161,19 @@ export function useChatStatus(
 
     const remaining = expiryTime - now;
 
+    const runExpiryCheck = async () => {
+      try {
+        const res = await refetch({ chatId });
+        if (res?.status) setStatus(res.status);
+      } catch (err) {
+        console.warn("⚠️ Expiry check failed:", err);
+      }
+    };
+
     if (remaining > 0) {
-      timeoutRef.current = setTimeout(async () => {
-        try {
-          const res = await refetch({ chatId });
-          if (res?.status) setStatus(res.status);
-        } catch {}
-      }, remaining);
+      timeoutRef.current = setTimeout(runExpiryCheck, remaining);
     } else {
-      (async () => {
-        try {
-          const res = await refetch({ chatId });
-          if (res?.status) setStatus(res.status);
-        } catch {}
-      })();
+      runExpiryCheck();
     }
 
     return () => {

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useRef } from "react";
 import {
   Animated,
   Dimensions,
@@ -7,7 +7,6 @@ import {
   Text,
   TouchableWithoutFeedback,
   View,
-  StyleSheet as RNStyleSheet,
 } from "react-native";
 import { CalendarDays, Clock, UserRound } from "lucide-react-native";
 import Button from "@/components/Button";
@@ -25,9 +24,9 @@ interface UserCardProps {
   name: string;
   profileUrl?: string;
   appointmentDate: string;
-  status: "pending" | "active" | "closed" | "";
+  status: "pending" | "active" | "closed" | "" | "ended";
   onStatusChange?: (chatId: string, newStatus: string) => void;
-   showToast?: (message: string) => void;
+  showToast?: (message: string) => void;
 }
 
 const UserCard: React.FC<UserCardProps> = ({
@@ -37,10 +36,9 @@ const UserCard: React.FC<UserCardProps> = ({
   appointmentDate,
   status,
   onStatusChange,
-  showToast
+  showToast,
 }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const [isVisible, setIsVisible] = useState(true);
 
   const { refetch: accept } = useBackend({ fn: acceptRequest });
   const { refetch: cancel } = useBackend({ fn: cancelRequest });
@@ -73,31 +71,29 @@ const UserCard: React.FC<UserCardProps> = ({
     minute: "2-digit",
   });
 
-const handleAccept = async () => {
-  try {
-    const res = await accept({ chatId: _id });
-    if (res?.status === "active") {
-      showToast?.("✅ Chat accepted successfully");
-      onStatusChange?.(_id, "active");
+  const handleAccept = async () => {
+    try {
+      const res = await accept({ chatId: _id });
+      if (res?.status === "active") {
+        showToast?.("✅ Chat accepted successfully");
+        // onStatusChange?.(_id, "active"); // <-- This line is removed
+      }
+    } catch {
+      showToast?.("❌ Something went wrong");
     }
-  } catch {
-    showToast?.("❌ Something went wrong");
-  }
-};
+  };
 
-const handleDecline = async () => {
-  try {
-    const res = await cancel({ chatId: _id });
-    if (res?.status === "closed") {
-     showToast?.("✅ Chat declined successfully");
-      setIsVisible(false);
-      onStatusChange?.(_id, "closed");
+  const handleDecline = async () => {
+    try {
+      const res = await cancel({ chatId: _id });
+      if (res?.status === "closed") {
+        showToast?.("✅ Chat declined successfully");
+        // onStatusChange?.(_id, "closed"); // <-- This line is removed
+      }
+    } catch {
+      showToast?.("❌ Failed to decline chat");
     }
-  } catch {
-    showToast?.("❌ Failed to decline chat");
-  }
-};
-
+  };
 
   const handleStartChat = () => {
     // navigate to chat screen
@@ -105,67 +101,68 @@ const handleDecline = async () => {
 
   const isActive = status === "active";
 
-  if (!isVisible) return null;
-
   return (
-    <>
-      <TouchableWithoutFeedback onPressIn={handlePressIn} onPressOut={handlePressOut}>
-        <Animated.View style={[styles.container, { transform: [{ scale: scaleAnim }] }]}>
-          <View style={styles.shadowLayer} />
-          <View style={styles.card}>
-            <View style={styles.topRow}>
-              <View style={styles.imageWrapper}>
-                <View style={styles.imageShadow} />
-                {profileUrl ? (
-                  <Image source={{ uri: profileUrl }} style={styles.profileImage} resizeMode="cover" />
-                ) : (
-                  <Image source={images.Avatar} style={styles.profileImage} resizeMode="cover" />
-                )}
-              </View>
-
-              <View style={styles.infoSection}>
-                <View style={styles.infoRow}>
-                  <UserRound size={18} color={BORDER_COLOR} />
-                  <Text style={styles.infoText}>{name}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <CalendarDays size={18} color={BORDER_COLOR} />
-                  <Text style={styles.infoText}>{formattedDate}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Clock size={18} color={BORDER_COLOR} />
-                  <Text style={styles.infoText}>{formattedTime}</Text>
-                </View>
-              </View>
+    <TouchableWithoutFeedback onPressIn={handlePressIn} onPressOut={handlePressOut}>
+      <Animated.View style={[styles.container, { transform: [{ scale: scaleAnim }] }]}>
+        <View style={styles.shadowLayer} />
+        <View style={styles.card}>
+          <View style={styles.topRow}>
+            <View style={styles.imageWrapper}>
+              <View style={styles.imageShadow} />
+              {profileUrl ? (
+                <Image source={{ uri: profileUrl }} style={styles.profileImage} resizeMode="cover" />
+              ) : (
+                <Image source={images.Avatar} style={styles.profileImage} resizeMode="cover" />
+              )}
             </View>
 
-            {isActive ? (
-              <View style={[styles.buttonRow, styles.singleButtonRow]}>
-                <Button label="Start Chat" width={CARD_WIDTH - 48} height={40} onPress={handleStartChat} />
+            <View style={styles.infoSection}>
+              <View style={styles.infoRow}>
+                <UserRound size={18} color={BORDER_COLOR} />
+                <Text style={styles.infoText}>{name}</Text>
               </View>
-            ) : (
-              <View style={styles.buttonRow}>
-                <Button
-                  label="Accept"
-                  width={(CARD_WIDTH - 56) / 2}
-                  height={38}
-                  onPress={handleAccept}
-                  imageSource={images.SimpleTick}
-                />
-                <Button
-                  label="Decline"
-                  width={(CARD_WIDTH - 56) / 2}
-                  height={38}
-                  variant="outline"
-                  onPress={handleDecline}
-                  imageSource={images.SimpleCross}
-                />
+              <View style={styles.infoRow}>
+                <CalendarDays size={18} color={BORDER_COLOR} />
+                <Text style={styles.infoText}>{formattedDate}</Text>
               </View>
-            )}
+              <View style={styles.infoRow}>
+                <Clock size={18} color={BORDER_COLOR} />
+                <Text style={styles.infoText}>{formattedTime}</Text>
+              </View>
+            </View>
           </View>
-        </Animated.View>
-      </TouchableWithoutFeedback>
-    </>
+
+          {isActive ? (
+            <View style={[styles.buttonRow, styles.singleButtonRow]}>
+              <Button
+                label="Start Chat"
+                width={CARD_WIDTH - 48}
+                height={40}
+                onPress={handleStartChat}
+              />
+            </View>
+          ) : (
+            <View style={styles.buttonRow}>
+              <Button
+                label="Accept"
+                width={(CARD_WIDTH - 56) / 2}
+                height={38}
+                onPress={handleAccept}
+                imageSource={images.SimpleTick}
+              />
+              <Button
+                label="Decline"
+                width={(CARD_WIDTH - 56) / 2}
+                height={38}
+                variant="outline"
+                onPress={handleDecline}
+                imageSource={images.SimpleCross}
+              />
+            </View>
+          )}
+        </View>
+      </Animated.View>
+    </TouchableWithoutFeedback>
   );
 };
 

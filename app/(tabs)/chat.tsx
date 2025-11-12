@@ -20,6 +20,9 @@ const Chat = () => {
   const requestSentDate = useSessionStore((state) => state.requestSentDate);
   const { clearSession } = useSessionStore();
   const { refetch: cancel } = useBackend({ fn: cancelRequest });
+  const appointmentDate = useSessionStore((state) => state.appointmentDate);
+  
+
   const cancelChatRequest = async () => {
     const res = await cancel({chatId});
     if(res?.status === 'closed'){
@@ -27,15 +30,23 @@ const Chat = () => {
       setOverlayVisible(false);
     }
   };
-  const chatStatus = useChatStatus(chatId || '', requestSentDate || '');
+  const chatStatus = useChatStatus(chatId || '', requestSentDate || '', appointmentDate);
   const [overlayVisible, setOverlayVisible] = useState(true);
+useFocusEffect(
+  useCallback(() => {
+    if (chatStatus === '' && !chatId) {
+      clearSession();
+      setOverlayVisible(false);
+    }
+  }, [chatStatus, chatId])
+);
 
   useEffect(() => {
     const fetchCounselors = async () => {
       setLoading(true);
       const res = await refetch();
       if (res?.success) setCounselors(res.counselors);
-      setLoading(false); // <-- stop loading after fetch
+      setLoading(false);
     };
     fetchCounselors();
   }, []);

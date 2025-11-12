@@ -57,12 +57,12 @@ export type SendChatRequestResponse = {
 };
 
 export type DeleteExpiredChatsResponse = {
-  status: "closed" | "active" | "pending" | "";
+  status: "closed" | "active" | "pending" |  "";
 };
 
 export type DeleteInactiveChatsResponse = {
   message: string;
-  deletedChats?: string[];
+  deleteCount?: number;
 };
 
 export type CancelChatResponse = {
