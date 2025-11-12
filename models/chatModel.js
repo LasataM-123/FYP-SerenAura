@@ -13,7 +13,7 @@ const chatSchema = new mongoose.Schema({
     },
     status:{
         type: String,
-        enum: ['active', 'closed','pending'],
+        enum: ['active', 'closed','pending','ended'],
         default: 'pending'
     },
     appointmentDate:{
