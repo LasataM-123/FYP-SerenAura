@@ -5,7 +5,7 @@ import { deleteExpired, deleteInactiveChats } from "./api/chat";
 import { useBackend } from "./useBackend";
 import { useAuthStore } from "@/store/authStore";
 
-export type ChatStatus = "pending" | "active" | "closed" | "";
+export type ChatStatus = "pending" | "active" | "closed" | "" | "ended";
 
 export function useChatStatus(
   chatId: string,
@@ -34,7 +34,6 @@ export function useChatStatus(
         console.log("✅ Socket connected");
         if (lastChatIdRef.current) {
           socket.emit("joinChat", lastChatIdRef.current);
-          console.log(`[Socket Hook]: Reconnected & rejoined ${lastChatIdRef.current}`);
         }
       });
 
@@ -65,18 +64,15 @@ export function useChatStatus(
 
     // Leave previous room if it exists
     if (lastChatIdRef.current) {
-      console.log(`[Socket Hook]: Leaving chat ${lastChatIdRef.current}`);
       socketRef.current.emit("leaveChat", lastChatIdRef.current);
     }
 
     // Join new room
-    console.log(`[Socket Hook]: Joining chat ${chatId}`);
     socketRef.current.emit("joinChat", chatId);
     lastChatIdRef.current = chatId;
 
     // Optional cleanup on unmount (not on every rerender)
     return () => {
-      console.log(`[Socket Hook]: Leaving chat ${chatId}`);
       socketRef.current?.emit("leaveChat", chatId);
     };
   }, [chatId]);

@@ -5,41 +5,32 @@ import {
   FlatList,
   TouchableOpacity,
   TextInput,
-  Image,
-  StyleSheet,
   Keyboard,
   Animated,
-  ActivityIndicator,
   Platform,
-  StatusBar,
+  Image,
+  ActivityIndicator,
+  StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, ArrowUpIcon } from "lucide-react-native";
-
-import { useChatStore } from "@/store/chatStore";
+import { ArrowUpIcon } from "lucide-react-native";
 import { useAuthStore } from "@/store/authStore";
+import { useSessionStore } from "@/store/sessionStore";
 import { ChatMessage, useChatMessaging } from "@/lib/useChatMessaging";
 import { images } from "@/constants";
-import Header from "@/components/Header";
-import Button from "@/components/Button";
 import Overlay from "@/components/Overlay";
 import { router } from "expo-router";
-import { useChatStatus } from "@/lib/useChatSocket";
 
-const NAVBAR_HEIGHT = 80;
 const INPUT_HEIGHT = 56;
-const MIN_BOTTOM = NAVBAR_HEIGHT + 8;
+const MIN_BOTTOM = 8;
 
-const CounselorChatScreen = () => {
+const ChatScreen = () => {
+  const chatId = useSessionStore((state) => state.chatId) || "";
+  const userRole = useAuthStore.getState().role || "patient";
+  const counselorName = useSessionStore((state) => state.counselorName) || "Counselor";
+  const counselorProfileUrl = useSessionStore((state) => state.profileUrl);
 
-  const chatId = useChatStore((state) => state.currentChatId) || "";
- const chatStatus = useChatStatus(chatId);
-
-  const patientName = useChatStore((state) => state.patientName) || "Patient";
-  const patientProfileUrl = useChatStore((state) => state.patientProfileUrl);
-  const userRole = useAuthStore.getState().role || "counselor";
-
-  const { messages, sendMessage, endChat } = useChatMessaging(chatId, userRole);
+  const { messages, sendMessage } = useChatMessaging(chatId, userRole);
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -47,30 +38,20 @@ const CounselorChatScreen = () => {
   const flatListRef = useRef<FlatList>(null);
   const bottomAnim = useRef(new Animated.Value(MIN_BOTTOM)).current;
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-const [showOverlay, setShowOverlay] = useState(false);
-const [showEndOverlay, setShowEndOverlay] = useState(false);
-const resetChat = useChatStore((state) => state.resetChat);
-
-useEffect(() => {
-  if (chatStatus === "ended") {
-    resetChat();
-
-    // show end overlay
-    setShowOverlay(false);
-    setShowEndOverlay(true);
-  }
-}, [chatStatus]);
-
-
-  // ---------------- LOADING ----------------
+  const [showOverlay, setShowOverlay] = useState(false);
+  
+  
+  const {endChat} = useChatMessaging(chatId,userRole);
+  // ---------------- LOADING HANDLER ----------------
   useEffect(() => {
-    if (messages.length >= 0) {
+    if (messages.length > 0 || messages.length === 0) {
+      // small delay to make the loader smoother
       const timeout = setTimeout(() => setLoading(false), 350);
       return () => clearTimeout(timeout);
     }
   }, [messages]);
 
-  // ---------------- KEYBOARD HANDLER ----------------
+  // ---------------- Keyboard Handling ----------------
   useEffect(() => {
     const showEvent =
       Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -103,16 +84,8 @@ useEffect(() => {
       hideSub.remove();
     };
   }, []);
-  useEffect(() => {
-      StatusBar.setBarStyle("dark-content");
-      if (Platform.OS === "android") {
-        StatusBar.setBackgroundColor("#fff");
-        StatusBar.setTranslucent(false);
-      }
-    }, []);
-    
 
-  // ---------------- SEND MESSAGE ----------------
+  // ---------------- Send Message ----------------
   const handleSend = async () => {
     if (!input.trim() || !chatId) return;
     try {
@@ -122,10 +95,20 @@ useEffect(() => {
       console.log("Send failed:", err);
     }
   };
+   const handleEndChat = async () => {
+  try {
+    const response = await endChat();
+    if (response.success) {
+      router.back();
+    }
+  } catch (err) {
+    setShowOverlay(false);
+  } 
+};
 
-  // ---------------- RENDER MESSAGE ----------------
+  // ---------------- Render Messages ----------------
   const renderMessage = ({ item, index }: { item: ChatMessage; index: number }) => {
-    const isPatient = item.senderRole === "patient";
+    const isCounselor = item.senderRole === "counselor";
     const safeContent =
       typeof item.content === "string"
         ? item.content
@@ -135,42 +118,39 @@ useEffect(() => {
 
     const nextMessage = messages[index + 1];
     const showProfile =
-      isPatient &&
-      (index === messages.length - 1 ||
-        nextMessage?.senderRole !== "patient");
+      isCounselor &&
+      (index === messages.length - 1 || nextMessage?.senderRole !== "counselor");
 
     return (
       <View
         style={[
           styles.messageContainer,
-          isPatient ? styles.patientMessage : styles.counselorMessage,
+          isCounselor ? styles.counselorMessage : styles.patientMessage,
         ]}
       >
-        {/* Avatar only at final bubble of group */}
-        {isPatient && showProfile ? (
+        {showProfile ? (
           <Image
             source={
-              patientProfileUrl
-                ? { uri: patientProfileUrl }
+              counselorProfileUrl
+                ? { uri: counselorProfileUrl }
                 : images.Avatar
             }
             style={styles.profileImage}
           />
-        ) : isPatient ? (
+        ) : (
           <View style={{ width: 30, marginRight: 8 }} />
-        ) : null}
+        )}
 
-        {/* Bubble */}
         <View
           style={[
             styles.messageBox,
-            isPatient ? styles.patientBox : styles.counselorBox,
+            isCounselor ? styles.counselorBox : styles.patientBox,
           ]}
         >
           <Text
             style={[
               styles.messageText,
-              isPatient ? styles.patientText : styles.counselorText,
+              isCounselor ? styles.counselorText : styles.patientText,
             ]}
           >
             {safeContent}
@@ -180,78 +160,40 @@ useEffect(() => {
     );
   };
 
-  // ---------------- NO CHAT SELECTED ----------------
-  if (!chatId) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.center}>
-          <Text>No chat selected.</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-  const handleEndChat = async () => {
-  try {
-    const response = await endChat();
-    if (response.success) {
-      // Reset chat state
-      resetChat();
-
-      // Show end overlay
-      setShowOverlay(false);
-      setShowEndOverlay(true);
-    }
-  } catch (err) {
-
-    setShowOverlay(false);
-    setShowEndOverlay(false);
-  } 
-};
-
-
-
   return (
     <SafeAreaView style={styles.container}>
-      <Header />
-
       {/* Header */}
       <View style={styles.header}>
-        <View style={{flexDirection:"row"}}>
-
-        <TouchableOpacity onPress={() => {}}>
-          <ArrowLeft stroke="#553434" size={28} />
+        <TouchableOpacity onPress={() => {setShowOverlay(true)}}>
+          <Image source={images.arrowBack} style={styles.backImage} />
         </TouchableOpacity>
-        <Text style={styles.headerText}>{patientName}</Text>
-        <View style={{ width: 28 }} />
-        </View>
-        <Button label="End Chat" onPress={()=>{setShowOverlay(true);}} width={100} height={40}/>
-
+        <Text style={styles.headerText}>Dr. {counselorName}</Text>
+        <View style={{ width: 24 }} />
       </View>
 
-      {/* Loading */}
+      {/* LOADING INDICATOR */}
       {loading ? (
         <View style={styles.loadingWrapper}>
           <ActivityIndicator size="large" color="#553434" />
         </View>
       ) : (
-        <View style={styles.chatArea}>
-  <FlatList
-    ref={flatListRef}
-    data={messages}
-    keyExtractor={(item) => item._id || Math.random().toString()}
-    renderItem={renderMessage}
-    keyboardShouldPersistTaps="handled"
-    keyboardDismissMode="interactive"
-    scrollEventThrottle={16}
-    contentContainerStyle={{
-      paddingBottom: 40, // no need for crazy formula now
-    }}
-  />
-</View>
-
+        <>
+          {/* Chat Messages */}
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item) => item._id || Math.random().toString()}
+            renderItem={renderMessage}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            contentContainerStyle={{
+              paddingBottom: INPUT_HEIGHT + MIN_BOTTOM + keyboardHeight + 30,
+            }}
+          />
+        </>
       )}
 
-      {/* Input */}
+      {/* Input Box */}
       <Animated.View style={[styles.inputWrapper, { bottom: bottomAnim }]}>
         <View style={styles.inputContainer}>
           <TextInput
@@ -260,6 +202,7 @@ useEffect(() => {
             onChangeText={setInput}
             placeholder="Type a message"
             placeholderTextColor="#553434"
+
             multiline
           />
           <TouchableOpacity onPress={handleSend} style={styles.sendButton}>
@@ -268,7 +211,7 @@ useEffect(() => {
         </View>
         <View style={{ marginBottom: 20 }} />
       </Animated.View>
-      {showOverlay && (
+       {showOverlay && (
         <Overlay
         title="End Session?"
         description="You’re currently in an active counseling session. Would you like to continue your conversation or end the session?"
@@ -282,38 +225,14 @@ useEffect(() => {
         />
 
       )}
-      {showEndOverlay && (
-        <Overlay
-        title="Session Ended"
-        description="Session has ended successfully."
-        label="Go Back to Requests"
-        onPress={()=>{router.push('/requests'); setShowEndOverlay(false)}}
-        imageSource={images.tick}
-        />
-
-      )}
     </SafeAreaView>
   );
 };
 
-export default CounselorChatScreen;
+export default ChatScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
-
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    justifyContent:"space-between"
-  },
-  headerText: {
-    fontSize: 20,
-    fontFamily: "KodchasanSemiBold",
-    marginLeft: 8,
-    color: "#553434",
-  },
 
   loadingWrapper: {
     flex: 1,
@@ -321,25 +240,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
+  backImage: { width: 30, height: 30, resizeMode: "contain" },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+  },
+  headerText: { fontSize: 20, fontFamily:"KodchasanSemiBold", marginLeft: 8 , color:"#553434"},
+
   messageContainer: {
     flexDirection: "row",
     marginVertical: 6,
     alignItems: "flex-end",
     paddingHorizontal: 24,
   },
-  patientMessage: { justifyContent: "flex-start" },
-  counselorMessage: { justifyContent: "flex-end" },
+  counselorMessage: { justifyContent: "flex-start" },
+  patientMessage: { justifyContent: "flex-end" },
 
-  profileImage: {
-    width: 30,
-    height: 30,
-    borderRadius: 18,
-    marginRight: 8,
-    borderWidth: 2,
-    borderColor: "#58315A",
-    boxShadow: '2px 2px 0px rgb(88, 49, 90)',
-    
-  },
+  profileImage: { width: 30, height: 30, borderRadius: 18, marginRight: 8, borderWidth: 2, borderColor: "#58315A",
+        boxShadow: '1px 1px 0px rgb(88, 49, 90)',
+
+   },
 
   messageBox: {
     maxWidth: "75%",
@@ -347,27 +269,20 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 10,
   },
-  chatArea: {
-  flex: 1,
-  backgroundColor: "#fff",
-  paddingBottom: NAVBAR_HEIGHT + INPUT_HEIGHT + 10,
-},
-
-
-  counselorBox: { backgroundColor: "#58315A" },
-  patientBox: {
+  patientBox: { backgroundColor: "#58315A" },
+  counselorBox: {
     borderWidth: 3,
     borderColor: "#58315A",
-        borderRadius: 10,
-
     backgroundColor: "transparent",
-        boxShadow: '2px 2px 0px rgb(88, 49, 90)',
+    boxShadow: '2px 2px 0px rgb(88, 49, 90)',
+
+    borderRadius: 10,
 
   },
 
   messageText: { fontSize: 16 },
-  patientText: { color: "#58315A", fontFamily: "KodchasanMedium" },
-  counselorText: { color: "#fff", fontFamily: "KodchasanMedium" },
+  counselorText: { color: "#58315A" , fontFamily:"KodchasanMedium" },
+  patientText: { color: "#fff", fontFamily:"KodchasanMedium" },
 
   inputWrapper: {
     position: "absolute",
@@ -385,10 +300,13 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderWidth: 3,
     borderColor: "#553434",
+    zIndex: 1,
   },
-  input: { flex: 1, fontSize: 14, maxHeight: 120, paddingRight: 10, fontFamily:"KodchasanMedium", },
+  input: { flex: 1, fontSize: 14, maxHeight: 120, paddingRight: 10,fontFamily:"KodchasanMedium", },
 
-  sendButton: { marginLeft: 8, padding: 10, borderRadius: 20 },
-
-  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  sendButton: {
+    marginLeft: 8,
+    padding: 10,
+    borderRadius: 20,
+  },
 });

@@ -46,6 +46,7 @@ import Lungs from '@/assets/images/Lungs.png';
 import SimpleTick from '@/assets/icons/SimpleTick.png';
 import SimpleCross from '@/assets/icons/SimpleCross.png';
 import Avatar from '@/assets/images/Avatar.jpg';
+import Warning from '@/assets/icons/Warning.png'
 export const images={
     welcomeImage,
     ribbon,
@@ -94,5 +95,6 @@ export const images={
     Lungs,
     SimpleTick,
     SimpleCross,
-    Avatar
+    Avatar,
+    Warning
 }

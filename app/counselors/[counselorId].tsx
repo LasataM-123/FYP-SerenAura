@@ -149,6 +149,7 @@ const IndividualCounselor = () => {
           counselorName: data?.counselor.name,
           appointmentDate,
           requestSentDate: res.chat.requestSentDate,
+          profileUrl: data?.counselor.profileUrl,
         });
         router.back();
       } else {

@@ -9,6 +9,7 @@ interface SessionState {
   requestSentDate: string;
   appointmentDate: string;
   counselorName?: string;
+  profileUrl?: string;
   setSessionDetails: (details: Partial<Omit<SessionState, 'setSessionDetails'>>) => void;
   clearSession: () => void;
 }
@@ -22,6 +23,7 @@ export const useSessionStore = create<SessionState>()(
       appointmentDate: "",
       counselorName: "",
         requestSentDate: "",
+      profileUrl: "",
 
       setSessionDetails: (details) => set((state) => ({ ...state, ...details })),
       clearSession: () =>
@@ -31,7 +33,8 @@ export const useSessionStore = create<SessionState>()(
           userId: "",
           appointmentDate: "",
           counselorName: "",
-            requestSentDate: ""
+          requestSentDate: "",
+          profileUrl: "",
 
         }),
     }),

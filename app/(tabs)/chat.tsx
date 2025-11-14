@@ -1,4 +1,11 @@
-import { ScrollView, StyleSheet, Text, View, StatusBar, ActivityIndicator } from 'react-native';
+import { 
+  ScrollView, 
+  StyleSheet, 
+  Text, 
+  View, 
+  StatusBar, 
+  ActivityIndicator 
+} from 'react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '@/components/Header';
@@ -8,38 +15,53 @@ import CounselorCard from '@/components/CounselorCard';
 import { useChatStatus } from '@/lib/useChatSocket';
 import { useSessionStore } from '@/store/sessionStore';
 import RequestOverlay from '@/components/BookingOverlay/RequestOverlay';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { cancelRequest } from '@/lib/api/chat';
 
 const Chat = () => {
   const [counselors, setCounselors] = useState<CounselorType[]>([]);
-  const [loading, setLoading] = useState(true); // <-- loading state
+  const [loading, setLoading] = useState(true);
   const counselorName = useSessionStore((state) => state.counselorName);
   const { refetch } = useBackend({ fn: getAllCounselors });
   const chatId = useSessionStore((state) => state.chatId);
   const requestSentDate = useSessionStore((state) => state.requestSentDate);
+  const appointmentDate = useSessionStore((state) => state.appointmentDate);
   const { clearSession } = useSessionStore();
   const { refetch: cancel } = useBackend({ fn: cancelRequest });
-  const appointmentDate = useSessionStore((state) => state.appointmentDate);
-  
-
-  const cancelChatRequest = async () => {
-    const res = await cancel({chatId});
-    if(res?.status === 'closed'){
-       clearSession();
-      setOverlayVisible(false);
-    }
-  };
   const chatStatus = useChatStatus(chatId || '', requestSentDate || '', appointmentDate);
   const [overlayVisible, setOverlayVisible] = useState(true);
-useFocusEffect(
-  useCallback(() => {
-    if (chatStatus === '' && !chatId) {
+
+  const [isAppointmentAvailable, setIsAppointmentAvailable] = useState(false);
+
+  // Check appointment availability every second
+  useEffect(() => {
+    if (!appointmentDate) return;
+
+    const interval = setInterval(() => {
+      const now = new Date();
+      const appointment = new Date(appointmentDate);
+      setIsAppointmentAvailable(now >= appointment);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [appointmentDate]);
+
+  const cancelChatRequest = async () => {
+    const res = await cancel({ chatId });
+    if (res?.status === 'closed') {
       clearSession();
       setOverlayVisible(false);
     }
-  }, [chatStatus, chatId])
-);
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      if (chatStatus === '' && !chatId) {
+        clearSession();
+        setOverlayVisible(false);
+      }
+    }, [chatStatus, chatId])
+  );
 
   useEffect(() => {
     const fetchCounselors = async () => {
@@ -53,7 +75,7 @@ useFocusEffect(
 
   useFocusEffect(
     useCallback(() => {
-      if (['pending', 'active', 'closed'].includes(chatStatus) || chatId) {
+      if (['pending', 'active', 'closed', 'ended'].includes(chatStatus) || chatId) {
         setOverlayVisible(true);
       } else if (chatStatus === '') {
         setOverlayVisible(false);
@@ -75,6 +97,7 @@ useFocusEffect(
 
   const getOverlayContent = () => {
     switch (chatStatus) {
+
       case 'pending':
         return {
           title: 'Booking Request Sent',
@@ -84,16 +107,33 @@ useFocusEffect(
             cancelChatRequest();
           },
         };
+
       case 'active':
         return {
           title: 'Booking Request Accepted',
-          description: `Dr.${counselorName} has accepted your chat request. You can start chatting now. 
+          description: `Dr.${counselorName} has accepted your chat request. You can start chatting once your appointment time arrives. 
 Please note that if the chat does not begin within an hour of acceptance, the booking will automatically be cancelled.`,
           status: 'active' as const,
           onPrimaryAction: () => {
+            if (isAppointmentAvailable) {
+              setOverlayVisible(false);
+            }
+            router.push('/counselors/counselor-chat');
+          },
+          disabled: !isAppointmentAvailable,
+        };
+
+      case 'ended': 
+        return {
+          title: 'Chat Session Ended',
+          description: `Your chat session with Dr.${counselorName} has ended.`,
+          status: 'ended' as const,
+          onPrimaryAction: () => {
+            clearSession();
             setOverlayVisible(false);
           },
         };
+
       case 'closed':
       case '':
         return {
@@ -105,6 +145,7 @@ Please note that if the chat does not begin within an hour of acceptance, the bo
             setOverlayVisible(false);
           },
         };
+
       default:
         return null;
     }
@@ -130,6 +171,7 @@ Please note that if the chat does not begin within an hour of acceptance, the bo
           description={overlayContent.description}
           status={overlayContent.status}
           onPrimaryAction={overlayContent.onPrimaryAction}
+          disabled={overlayContent.disabled}
         />
       )}
 

@@ -8,19 +8,21 @@ import {
   Easing,
   ActivityIndicator,
   Image,
+  TouchableOpacity,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import Button from "../Button";
 import { useSessionStore } from "@/store/sessionStore";
 import { images } from "@/constants";
+import Button from "../Button";
 
 interface RequestOverlayProps {
   title: string;
   description: string;
-  status: "pending" | "active" | "closed";
+  status: "pending" | "active" | "closed" | "ended";
   onPrimaryAction: () => void;
   onSecondaryAction?: () => void;
+  disabled?: boolean;
 }
 
 const RequestOverlay: React.FC<RequestOverlayProps> = ({
@@ -29,6 +31,7 @@ const RequestOverlay: React.FC<RequestOverlayProps> = ({
   status,
   onPrimaryAction,
   onSecondaryAction,
+  disabled = false,
 }) => {
   const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -76,7 +79,9 @@ const RequestOverlay: React.FC<RequestOverlayProps> = ({
             style={{ transform: [{ scale: 2 }], marginTop: 24 }}
           />
         );
+
       case "active":
+      case "ended": // added ended -> use tick
         return (
           <Image
             source={images.tick}
@@ -84,6 +89,7 @@ const RequestOverlay: React.FC<RequestOverlayProps> = ({
             resizeMode="contain"
           />
         );
+
       case "closed":
         return (
           <Image
@@ -92,6 +98,7 @@ const RequestOverlay: React.FC<RequestOverlayProps> = ({
             resizeMode="contain"
           />
         );
+
       default:
         return null;
     }
@@ -101,12 +108,25 @@ const RequestOverlay: React.FC<RequestOverlayProps> = ({
     if (status === "active") {
       return (
         <>
-          <Button
-            label="Start Chat"
+          <TouchableOpacity
+            activeOpacity={disabled ? 1 : 0.7}
             onPress={onPrimaryAction}
-            variant="solid"
-            imageSource={images.ButtonChat}
-          />
+            style={{ width: "100%", opacity: disabled ? 0.5 : 1, marginBottom: 12 }}
+          >
+            <Button
+              label={"Start Chat"}
+              onPress={onPrimaryAction}
+              imageSource={images.ButtonChat}
+              variant="solid"
+            />
+          </TouchableOpacity>
+
+          {disabled && (
+            <Text style={styles.disabledText}>
+              Chat will be available at your appointment time.
+            </Text>
+          )}
+
           {onSecondaryAction && (
             <Button
               label="Go back to counselors"
@@ -116,7 +136,10 @@ const RequestOverlay: React.FC<RequestOverlayProps> = ({
           )}
         </>
       );
-    } else if (status === "closed") {
+    }
+
+    // ended and closed both behave like "go back"
+    if (status === "closed" || status === "ended") {
       return (
         <Button
           label="Go back"
@@ -124,7 +147,9 @@ const RequestOverlay: React.FC<RequestOverlayProps> = ({
           variant="outline"
         />
       );
-    } else if (status === "pending") {
+    }
+
+    if (status === "pending") {
       return (
         <Button
           label="Cancel Request"
@@ -233,5 +258,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderColor: "#553434",
     borderWidth: 2,
+  },
+  disabledText: {
+    fontSize: 12,
+    color: "#7a7a7a",
+    fontFamily: "KodchasanLight",
+    textAlign: "center",
+    marginBottom: 10,
   },
 });

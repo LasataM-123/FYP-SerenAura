@@ -88,11 +88,14 @@ const Overlay: React.FC<OverlayProps> = ({
           <Button label={label} onPress={onPress} variant="solid" />
 
           {includeOutlinedButton && (
+            <>
+            <View style={{marginTop:12}}/>
             <Button
               label={outlineLabel ?? ""}
               onPress={() => {}}
               variant="outline"
             />
+            </>
           )}
         </View>
       </View>
@@ -145,8 +148,8 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   crossIcon: {
-    width: 20,
-    height: 20,
+    width: 30,
+    height: 30,
   },
   iconWrapper: {
     marginBottom: 24,
