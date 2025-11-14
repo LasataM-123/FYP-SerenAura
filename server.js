@@ -74,6 +74,7 @@ app.use('/api/playlist', require('./routes/playlistRoutes'));
 app.use('/api/mood', require('./routes/moodRoutes'));
 app.use('/api/breathe', require('./routes/breathingRoutes'));
 app.use('/api/chat', require('./routes/chatRoutes'));
+app.use('/api/messages', require('./routes/messageRoutes'));  
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;

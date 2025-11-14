@@ -161,19 +161,16 @@ const cancelChatRequest = asyncHandler(async (req, res) => {
 const deleteInactiveChatsAfterAppointment = async (req, res) => {
   try {
     const { userId } = req.params;
-    const io = req.app.get("io"); // if using Socket.IO
-    console.log("🕒 Cleanup triggered for:", userId);
+    const io = req.app.get("io");
 
     const now = new Date();
 
-    // 1️⃣ Find all active chats older than 1 hour
+    // Find active chats where appointment was at least 1 hour ago
     const chats = await Chat.find({
       status: "active",
       appointmentDate: { $lte: new Date(now.getTime() - 60 * 60 * 1000) },
       $or: [{ patientId: userId }, { counselorId: userId }],
     }).lean();
-
-    console.log("✅ Found chats:", chats.length);
 
     if (!chats.length) {
       return res.status(200).json({ message: "No inactive chats found" });
@@ -181,64 +178,40 @@ const deleteInactiveChatsAfterAppointment = async (req, res) => {
 
     let deletedCount = 0;
 
-    // 2️⃣ Loop over each chat and decide what to do
     for (const chat of chats) {
-      console.log(`📂 Checking chat ${chat._id}`);
-
-      // get sender roles directly from Message collection
+      // Get all sender roles in this chat
       const roles = await Message.distinct("senderRole", {
         chatId: new mongoose.Types.ObjectId(chat._id),
       });
 
-      console.log(`💬 Roles found for chat ${chat._id}:`, roles);
-
-      // 3️⃣ If both sides sent messages, just close it
+      // If both patient and counselor sent messages → keep chat active
       if (roles.includes("patient") && roles.includes("counselor")) {
-        console.log(`✅ Both sides messaged — closing chat ${chat._id}`);
-        await Chat.findByIdAndUpdate(chat._id, {
-          status: "closed",
-          endTime: now,
-        });
-
-        io?.to(chat._id.toString()).emit("chatStatusUpdated", {
-          chatId: chat._id.toString(),
-          status: "closed",
-        });
-      } else {
-        // 4️⃣ If only one side (or none) sent messages → delete chat + messages
-        console.log(`🗑️ Deleting chat ${chat._id} — one-sided or inactive`);
-
-        // delete all related messages
-        await Message.deleteMany({ chatId: chat._id });
-
-        // pull from both Patient and Counselor arrays safely
-        const updates = [];
-        if (chat.patientId) {
-          updates.push(
-            Patient.findByIdAndUpdate(chat.patientId, {
-              $pull: { chats: chat._id },
-            })
-          );
-        }
-        if (chat.counselorId) {
-          updates.push(
-            Counselor.findByIdAndUpdate(chat.counselorId, {
-              $pull: { chats: chat._id },
-            })
-          );
-        }
-
-        await Promise.allSettled(updates);
-
-        // delete chat itself
-        await Chat.findByIdAndDelete(chat._id);
-        deletedCount++;
-
-        io?.to(chat._id.toString()).emit("chatStatusUpdated", {
-          chatId: chat._id.toString(),
-          status: "deleted",
-        });
+        continue;
       }
+
+      // Otherwise, delete chat + messages
+      await Message.deleteMany({ chatId: chat._id });
+
+      const updates = [];
+      if (chat.patientId) {
+        updates.push(
+          Patient.findByIdAndUpdate(chat.patientId, { $pull: { chats: chat._id } })
+        );
+      }
+      if (chat.counselorId) {
+        updates.push(
+          Counselor.findByIdAndUpdate(chat.counselorId, { $pull: { chats: chat._id } })
+        );
+      }
+
+      await Promise.allSettled(updates);
+      await Chat.findByIdAndDelete(chat._id);
+      deletedCount++;
+
+      io?.to(chat._id.toString()).emit("chatStatusUpdated", {
+        chatId: chat._id.toString(),
+        status: "deleted",
+      });
     }
 
     return res.status(200).json({
@@ -250,6 +223,7 @@ const deleteInactiveChatsAfterAppointment = async (req, res) => {
     return res.status(500).json({ error: "Server error during cleanup." });
   }
 };
+
 
 /**
  * @route  GET /api/chat/get
