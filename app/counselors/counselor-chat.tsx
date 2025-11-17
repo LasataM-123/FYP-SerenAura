@@ -222,6 +222,7 @@ const ChatScreen = () => {
         onClose={()=>{setShowOverlay(false)}}
         outlineLabel="Continue Session"
         includeOutlinedButton={true}
+        onOutline={()=>{setShowOverlay(false)}}
         />
 
       )}

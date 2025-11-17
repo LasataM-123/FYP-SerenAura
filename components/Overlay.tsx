@@ -25,6 +25,7 @@ const Overlay: React.FC<OverlayProps> = ({
   crossIcon = false,
   onClose,
   onPress,
+  onOutline
 }) => {
   const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -92,7 +93,7 @@ const Overlay: React.FC<OverlayProps> = ({
             <View style={{marginTop:12}}/>
             <Button
               label={outlineLabel ?? ""}
-              onPress={() => {}}
+              onPress={onOutline ?? (() => {})}
               variant="outline"
             />
             </>

@@ -43,6 +43,7 @@ export interface OverlayProps {
   outlineLabel?:string;
   onPress: () => void;
   onClose?: () => void;
+  onOutline?:() => void;
 }
 
 export type AnswerCardProps = {

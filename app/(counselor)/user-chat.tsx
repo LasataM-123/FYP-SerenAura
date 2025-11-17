@@ -25,19 +25,22 @@ import Button from "@/components/Button";
 import Overlay from "@/components/Overlay";
 import { router } from "expo-router";
 import { useChatStatus } from "@/lib/useChatSocket";
+import { useFocusEffect } from "@react-navigation/native";
 
 const NAVBAR_HEIGHT = 80;
 const INPUT_HEIGHT = 56;
 const MIN_BOTTOM = NAVBAR_HEIGHT + 8;
 
 const CounselorChatScreen = () => {
-
   const chatId = useChatStore((state) => state.currentChatId) || "";
- const chatStatus = useChatStatus(chatId);
+  const chatStatus = useChatStatus(chatId);
 
   const patientName = useChatStore((state) => state.patientName) || "Patient";
   const patientProfileUrl = useChatStore((state) => state.patientProfileUrl);
   const userRole = useAuthStore.getState().role || "counselor";
+
+  const endedByCounselor = useChatStore((state) => state.endedByCounselor);
+  const setEndedByCounselor = useChatStore((state) => state.setEndedByCounselor);
 
   const { messages, sendMessage, endChat } = useChatMessaging(chatId, userRole);
 
@@ -47,23 +50,50 @@ const CounselorChatScreen = () => {
   const flatListRef = useRef<FlatList>(null);
   const bottomAnim = useRef(new Animated.Value(MIN_BOTTOM)).current;
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-const [showOverlay, setShowOverlay] = useState(false);
-const [showEndOverlay, setShowEndOverlay] = useState(false);
-const resetChat = useChatStore((state) => state.resetChat);
 
-useEffect(() => {
-  if (chatStatus === "ended") {
-    resetChat();
+  const [showOverlay, setShowOverlay] = useState(false);
+  const [showEndOverlay, setShowEndOverlay] = useState(false);
 
-    // show end overlay
-    setShowOverlay(false);
-    setShowEndOverlay(true);
-  }
-}, [chatStatus]);
+  const resetChat = useChatStore((state) => state.resetChat);
 
+  // ---------------- AUTO SCROLL ON NEW MESSAGES ----------------
+  useEffect(() => {
+    if (flatListRef.current && messages.length > 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 60);
+    }
+  }, [messages]);
+
+  // ---------------- AUTO SCROLL WHEN KEYBOARD OPENS ----------------
+  useEffect(() => {
+    if (flatListRef.current) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 60);
+    }
+  }, [keyboardHeight]);
+
+  // ---------------- CHAT STATUS ENDED ----------------
+  useEffect(() => {
+    if (chatStatus === "ended") {
+      setEndedByCounselor(true);
+      setShowEndOverlay(true);
+    }
+  }, [chatStatus]);
+
+  // ---------------- FOCUS HANDLER ----------------
+  useFocusEffect(
+    React.useCallback(() => {
+      if (endedByCounselor) {
+        setShowEndOverlay(true);
+      }
+    }, [endedByCounselor])
+  );
 
   // ---------------- LOADING ----------------
   useEffect(() => {
+    setShowEndOverlay(false);
     if (messages.length >= 0) {
       const timeout = setTimeout(() => setLoading(false), 350);
       return () => clearTimeout(timeout);
@@ -103,14 +133,14 @@ useEffect(() => {
       hideSub.remove();
     };
   }, []);
+
   useEffect(() => {
-      StatusBar.setBarStyle("dark-content");
-      if (Platform.OS === "android") {
-        StatusBar.setBackgroundColor("#fff");
-        StatusBar.setTranslucent(false);
-      }
-    }, []);
-    
+    StatusBar.setBarStyle("dark-content");
+    if (Platform.OS === "android") {
+      StatusBar.setBackgroundColor("#fff");
+      StatusBar.setTranslucent(false);
+    }
+  }, []);
 
   // ---------------- SEND MESSAGE ----------------
   const handleSend = async () => {
@@ -136,8 +166,7 @@ useEffect(() => {
     const nextMessage = messages[index + 1];
     const showProfile =
       isPatient &&
-      (index === messages.length - 1 ||
-        nextMessage?.senderRole !== "patient");
+      (index === messages.length - 1 || nextMessage?.senderRole !== "patient");
 
     return (
       <View
@@ -146,21 +175,15 @@ useEffect(() => {
           isPatient ? styles.patientMessage : styles.counselorMessage,
         ]}
       >
-        {/* Avatar only at final bubble of group */}
         {isPatient && showProfile ? (
           <Image
-            source={
-              patientProfileUrl
-                ? { uri: patientProfileUrl }
-                : images.Avatar
-            }
+            source={patientProfileUrl ? { uri: patientProfileUrl } : images.Avatar}
             style={styles.profileImage}
           />
         ) : isPatient ? (
           <View style={{ width: 30, marginRight: 8 }} />
         ) : null}
 
-        {/* Bubble */}
         <View
           style={[
             styles.messageBox,
@@ -180,7 +203,6 @@ useEffect(() => {
     );
   };
 
-  // ---------------- NO CHAT SELECTED ----------------
   if (!chatId) {
     return (
       <SafeAreaView style={styles.container}>
@@ -190,25 +212,21 @@ useEffect(() => {
       </SafeAreaView>
     );
   }
+
+  // ---------------- END SESSION ----------------
   const handleEndChat = async () => {
-  try {
-    const response = await endChat();
-    if (response.success) {
-      // Reset chat state
-      resetChat();
-
-      // Show end overlay
+    try {
+      const response = await endChat();
+      if (response.success) {
+        setEndedByCounselor(true);
+        setShowOverlay(false);
+        setShowEndOverlay(true);
+      }
+    } catch (err) {
       setShowOverlay(false);
-      setShowEndOverlay(true);
+      setShowEndOverlay(false);
     }
-  } catch (err) {
-
-    setShowOverlay(false);
-    setShowEndOverlay(false);
-  } 
-};
-
-
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -216,16 +234,19 @@ useEffect(() => {
 
       {/* Header */}
       <View style={styles.header}>
-        <View style={{flexDirection:"row"}}>
-
-        <TouchableOpacity onPress={() => {}}>
-          <ArrowLeft stroke="#553434" size={28} />
-        </TouchableOpacity>
-        <Text style={styles.headerText}>{patientName}</Text>
-        <View style={{ width: 28 }} />
+        <View style={{ flexDirection: "row" }}>
+          <TouchableOpacity onPress={() => {}}>
+            <ArrowLeft stroke="#553434" size={28} />
+          </TouchableOpacity>
+          <Text style={styles.headerText}>{patientName}</Text>
         </View>
-        <Button label="End Chat" onPress={()=>{setShowOverlay(true);}} width={100} height={40}/>
 
+        <Button
+          label="End Chat"
+          onPress={() => setShowOverlay(true)}
+          width={100}
+          height={40}
+        />
       </View>
 
       {/* Loading */}
@@ -235,20 +256,19 @@ useEffect(() => {
         </View>
       ) : (
         <View style={styles.chatArea}>
-  <FlatList
-    ref={flatListRef}
-    data={messages}
-    keyExtractor={(item) => item._id || Math.random().toString()}
-    renderItem={renderMessage}
-    keyboardShouldPersistTaps="handled"
-    keyboardDismissMode="interactive"
-    scrollEventThrottle={16}
-    contentContainerStyle={{
-      paddingBottom: 40, // no need for crazy formula now
-    }}
-  />
-</View>
-
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item) => item._id || Math.random().toString()}
+            renderItem={renderMessage}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            contentContainerStyle={{ paddingBottom: 40 }}
+            onContentSizeChange={() =>
+              flatListRef.current?.scrollToEnd({ animated: true })
+            }
+          />
+        </View>
       )}
 
       {/* Input */}
@@ -268,29 +288,37 @@ useEffect(() => {
         </View>
         <View style={{ marginBottom: 20 }} />
       </Animated.View>
+
+      {/* END CONFIRMATION */}
       {showOverlay && (
         <Overlay
-        title="End Session?"
-        description="You’re currently in an active counseling session. Would you like to continue your conversation or end the session?"
-        label="End Session"
-        onPress={handleEndChat}
-        imageSource={images.Warning}
-        crossIcon={true}
-        onClose={()=>{setShowOverlay(false)}}
-        outlineLabel="Continue Session"
-        includeOutlinedButton={true}
+          title="End Session?"
+          description="You’re currently in an active counseling session. Would you like to continue your conversation or end the session?"
+          label="End Session"
+          onPress={handleEndChat}
+          imageSource={images.Warning}
+          crossIcon={true}
+          onClose={() => setShowOverlay(false)}
+          outlineLabel="Continue Session"
+          includeOutlinedButton={true}
+          onOutline={() => setShowOverlay(false)}
         />
-
       )}
+
+      {/* SESSION ENDED OVERLAY */}
       {showEndOverlay && (
         <Overlay
-        title="Session Ended"
-        description="Session has ended successfully."
-        label="Go Back to Requests"
-        onPress={()=>{router.push('/requests'); setShowEndOverlay(false)}}
-        imageSource={images.tick}
+          title="Session Ended"
+          description="Session has ended successfully."
+          label="Go Back to Requests"
+          onPress={() => {
+            resetChat();
+            setEndedByCounselor(false);
+            setShowEndOverlay(false);
+            router.push("/requests");
+          }}
+          imageSource={images.tick}
         />
-
       )}
     </SafeAreaView>
   );
@@ -306,7 +334,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 24,
     paddingVertical: 16,
-    justifyContent:"space-between"
+    justifyContent: "space-between",
   },
   headerText: {
     fontSize: 20,
@@ -337,8 +365,6 @@ const styles = StyleSheet.create({
     marginRight: 8,
     borderWidth: 2,
     borderColor: "#58315A",
-    boxShadow: '2px 2px 0px rgb(88, 49, 90)',
-    
   },
 
   messageBox: {
@@ -348,21 +374,17 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   chatArea: {
-  flex: 1,
-  backgroundColor: "#fff",
-  paddingBottom: NAVBAR_HEIGHT + INPUT_HEIGHT + 10,
-},
-
+    flex: 1,
+    backgroundColor: "#fff",
+    paddingBottom: NAVBAR_HEIGHT + INPUT_HEIGHT + 10,
+  },
 
   counselorBox: { backgroundColor: "#58315A" },
   patientBox: {
     borderWidth: 3,
     borderColor: "#58315A",
-        borderRadius: 10,
-
     backgroundColor: "transparent",
-        boxShadow: '2px 2px 0px rgb(88, 49, 90)',
-
+    borderRadius: 10,
   },
 
   messageText: { fontSize: 16 },
@@ -386,7 +408,13 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: "#553434",
   },
-  input: { flex: 1, fontSize: 14, maxHeight: 120, paddingRight: 10, fontFamily:"KodchasanMedium", },
+  input: {
+    flex: 1,
+    fontSize: 14,
+    maxHeight: 120,
+    paddingRight: 10,
+    fontFamily: "KodchasanMedium",
+  },
 
   sendButton: { marginLeft: 8, padding: 10, borderRadius: 20 },
 

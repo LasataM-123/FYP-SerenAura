@@ -54,15 +54,6 @@ const Chat = () => {
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      if (chatStatus === '' && !chatId) {
-        clearSession();
-        setOverlayVisible(false);
-      }
-    }, [chatStatus, chatId])
-  );
-
   useEffect(() => {
     const fetchCounselors = async () => {
       setLoading(true);
@@ -75,12 +66,14 @@ const Chat = () => {
 
   useFocusEffect(
     useCallback(() => {
-      if (['pending', 'active', 'closed', 'ended'].includes(chatStatus) || chatId) {
+      if (chatId) {
         setOverlayVisible(true);
-      } else if (chatStatus === '') {
+      } else if (chatStatus === "") {
+        clearSession();
         setOverlayVisible(false);
       }
-    }, [chatStatus])
+
+    }, [chatStatus, chatId])
   );
 
   useFocusEffect(
