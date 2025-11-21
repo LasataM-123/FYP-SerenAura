@@ -1,6 +1,5 @@
 import { API_URL } from "@/config";
 import { useAuthStore } from "@/store/authStore";
-
 export type Message = {
   _id: string;
   chatId: string;
@@ -75,6 +74,70 @@ export type AcceptChatResponse = {
   message: string;
   status: "active" | "pending" ;
 };
+
+export type EndedChatBase = {
+  _id: string;
+  status: "ended";
+  appointmentDate: string;
+  endTime: string;
+  updatedAt: string;
+};
+export type EndedChatForCounselor = EndedChatBase & {
+  patientId: {
+    _id: string;
+    name: string;
+    profileUrl?: string;
+  };
+  counselorId: string; // not populated
+};
+
+export type EndedChatForPatient = EndedChatBase & {
+  counselorId: {
+    _id: string;
+    name: string;
+    profileUrl?: string;
+    speciality?: string;
+    experience?: number;
+  };
+  patientId: string; // not populated
+};
+
+export type EndedChat = EndedChatForCounselor | EndedChatForPatient;
+
+export type EndedChatsResponse = {
+  success: boolean;
+  chats: EndedChat[];
+};
+
+export type ChatHistoryMessage = {
+  chatId: string;
+
+  patient: {
+    name: string;
+    profileUrl?: string | null;
+  };
+
+  counselor: {
+    name: string;
+    profileUrl?: string | null;
+  };
+
+  messages: {
+    _id: string;
+    senderRole: "patient" | "counselor";
+    senderName: string;
+    senderProfileUrl?: string | null;
+    content: string;
+    createdAt: string;
+    timeAgo: string;
+  }[];
+
+  sessionEnded?: {
+    endTime: string;
+    timeAgo: string;
+  } | null;
+};
+
 
 export async function sendChatRequest(params?: {
   patientId: string;
@@ -182,9 +245,8 @@ export async function acceptRequest(
 
   if (!res.ok) {
     const errBody = await res.json();
-    throw new Error(errBody.message || "Failed to accept request");
+    throw new Error(errBody.message || "Failed to get ended chats");
   }
-
   return res.json();
 }
 
@@ -202,6 +264,44 @@ export async function getAllChatRequests(): Promise<GetChatResponse> {
   if (!res.ok) {
     const errBody = await res.json();
     throw new Error(errBody.message || "Failed to get chat requests");
+  }
+
+  return res.json();
+}
+
+export async function getEndedChats(params?:{role:string | null}): Promise<EndedChatsResponse> {
+  const accessToken = useAuthStore.getState().accessToken;
+
+  const res = await fetch(`${API_URL}/chat/get/end/${params?.role}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json();
+    throw new Error(errBody.message || "Failed to get chat requests");
+  }
+
+  return res.json();
+}
+
+export async function getChatHistory(params?:{chatId:string}): Promise<ChatHistoryMessage> {
+  const accessToken = useAuthStore.getState().accessToken;
+
+  const res = await fetch(`${API_URL}/chat/get-history/${params?.chatId}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json();
+    throw new Error(errBody.message || "Failed to get chat history");
   }
 
   return res.json();

@@ -14,7 +14,7 @@ import {
   StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, ArrowUpIcon } from "lucide-react-native";
+import { ArrowLeft, ArrowUpIcon, UserRound } from "lucide-react-native";
 
 import { useChatStore } from "@/store/chatStore";
 import { useAuthStore } from "@/store/authStore";
@@ -235,9 +235,7 @@ const CounselorChatScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <View style={{ flexDirection: "row" }}>
-          <TouchableOpacity onPress={() => {}}>
-            <ArrowLeft stroke="#553434" size={28} />
-          </TouchableOpacity>
+          <UserRound size={28} color="#553434" />
           <Text style={styles.headerText}>{patientName}</Text>
         </View>
 
