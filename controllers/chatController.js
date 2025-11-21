@@ -195,12 +195,12 @@ const deleteInactiveChatsAfterAppointment = async (req, res) => {
       const updates = [];
       if (chat.patientId) {
         updates.push(
-          Patient.findByIdAndUpdate(chat.patientId, { $pull: { chats: chat._id } })
+          Patient.findByIdAndUpdate(chat.patientId, { $pull: { chat: chat._id } })
         );
       }
       if (chat.counselorId) {
         updates.push(
-          Counselor.findByIdAndUpdate(chat.counselorId, { $pull: { chats: chat._id } })
+          Counselor.findByIdAndUpdate(chat.counselorId, { $pull: { chat: chat._id } })
         );
       }
 
@@ -210,7 +210,7 @@ const deleteInactiveChatsAfterAppointment = async (req, res) => {
 
       io?.to(chat._id.toString()).emit("chatStatusUpdated", {
         chatId: chat._id.toString(),
-        status: "deleted",
+        status: "closed",
       });
     }
 
@@ -290,13 +290,148 @@ const endChatSession = asyncHandler(async (req, res) => {
   }
 });
 
-const getChatHistory = asyncHandler(async (req, res) => {
-  try{
+/**
+ * @route  GET /api/chat/get/end/:role
+ * @desc   Get all ended chats
+ * @access Private (patient and counselor) 
+ */
+const getEndedChats = async (req, res) => {
+  try {
+    const {role} = req.params;
+    const userId = req.user.id;
 
-  }catch(e){
+    if (!role) {
+      return res.status(400).json({ message: "Role is required" });
+    }
+
+    if (role === "counselor") {
+      const chats = await Chat.find({
+        counselorId: userId,
+        status: "ended",
+      })
+        .populate("patientId", "name profileUrl")
+        .sort({ updatedAt: -1 });
+
+      return res.json({ success: true, chats });
+    }
+
+    if (role === "patient") {
+      const chats = await Chat.find({
+        patientId: userId,
+        status: "ended",
+
+      })
+        .populate("counselorId", "name profileUrl speciality experience")
+        .sort({ updatedAt: -1 });
+
+      return res.json({ success: true, chats });
+    }
+
+    return res.status(400).json({ message: "Invalid role" });
+  } catch (err) {
+    console.error("Error fetching ended chats:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/**
+ * @route  GET /api/chat/get-history
+ * @desc   Get chat history
+ * @access Private (patient and counselor)
+ */
+const getChatHistory = asyncHandler(async (req, res) => {
+  try {
+    const { chatId } = req.params;
+
+    const chat = await Chat.findById(chatId)
+      .populate("patientId", "name profileUrl")
+      .populate("counselorId", "name profileUrl");
+
+    if (!chat) {
+      return res.status(404).json({ message: "Chat not found" });
+    }
+
+    const patientName = chat.patientId?.name || "Patient";
+    const counselorName = chat.counselorId?.name || "Counselor";
+
+    const patientProfileUrl = chat.patientId?.profileUrl || null;
+    const counselorProfileUrl = chat.counselorId?.profileUrl || null;
+
+    // Fetch all messages for this chat
+    const messages = await Message.find({ chatId }).sort({ createdAt: 1 });
+
+    // Manual "time ago" formatter
+    const formatTimeAgo = (date) => {
+      if (!date) return "";
+      const seconds = Math.floor((Date.now() - new Date(date)) / 1000);
+
+      const intervals = {
+        year: 31536000,
+        month: 2592000,
+        day: 86400,
+        hour: 3600,
+        minute: 60,
+      };
+
+      for (let key in intervals) {
+        const interval = Math.floor(seconds / intervals[key]);
+        if (interval >= 1) {
+          return `${interval} ${key}${interval > 1 ? "s" : ""} ago`;
+        }
+      }
+
+      return "just now";
+    };
+
+    // Format messages with profileUrl + timeAgo
+    const formattedMessages = messages.map((msg) => {
+      const isPatient = msg.senderRole === "patient";
+
+      return {
+        _id: msg._id,
+        senderRole: msg.senderRole,
+        senderName: isPatient ? patientName : counselorName,
+        senderProfileUrl: isPatient 
+          ? patientProfileUrl 
+          : counselorProfileUrl,
+        content: msg.content,
+        createdAt: msg.createdAt,
+        timeAgo: formatTimeAgo(msg.createdAt),
+      };
+    });
+
+    // Add session ended info if endTime exists
+    let sessionEnded = null;
+    if (chat.endTime) {
+      sessionEnded = {
+        endTime: chat.endTime,
+        timeAgo: formatTimeAgo(chat.endTime),
+      };
+    }
+
+    return res.status(200).json({
+      chatId: chat._id,
+
+      patient: {
+        name: patientName,
+        profileUrl: patientProfileUrl,
+      },
+
+      counselor: {
+        name: counselorName,
+        profileUrl: counselorProfileUrl,
+      },
+
+      messages: formattedMessages,
+
+      sessionEnded,
+    });
+
+  } catch (e) {
     return res.status(500).json({ message: e.message });
   }
 });
+
 
 module.exports = {
   sendChatRequest,
@@ -306,4 +441,6 @@ module.exports = {
   deleteInactiveChatsAfterAppointment,
   getAllChatRequests,
   endChatSession,
+  getEndedChats,
+  getChatHistory
 };

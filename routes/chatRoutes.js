@@ -3,7 +3,7 @@ const router = express.Router();
 const { tokenHandler } = require('../middlewares/tokenHandler');
 const { validPatient } = require('../middlewares/validPatient');
 const { validCounselor } = require('../middlewares/validCounselor');
-const { sendChatRequest, acceptChatRequest, cancelChatRequest, deleteExpiredChatRequests, deleteInactiveChatsAfterAppointment, getAllChatRequests, endChatSession } = require('../controllers/chatController');
+const { sendChatRequest, acceptChatRequest, cancelChatRequest, deleteExpiredChatRequests, deleteInactiveChatsAfterAppointment, getAllChatRequests, endChatSession, getEndedChats, getChatHistory } = require('../controllers/chatController');
 
 router.post('/request',tokenHandler, validPatient, sendChatRequest);
 
@@ -18,5 +18,9 @@ router.delete('/cleanup/inactive/:userId', tokenHandler, deleteInactiveChatsAfte
 router.get('/get', tokenHandler, validCounselor,getAllChatRequests);
 
 router.put('/end/:chatId', tokenHandler, endChatSession);
+
+router.get('/get/end/:role', tokenHandler, getEndedChats);
+
+router.get('/get-history/:chatId',tokenHandler,getChatHistory);
 
 module.exports = router;
