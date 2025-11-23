@@ -14,7 +14,7 @@ import {
   StatusBar,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ArrowLeft, ArrowUpIcon, UserRound } from "lucide-react-native";
+import { ArrowUpIcon, UserRound } from "lucide-react-native";
 
 import { useChatStore } from "@/store/chatStore";
 import { useAuthStore } from "@/store/authStore";
@@ -65,14 +65,7 @@ const CounselorChatScreen = () => {
     }
   }, [messages]);
 
-  // ---------------- AUTO SCROLL WHEN KEYBOARD OPENS ----------------
-  useEffect(() => {
-    if (flatListRef.current) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 60);
-    }
-  }, [keyboardHeight]);
+  // ❌ REMOVED AUTO SCROLL WHEN KEYBOARD OPENS
 
   // ---------------- CHAT STATUS ENDED ----------------
   useEffect(() => {
@@ -232,7 +225,6 @@ const CounselorChatScreen = () => {
     <SafeAreaView style={styles.container}>
       <Header />
 
-      {/* Header */}
       <View style={styles.header}>
         <View style={{ flexDirection: "row" }}>
           <UserRound size={28} color="#553434" />
@@ -247,7 +239,6 @@ const CounselorChatScreen = () => {
         />
       </View>
 
-      {/* Loading */}
       {loading ? (
         <View style={styles.loadingWrapper}>
           <ActivityIndicator size="large" color="#553434" />
@@ -262,14 +253,10 @@ const CounselorChatScreen = () => {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
             contentContainerStyle={{ paddingBottom: 40 }}
-            onContentSizeChange={() =>
-              flatListRef.current?.scrollToEnd({ animated: true })
-            }
           />
         </View>
       )}
 
-      {/* Input */}
       <Animated.View style={[styles.inputWrapper, { bottom: bottomAnim }]}>
         <View style={styles.inputContainer}>
           <TextInput
@@ -287,7 +274,6 @@ const CounselorChatScreen = () => {
         <View style={{ marginBottom: 20 }} />
       </Animated.View>
 
-      {/* END CONFIRMATION */}
       {showOverlay && (
         <Overlay
           title="End Session?"
@@ -303,7 +289,6 @@ const CounselorChatScreen = () => {
         />
       )}
 
-      {/* SESSION ENDED OVERLAY */}
       {showEndOverlay && (
         <Overlay
           title="Session Ended"

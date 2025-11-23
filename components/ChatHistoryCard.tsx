@@ -9,14 +9,14 @@ import {
 } from "react-native";
 import React, { useRef } from "react";
 import Button from "@/components/Button";
-import { UserRound, Hourglass, Stethoscope } from "lucide-react-native";
+import { UserRound, Hourglass, Stethoscope, Calendar } from "lucide-react-native";
 import { router } from "expo-router";
 import { useAuthStore } from "@/store/authStore";
 import { images } from "@/constants";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = width - 48;
-const CARD_HEIGHT = CARD_WIDTH * 0.40; // exactly like CounselorCard
+const CARD_HEIGHT = CARD_WIDTH * 0.40;
 const BORDER_COLOR = "#553434";
 
 type ChatHistoryProps = {
@@ -84,12 +84,10 @@ const ChatHistoryCard: React.FC<ChatHistoryProps> = ({
     <TouchableWithoutFeedback onPressIn={handlePressIn} onPressOut={handlePressOut}>
       <Animated.View style={[styles.container, { transform: [{ scale: scaleAnim }] }]}>
 
-        {/* Shadow border */}
         <View style={styles.shadowLayer} />
 
         <View style={styles.card}>
           
-          {/* Profile Image */}
           <View style={styles.imageWrapper}>
             <View style={styles.imageShadow} />
             <Image
@@ -99,14 +97,18 @@ const ChatHistoryCard: React.FC<ChatHistoryProps> = ({
             />
           </View>
 
-          {/* Info Section */}
           <View style={styles.infoSection}>
-
             {role === "counselor" ? (
               <>
                 <View style={styles.infoRow}>
                   <UserRound size={18} color={BORDER_COLOR} />
                   <Text style={styles.infoText}>{patientName}</Text>
+                </View>
+
+                {/* Days ago inside for counselor */}
+                <View style={styles.infoRow}>
+                  <Calendar size={18} color={BORDER_COLOR} />
+                  <Text style={styles.infoText}>{daysAgoEnd}</Text>
                 </View>
 
                 <View style={styles.infoRow}>
@@ -136,15 +138,15 @@ const ChatHistoryCard: React.FC<ChatHistoryProps> = ({
                 )}
               </>
             )}
-
           </View>
 
-          {/* Days Ago (top-right) */}
-          <View style={styles.daysAgoContainer}>
-            <Text style={styles.daysAgoText}>{daysAgoEnd}</Text>
-          </View>
+          {/* Only show top-right days ago for NON-counselor */}
+          {role !== "counselor" && (
+            <View style={styles.daysAgoContainer}>
+              <Text style={styles.daysAgoText}>{daysAgoEnd}</Text>
+            </View>
+          )}
 
-          {/* View Button */}
           <View style={styles.buttonContainer}>
             <Button
               label="View"
@@ -191,7 +193,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E6F2EA",
     overflow: "hidden",
     position: "relative",
-    paddingRight: 90, // exact same spacing as CounselorCard for button
+    paddingRight: 90,
   },
 
   imageWrapper: {

@@ -81,7 +81,7 @@ const RequestOverlay: React.FC<RequestOverlayProps> = ({
         );
 
       case "active":
-      case "ended": // added ended -> use tick
+      case "ended": 
         return (
           <Image
             source={images.tick}
@@ -108,24 +108,28 @@ const RequestOverlay: React.FC<RequestOverlayProps> = ({
     if (status === "active") {
       return (
         <>
-          <TouchableOpacity
-            activeOpacity={disabled ? 1 : 0.7}
-            onPress={onPrimaryAction}
-            style={{ width: "100%", opacity: disabled ? 0.5 : 1, marginBottom: 12 }}
-          >
-            <Button
-              label={"Start Chat"}
-              onPress={onPrimaryAction}
-              imageSource={images.ButtonChat}
-              variant="solid"
-            />
-          </TouchableOpacity>
+<TouchableOpacity
+  activeOpacity={0.7}
+  style={{ width: "100%", opacity: disabled ? 0.5 : 1, marginBottom: 12 }}
+>
+  <Button
+    label={"Start Chat"}
+    imageSource={images.ButtonChat}
+    variant="solid"
+    onPress={() => {
+      if (disabled) return; 
+      onPrimaryAction();    
+    }}
+  />
+</TouchableOpacity>
 
-          {disabled && (
-            <Text style={styles.disabledText}>
-              Chat will be available at your appointment time.
-            </Text>
-          )}
+{disabled && (
+  <Text style={styles.disabledText}>
+    Chat will be available at your appointment time.
+  </Text>
+)}
+
+
 
           {onSecondaryAction && (
             <Button
