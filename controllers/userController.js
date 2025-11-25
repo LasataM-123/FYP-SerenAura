@@ -169,9 +169,50 @@ const addDOB = asyncHandler(async (req, res) => {
   }
 });
 
+/**
+ * @route  GET /api/users/profile
+ * @desc   Get profile of user
+ * @access Private (patient and counselor)
+ */
+const getProfile = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
+    // Try Patient
+    let user = await Patient.findById(userId).select("name email profileUrl");
+
+    // If not patient, try Counselor
+    if (!user) {
+      user = await Counselor.findById(userId).select("name email profileUrl");
+    }
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({
+      success:true,
+      message: "Profile fetched successfully",
+      profile: {
+        name: user.name,
+        email: user.email,
+        profileUrl: user.profileUrl || null,
+      },
+    });
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+});
+
+
 module.exports = {
   forgotPassword,
   resetPassword,
   addDOB,
+  getProfile
 };
 

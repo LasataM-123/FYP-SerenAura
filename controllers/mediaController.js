@@ -42,97 +42,123 @@ function getCategoriesFromOnboarding(responses){
  * @desc  Get personalized recommendations
  * @access Public
  */
-const getRecommendations = asyncHandler(async(req,res)=>{
-  try{
+const getRecommendations = asyncHandler(async (req, res) => {
+  try {
     const userId = req.user.id;
     let source = "random";
     let categories = [];
-    let mood;
 
-    // Define today and recent 3-day window
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const threeDaysAgo = new Date(today);
     threeDaysAgo.setDate(today.getDate() - 3);
 
-    // Fetch most recent mood entry within 3 days
-    const recentMood = await Mood.findOne({
-      patientId: userId,
-      entryDate: { $gte: threeDaysAgo },
-    }).sort({ entryDate: -1 }); // latest mood first
+    // ✅ Fetch mood & onboarding IN PARALLEL
+    const [recentMood, onboarding] = await Promise.all([
+      Mood.findOne({
+        patientId: userId,
+        entryDate: { $gte: threeDaysAgo },
+      }).sort({ entryDate: -1 }),
 
-    if (recentMood && recentMood.mood) {
-      mood = recentMood.mood.toLowerCase();
-    }
+      Onboarding.findOne({ userId })
+    ]);
 
-    // If mood found and mapped, get mood-based recommendations
-    if (mood && moodCategoryMap[mood]) {
+    // ✅ Mood-based recommendation
+    if (recentMood?.mood && moodCategoryMap[recentMood.mood.toLowerCase()]) {
       source = "mood";
-      categories = moodCategoryMap[mood];
+      categories = moodCategoryMap[recentMood.mood.toLowerCase()];
+
+      // ✅ Run all category queries in parallel
+      const queries = categories.map(category =>
+        Music.aggregate([
+          { $match: { moodCategory: new RegExp(`^${category}$`, "i") } },
+          { $sample: { size: 3 } }
+        ])
+      );
+
+      const results = await Promise.all(queries);
 
       const recommendations = {};
-      for (const category of categories) {
-        // case-insensitive match for moodCategory in DB
-        const music = await Music.find({
-          moodCategory: new RegExp(`^${category}$`, "i"),
+      categories.forEach((c, i) => {
+        recommendations[c] = {
+          title: `${c} Music`,
+          data: results[i]
+        };
+      });
+
+      return res.status(200).json({ success: true, source, recommendations });
+    }
+
+    // ✅ Onboarding-based
+    if (onboarding?.responses) {
+      const onboardingCategories = [];
+      onboarding.responses.forEach(({ question, answer }) => {
+        if (!question || !answer) return;
+        if (/what brings you here today/i.test(question)) {
+          if (/stress/i.test(answer)) onboardingCategories.push("stress relief");
+          if (/sleep/i.test(answer)) onboardingCategories.push("sleep");
+          if (/focus/i.test(answer)) onboardingCategories.push("focus");
+          if (/happy/i.test(answer)) onboardingCategories.push("calm");
+        }
+        if (/when do you need relaxation/i.test(question)) {
+          if (/anxious/i.test(answer)) onboardingCategories.push("anxiety");
+          if (/after stress/i.test(answer)) onboardingCategories.push("calm");
+          if (/work|study/i.test(answer)) onboardingCategories.push("focus");
+          if (/bed/i.test(answer)) onboardingCategories.push("sleep");
+        }
+      });
+
+      categories = [...new Set(onboardingCategories)];
+
+      if (categories.length > 0) {
+        source = "onboarding";
+
+        const queries = categories.map(category =>
+          Music.aggregate([
+            { $match: { moodCategory: category } },
+            { $sample: { size: 3 } }
+          ])
+        );
+
+        const results = await Promise.all(queries);
+
+        const recommendations = {};
+        categories.forEach((c, i) => {
+          recommendations[c] = {
+            title: `${c} Music`,
+            data: results[i]
+          };
         });
 
-        recommendations[category] = {
-          title: `${category} Music`,
-          data: getRandomItems(music, 3),
-        };
+        return res.status(200).json({ success: true, source, recommendations });
       }
-
-      return res.status(200).json({
-        success: true,
-        source,
-        recommendations,
-      });
     }
 
-    //onboarding-based
-    if(userId){
-      const onboarding = await Onboarding.findOne({userId});
-      if(onboarding){
-        categories = getCategoriesFromOnboarding(onboarding.responses);
-        if(categories.length > 0) {
-          source = 'onboarding';
-          const recommendations = {};
+    // ✅ Random fallback (FAST)
+    const [randomMeditations, randomMusic] = await Promise.all([
+      Meditation.aggregate([{ $sample: { size: 3 } }]),
+      Music.aggregate([{ $sample: { size: 3 } }])
+    ]);
 
-          for (const category of categories) {
-            const musics = await Music.find({ moodCategory: category });
-            recommendations[category] = {
-              title: `${category} Music`,
-              data: getRandomItems(musics, 3),
-            };
-          }
-          return res.status(200).json({ success: true, source, recommendations });
-
+    return res.status(200).json({
+      success: true,
+      source,
+      recommendations: {
+        Meditation: {
+          title: "Meditation Recommendations",
+          data: randomMeditations
+        },
+        Music: {
+          title: "Music Recommendations",
+          data: randomMusic
         }
       }
-    }
-    // random fallback
-    const randomMeditations = await Meditation.aggregate([{ $sample: { size: 3 } }]);
-  const randomMusic = await Music.aggregate([{ $sample: { size: 3 } }]);
+    });
 
-  res.status(200).json({
-    success: true,
-    source,
-    recommendations: {
-      Meditation: {
-        title: 'Meditation Recommendations',
-        data: randomMeditations,
-      },
-      Music: {
-        title: 'Music Recommendations',
-        data: randomMusic,
-      },
-    },
-  });
-  }catch(err){
-    return res.status(500).json({message: err.message});
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
   }
-})
+});
 
 /**
  * @route  GET /api/media/filter
