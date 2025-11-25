@@ -172,7 +172,7 @@ const IndividualCounselor = () => {
 
     const handlePressIn = () =>
       Animated.spring(scaleAnim, {
-        toValue: 0.96,
+        toValue: 0.95,
         friction: 4,
         useNativeDriver: true,
       }).start();
@@ -222,7 +222,7 @@ const IndividualCounselor = () => {
 
     const handlePressIn = () =>
       Animated.spring(scaleAnim, {
-        toValue: 0.96,
+        toValue: 0.95,
         friction: 4,
         useNativeDriver: true,
       }).start();

@@ -1,14 +1,27 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import React from 'react'
-import { History } from 'lucide-react-native'
+import { History, Gem } from 'lucide-react-native'
 import { router } from 'expo-router'
 
-const Header = () => {
+const Header = ({ isProfile = false }) => {
+  const handlePress = () => {
+    if (isProfile) {
+      router.push('../premium/premium-screen')
+    } else {
+      router.push('../chatHistory/chat-history')
+    }
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.headerText}>SerenAura</Text>
-      <TouchableOpacity onPress={()=> router.push('../chatHistory/chat-history')}>
-        <History height={30} width={30} color="#553434"/>
+
+      <TouchableOpacity onPress={handlePress}>
+        {isProfile ? (
+          <Gem height={30} width={30} color="#553434" />
+        ) : (
+          <History height={30} width={30} color="#553434" />
+        )}
       </TouchableOpacity>
     </View>
   )
@@ -17,17 +30,15 @@ const Header = () => {
 export default Header
 
 const styles = StyleSheet.create({
-    container:{
-        flexDirection:"row",
-        justifyContent:"space-between",
-        alignItems:"center",
-        paddingHorizontal:24
-
-    },
-    headerText:{
-        color:"#553434",
-        fontFamily:"Pacifico",
-        fontSize:30
-    }
-
+  container:{
+      flexDirection:"row",
+      justifyContent:"space-between",
+      alignItems:"center",
+      paddingHorizontal:24
+  },
+  headerText:{
+      color:"#553434",
+      fontFamily:"Pacifico",
+      fontSize:30
+  }
 })

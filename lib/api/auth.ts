@@ -1,4 +1,5 @@
 import { API_URL } from '@/config';
+import { useAuthStore } from '@/store/authStore';
 export type loginResponse = {
   message: string;
   accessToken: string;
@@ -17,6 +18,16 @@ export type ResetPasswordResponse = {
   email: string;
   success:string;
 };
+
+export type ProfileResponse = {
+  success:boolean;
+  message: string;
+  profile: {
+    name: string;
+    email: string;
+    profileUrl: string | null;
+  };
+}
 
 export async function signup(params?: { name: string; dateOfBirth: string; email: string; password: string } ): Promise<OTPResponse> {
   const res = await fetch(`${API_URL}/auth/register`, {
@@ -101,6 +112,19 @@ export async function addDOB(params?: { dateOfBirth: string, accessToken: string
     body: JSON.stringify(params),
   });
   if (!res.ok) throw new Error((await res.json()).message || "Adding date of birth failed");
+  return res.json();
+}
+
+export async function getProfile(): Promise<ProfileResponse> {
+  const accessToken = useAuthStore.getState().accessToken;
+  const res = await fetch(`${API_URL}/users/profile`, {
+    method: "GET",
+    headers: { 
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${accessToken}`
+    },
+  });
+  if (!res.ok) throw new Error((await res.json()).message || "Get profile request failed");
   return res.json();
 }
 
