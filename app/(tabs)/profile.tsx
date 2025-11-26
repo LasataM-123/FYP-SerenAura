@@ -11,29 +11,26 @@ import {
 import React, { useCallback, useEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '@/components/Header';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {
   Heart,
-  ListMusic,
-  Notebook,
-  MessageCircle,
-  ChevronRight,
-  PenLine,
-  Lock,
-  Bell,
+  ListVideo,
   ScrollText,
   History,
-  ListVideo,
+  PenLine,
+  Bell,
   LockKeyhole,
   Trash2,
   CircleHelpIcon,
   LogOut,
+  ChevronRight,
 } from 'lucide-react-native';
 
 import { useBackend } from '@/lib/useBackend';
 import { getProfile, ProfileResponse } from '@/lib/api/auth';
 import { images } from '@/constants';
 import { Animated } from 'react-native';
+import DeleteAccountOverlay from '@/components/DeleteAccountOverlay';
 
 const BORDER = "#553434";
 
@@ -87,7 +84,6 @@ const SettingItem: React.FC<SettingItemProps> = ({
   );
 };
 
-
 const Profile = () => {
 
   useFocusEffect(
@@ -97,9 +93,13 @@ const Profile = () => {
     }, [])
   );
 
-  const { refetch,  loading } = useBackend({ fn: getProfile });
+  const { refetch, loading } = useBackend({ fn: getProfile });
 
   const [user, setUser] = useState<ProfileResponse | null>(null);
+
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+
+  const [showOverlay, setShowOverlay] =useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -110,26 +110,23 @@ const Profile = () => {
     };
     fetchProfile();
   }, []);
+
   const maskEmail = (email: string) => {
-  if (!email || !email.includes("@")) return email;
+    if (!email || !email.includes("@")) return email;
+    const [name, domain] = email.split("@");
 
-  const [name, domain] = email.split("@");
+    const maskedName =
+      name.length <= 2
+        ? name[0] + "****"
+        : name.slice(0, 2) + "****";
 
-  // Show first 2 letters + ****
-  const maskedName =
-    name.length <= 2
-      ? name[0] + "****"
-      : name.slice(0, 2) + "****";
-
-  return `${maskedName}@${domain}`;
-};
-
+    return `${maskedName}@${domain}`;
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <Header isProfile={true} />
 
-      {/* LOADING INDICATOR */}
       {loading && (
         <View style={styles.loadingBox}>
           <ActivityIndicator size="large" color={BORDER} />
@@ -144,10 +141,7 @@ const Profile = () => {
           <View style={styles.profileContainer}>
             <Text style={styles.sectionTitle}>Profile</Text>
 
-            {/* Profile Card */}
             <View style={styles.profileCard}>
-
-              {/* Avatar */}
               <Image
                 source={
                   user?.profile.profileUrl
@@ -157,13 +151,11 @@ const Profile = () => {
                 style={styles.avatar}
               />
 
-              {/* Name + Email */}
               <View style={{ flex: 1 }}>
                 <Text style={styles.name}>{user?.profile.name || "---"}</Text>
-              <Text style={styles.email}>
-              {user?.profile?.email ? maskEmail(user.profile.email) : "---"}
-            </Text>
-
+                <Text style={styles.email}>
+                  {user?.profile?.email ? maskEmail(user.profile.email) : "---"}
+                </Text>
               </View>
 
               <TouchableOpacity style={styles.editBtn}>
@@ -171,7 +163,6 @@ const Profile = () => {
               </TouchableOpacity>
             </View>
 
-            {/* My Wellness Hub */}
             <Text style={[styles.sectionTitle, { marginTop: 26 }]}>
               My Wellness Hub
             </Text>
@@ -180,46 +171,71 @@ const Profile = () => {
               <SettingItem icon={Heart} text="Favorites" onPress={() => {}} />
               <SettingItem icon={ListVideo} text="Playlists" onPress={() => {}} />
               <SettingItem icon={ScrollText} text="Mood Logbook" onPress={() => {}} />
-              <SettingItem icon={History} text="Chat History" onPress={() => {}} />
+              <SettingItem icon={History} text="Chat History" onPress={() => {router.push('/chatHistory/chat-history')}} />
             </View>
 
-            {/* General Settings */}
             <Text style={[styles.sectionTitle, { marginTop: 26 }]}>
               General Settings
             </Text>
 
             <View style={styles.cardBoxPeach}>
+
               <SettingItem
                 icon={LockKeyhole}
                 text="Change Password"
-                onPress={() => {}}
+                onPress={() => {router.push('../settings/change_password')}}
               />
 
-              {/* Notifications Toggle Row */}
-              <View style={styles.settingRow}>
+              {/* WORKING TOGGLE SWITCH */}
+              <TouchableOpacity
+                style={styles.settingRow}
+                onPress={() => setNotificationsEnabled(!notificationsEnabled)}
+                activeOpacity={0.8}
+              >
                 <Bell size={22} color={BORDER} />
                 <Text style={styles.settingText}>Notifications</Text>
 
-                <View style={styles.toggleOuter}>
-                  <View style={styles.toggleCircle} />
+                <View
+                  style={[
+                    styles.toggleOuter,
+                    {
+                      backgroundColor: notificationsEnabled ? BORDER : "#fff",
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.toggleCircle,
+                      {
+                        alignSelf: notificationsEnabled
+                          ? "flex-end"
+                          : "flex-start",
+                        backgroundColor: notificationsEnabled ? "#fff" : BORDER,
+                      },
+                    ]}
+                  />
                 </View>
-              </View>
+              </TouchableOpacity>
             </View>
-             {/* Support */}
+
             <Text style={[styles.sectionTitle, { marginTop: 26 }]}>
               Support
             </Text>
 
             <View style={styles.cardBoxPurple}>
               <SettingItem icon={CircleHelpIcon} text="Help & Support" onPress={() => {}} />
-              <SettingItem icon={Trash2} text="Delete Account" onPress={() => {}} showArrow={false} />
-              <SettingItem icon={LogOut} text="Logout" onPress={() => {}} showArrow={false}/>
-             
+              <SettingItem icon={Trash2} text="Delete Account" onPress={() => {setShowOverlay(true)}} showArrow={false} />
+              <SettingItem icon={LogOut} text="Logout" onPress={() => {}} showArrow={false} />
             </View>
           </View>
-          <View style={{marginBottom:100}}></View>
+
+          <View style={{ marginBottom: 100 }} />
         </ScrollView>
       )}
+      {showOverlay && (
+  <DeleteAccountOverlay onClose={() => setShowOverlay(false)} />
+)}
+
     </SafeAreaView>
   );
 };
@@ -245,7 +261,7 @@ const styles = StyleSheet.create({
 
   sectionTitle: {
     fontSize: 22,
-    fontFamily:"KodchasanSemiBold",
+    fontFamily: "KodchasanSemiBold",
     color: BORDER,
     marginBottom: 16,
   },
@@ -260,7 +276,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 10,
     boxShadow: '3px 3px 0px rgb(85, 52, 52)',
-
   },
 
   avatar: {
@@ -272,13 +287,13 @@ const styles = StyleSheet.create({
 
   name: {
     fontSize: 18,
-    fontFamily:"KodchasanSemiBold",
+    fontFamily: "KodchasanSemiBold",
     color: BORDER,
   },
 
   email: {
     fontSize: 14,
-    fontFamily:"KodchasanRegular",
+    fontFamily: "KodchasanRegular",
     color: BORDER,
     opacity: 0.7,
   },
@@ -287,12 +302,10 @@ const styles = StyleSheet.create({
     padding: 6,
   },
 
-  // Setting row
   settingRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 8,
-   
   },
 
   settingText: {
@@ -300,11 +313,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: BORDER,
     marginLeft: 14,
-    fontFamily:"KodchasanSemiBold",
-
+    fontFamily: "KodchasanSemiBold",
   },
 
-  // Boxes
   cardBoxGreen: {
     paddingHorizontal: 18,
     paddingVertical: 12,
@@ -313,6 +324,8 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: BORDER,
     marginTop: 12,
+    boxShadow: '3px 3px 0px rgb(85, 52, 52)',
+
   },
 
   cardBoxPeach: {
@@ -323,23 +336,26 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: BORDER,
     marginTop: 12,
+    boxShadow: '3px 3px 0px rgb(85, 52, 52)',
+
   },
-  cardBoxPurple:{
+
+  cardBoxPurple: {
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 20,
     backgroundColor: "#E0BBFF",
     borderWidth: 4,
     borderColor: BORDER,
-    marginTop: 12,
+    marginTop: 12,    
+    boxShadow: '3px 3px 0px rgb(85, 52, 52)',
+
   },
 
-  // Toggle switch
   toggleOuter: {
     width: 42,
     height: 22,
     borderRadius: 20,
-    backgroundColor: "#fff",
     borderWidth: 2,
     borderColor: BORDER,
     justifyContent: "center",
@@ -350,7 +366,5 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 20,
-    backgroundColor: BORDER,
-    alignSelf: "flex-end",
   },
 });

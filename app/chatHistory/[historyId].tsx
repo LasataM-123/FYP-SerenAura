@@ -8,7 +8,7 @@ import {
   ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 
 import { useBackend } from "@/lib/useBackend";
 import { getChatHistory } from "@/lib/api/chat";
@@ -102,7 +102,7 @@ export default function ChatHistoryScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={{ paddingHorizontal: 24, marginBottom: 22 }}>
-        <Top label={`Chat with ${otherUser.name}`} />
+        <Top label={`Chat with ${otherUser.name}`} onBack={()=>router.back()} />
       </View>
 
       <ScrollView

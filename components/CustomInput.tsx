@@ -47,7 +47,7 @@ const CustomInput = ({
         keyboardType={keyboardType}
         secureTextEntry={secureTextEntry && !isPasswordVisible}
         placeholder={placeholder}
-        placeholderTextColor="#553434"
+        placeholderTextColor="#646464ff"
         style={[
           styles.input,
           {
@@ -95,8 +95,7 @@ const styles = StyleSheet.create({
     width: "100%",
     borderColor: "#553434",
     backgroundColor: "#fff",
-    fontFamily: "KodchasanSemiBold",
-    color: "#553434",
+    fontFamily: "KodchasanMedium",
   },
   eyeIcon: {
     position: "absolute",
