@@ -7,19 +7,18 @@ import { router, useLocalSearchParams } from "expo-router";
 import Overlay from "@/components/Overlay";
 import { images } from "@/constants";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { resetPassword } from "@/lib/api/auth";
+import { changePassword } from "@/lib/api/auth";
 import { useBackend } from "@/lib/useBackend";
 
 const ChangePassword = () => {
-  const { email } = useLocalSearchParams<{ email: string }>();
   const [showOverlay, setShowOverlay] = useState(false);
-  const [form, setForm] = useState({ newPassword: "", confirmPassword: "" });
+  const [form, setForm] = useState({oldPassword:"", newPassword: "", confirmPassword: "" });
   const {refetch, loading, error} = useBackend({
-    fn:resetPassword
+    fn:changePassword
   })
   const handleSubmit = async() => {
     try{
-      const res = await refetch({email:email,newPassword:form.newPassword,confirmPassword:form.confirmPassword});
+      const res = await refetch({oldPassword:form.oldPassword,newPassword:form.newPassword,confirmPassword:form.confirmPassword});
       if(res?.success){
         setShowOverlay(true);
       }
@@ -31,18 +30,15 @@ const ChangePassword = () => {
   return (
     <>
       <SafeAreaView style={styles.container}>
-        <Top label="Reset Password" onBack={() => router.back()} />
+        <Top label="Change Password" onBack={() => router.back()} />
 
         <View style={styles.content}>
-          <Text style={styles.instruction}>
-            Enter your new password and do remember this!
-          </Text>
 
           <CustomInput
-            placeholder="New password"
-            value={form.newPassword}
+            placeholder="Old password"
+            value={form.oldPassword}
             secureTextEntry={true}
-            onChangeText={(text) => setForm({ ...form, newPassword: text })}
+            onChangeText={(text) => setForm({ ...form, oldPassword: text })}
           />
           <CustomInput
             placeholder="New password"
@@ -72,11 +68,11 @@ const ChangePassword = () => {
         <Overlay
           title="Password Updated!"
           description="Your password has been updated successfully!"
-          label="Back to Login"
+          label="Continue"
           imageSource={images.passwordUpdated}
           onPress={() => {
             setShowOverlay(false);
-            router.push("/login");
+            router.back();
           }}
         />
       )}
@@ -96,13 +92,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     gap: 16,
   },
-  instruction: {
-    textAlign: "center",
-    fontSize: 16,
-    fontFamily: "Kodchasan-SemiBold",
-    color: "#553434",
-    marginBottom: 20,
-  },
+ 
   buttonWrapper: {
     marginTop: 32,
   },

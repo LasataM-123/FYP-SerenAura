@@ -13,9 +13,12 @@ export type OTPResponse = {
   message: string;
   otpToken: string;
 };
+export type ChangePasswordResponse = {
+  message: string;
+  success: boolean;
+};
 
 export type ResetPasswordResponse = {
-  email: string;
   success:string;
 };
 
@@ -79,6 +82,17 @@ export async function resetPassword(params?: {email:string, newPassword: string,
     body: JSON.stringify(params),
   });
   if (!res.ok) throw new Error((await res.json()).message || "Request password reset failed");
+  return res.json();
+}
+
+export async function changePassword(params?: {oldPassword:string, newPassword: string, confirmPassword:string }): Promise<ChangePasswordResponse> {
+  const accessToken = useAuthStore.getState().accessToken;
+  const res = await fetch(`${API_URL}/users/change-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json",  "Authorization": `Bearer ${accessToken}` },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw new Error((await res.json()).message || "Request password change failed");
   return res.json();
 }
 

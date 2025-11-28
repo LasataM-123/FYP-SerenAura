@@ -20,7 +20,7 @@ import Button from '@/components/Button';
 
 const { width, height } = Dimensions.get('window');
 
-const scaleHeight = (size: number) => (size / 812) * height; // base height ~812 (iPhone X)
+const scaleHeight = (size: number) => (size / 812) * height; 
 
 const Media = () => {
   const { id } = useLocalSearchParams();

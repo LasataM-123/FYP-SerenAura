@@ -7,6 +7,7 @@ export type Favourite = {
   _id: string;
   mediaType: MediaType; 
   media: MeditationItem | MusicItem; 
+  duration: number;
 }
 
 export type AddFavouriteResponse = {
@@ -23,7 +24,12 @@ export type AddFavouriteResponse = {
 
 export type GetFavouritesResponse = {
   count: number;
-  favourites: Favourite[];
+   media: {
+    _id: string; 
+    mediaType: MediaType;
+    media: MusicItem | MeditationItem;
+    duration:number;
+  }[];
 }
 
 export type RemoveFavouriteResponse = {

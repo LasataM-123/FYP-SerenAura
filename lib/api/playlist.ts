@@ -51,6 +51,7 @@ export type GetPlaylistByIdResponse = {
     _id: string; 
     mediaType: MediaType;
     media: MusicItem | MeditationItem;
+    duration:number;
   }[];
 };
 
@@ -67,6 +68,7 @@ export type DeletePlaylistResponse = {
 export type CheckResponse = {
   exists: boolean;
 }
+
 
 export async function createPlaylist(params?:{title: String}): Promise<CreatePlaylistResponse> {
       const accessToken = useAuthStore.getState().accessToken;
@@ -116,6 +118,21 @@ export async function addMediaToPlaylist(params?: {
 export async function getUserPlaylists(): Promise<GetUserPlaylistsResponse> {
       const accessToken = useAuthStore.getState().accessToken;
     const res = await fetch(`${API_URL}/playlist`, {
+      method: "GET",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${accessToken}`
+     },
+    });
+        if (!res.ok) {
+        const errBody = await res.json();
+        throw new Error(errBody.message || "Get request failed")
+        }
+    return res.json();
+}
+export async function getPlaylistById(params?:{playlistId: string}): Promise<GetPlaylistByIdResponse> {
+      const accessToken = useAuthStore.getState().accessToken;
+    const res = await fetch(`${API_URL}/playlist/get/${params?.playlistId}`, {
       method: "GET",
       headers: { 
         "Content-Type": "application/json",
