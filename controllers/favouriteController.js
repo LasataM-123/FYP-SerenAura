@@ -2,8 +2,8 @@ const asyncHandler = require('express-async-handler');
 const Patient = require('../models/patientModel');
 const Favourite = require('../models/favouriteModel');
 const mongoose = require('mongoose');
-
-
+const axios = require('axios');
+const mm = require('music-metadata'); 
 /**
  * @route  POST /api/favourite/add
  * @desc   Add media to favourites
@@ -55,26 +55,50 @@ const getFavourites = asyncHandler(async (req, res) => {
       })
       .lean();
 
-    // If user has no favourites
     if (!favourites.length) {
       return res.status(200).json({ count: 0, favourites: [] });
     }
 
-    // Format data
-    const formatted = favourites.map((fav) => ({
-      _id: fav._id,
-      mediaType: fav.mediaType,
-      media: fav.mediaId,
-    }));
+    // Format with duration
+    const formatted = await Promise.all(
+      favourites.map(async (fav) => {
+        let durationStr = null;
 
-    res.status(200).json({
+        // If audioUrl exists → calculate duration
+        if (fav.mediaId?.audioUrl) {
+          try {
+            const response = await axios.get(fav.mediaId.audioUrl, { responseType: "arraybuffer" });
+            const metadata = await mm.parseBuffer(response.data);
+            const durationSec = metadata.format.duration || 0;
+
+            const minutes = Math.ceil(durationSec / 60);
+            durationStr = `${minutes} min`;
+          } catch (err) {
+            console.error("Duration error:", err.message);
+          }
+        }
+
+        return {
+          _id: fav._id,
+          mediaType: fav.mediaType,
+          media: {
+            ...fav.mediaId,
+          },
+          duration: durationStr,
+        };
+      })
+    );
+
+    return res.status(200).json({
       count: formatted.length,
       favourites: formatted,
     });
+
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return res.status(500).json({ message: err.message });
   }
 });
+
 
 /**
  * @route  DELETE /api/favourite/remove/:id

@@ -2,6 +2,9 @@ const asyncHandler = require('express-async-handler');
 const Patient = require('../models/patientModel');
 const PlaylistJunction = require('../models/playlistJunctionModel');
 const Playlist = require('../models/playlistModel');
+const axios = require('axios');
+const mm = require('music-metadata'); 
+
 
 /**
  * @route   POST /api/playlist/create
@@ -103,7 +106,7 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
  * @access  Private (patient only)
  */
 const getPlaylistById = asyncHandler(async (req, res) => {
-  try{
+  try {
     const { id } = req.params;
 
     const playlistItems = await PlaylistJunction.find({ playlistId: id })
@@ -114,7 +117,8 @@ const getPlaylistById = asyncHandler(async (req, res) => {
       .populate({
         path: "playlistId",
         select: "title",
-      });
+      })
+      .lean();
 
     if (!playlistItems.length) {
       const playlist = await Playlist.findById(id);
@@ -141,24 +145,48 @@ const getPlaylistById = asyncHandler(async (req, res) => {
       ? firstMediaWithImage.mediaId.imageUrl
       : null;
 
-    res.status(200).json({
+    // ---- Add duration for each media item ----
+    const mediaWithDuration = await Promise.all(
+      playlistItems.map(async (item) => {
+        let durationStr = null;
+
+        if (item.mediaId?.audioUrl) {
+          try {
+            const response = await axios.get(item.mediaId.audioUrl, { responseType: "arraybuffer" });
+            const metadata = await mm.parseBuffer(response.data);
+            const durationSec = metadata.format.duration || 0;
+            const minutes = Math.ceil(durationSec / 60);
+            durationStr = `${minutes} min`;
+          } catch (err) {
+            console.error("Duration error:", err.message);
+          }
+        }
+
+        return {
+          _id: item._id,
+          mediaType: item.mediaType,
+          media: {
+            ...item.mediaId,
+          },
+          duration: durationStr,
+        };
+      })
+    );
+
+    return res.status(200).json({
       playlist: {
         _id: playlist._id,
         title: playlist.title,
         imageUrl: playlistImage,
       },
-      media: playlistItems.map((item) => ({
-        _id: item._id,
-        mediaType: item.mediaType,
-        media: item.mediaId,
-      })),
+      media: mediaWithDuration,
     });
 
-  }catch(e){
-    return res.status(500).json({message:e.message});
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
   }
-  
 });
+
 
 /**
  * @route   POST /api/playlist/add/:playlistId

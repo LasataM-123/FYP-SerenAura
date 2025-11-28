@@ -8,35 +8,6 @@ const mm = require('music-metadata');
 const Mood = require('../models/moodModel');
 const mongoose = require('mongoose');
 
-
-//Helper function to get random N items
-function getRandomItems(arr,n){
-  if(!arr || arr.length === 0) return [];
-  const shuffled = [...arr].sort(()=> 0.5 - Math.random());
-  return shuffled.slice(0,n);
-}
-
-//Extract categories from onboarding
-function getCategoriesFromOnboarding(responses){
-  const categories = [];
-  responses.forEach(({question,answer})=>{
-    if(!question || !answer) return;
-    if (/what brings you here today/i.test(question)) {
-      if (/stress/i.test(answer)) categories.push('stress relief');
-      if (/sleep/i.test(answer)) categories.push('sleep');
-      if (/focus/i.test(answer)) categories.push('focus');
-      if (/happy/i.test(answer)) categories.push('calm');
-    }
-    if (/when do you need relaxation/i.test(question)) {
-      if (/anxious/i.test(answer)) categories.push('anxiety');
-      if (/after stress/i.test(answer)) categories.push('calm');
-      if (/work|study/i.test(answer)) categories.push('focus');
-      if (/bed/i.test(answer)) categories.push('sleep');
-    }
-  });
-  return [...new Set(categories)];
-}
-
 /**
  * @route GET /api/media/get-recommendations
  * @desc  Get personalized recommendations

@@ -208,11 +208,71 @@ const getProfile = asyncHandler(async (req, res) => {
   }
 });
 
+/**
+ * @route  POST /api/users/change-password
+ * @desc   Change password (requires old password)
+ * @access Private (patient & counselor)
+ */
+const changePassword = asyncHandler(async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { oldPassword, newPassword, confirmPassword } = req.body;
+
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({ message: "Please fill all fields" });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: "Passwords do not match" });
+    }
+
+    // Find user in Patient or Counselor
+    let user = await Patient.findById(userId);
+    if (!user) {
+      user = await Counselor.findById(userId);
+    }
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Compare old password
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Incorrect old password" });
+    }
+
+    // Validate new password strength
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({
+        message:
+          "Password must be at least 8 characters and contain uppercase, lowercase, number, and special character",
+      });
+    }
+
+    // Hash and update password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Password changed successfully" });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+});
+
+
 
 module.exports = {
   forgotPassword,
   resetPassword,
   addDOB,
-  getProfile
+  getProfile,
+  changePassword
 };
 
