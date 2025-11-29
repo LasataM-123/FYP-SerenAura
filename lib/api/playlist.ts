@@ -146,7 +146,7 @@ export async function getPlaylistById(params?:{playlistId: string}): Promise<Get
     return res.json();
 }
 
-export async function checkPlaylists(params?:{mediaId: String}): Promise<CheckResponse> {
+export async function checkPlaylists(params?:{mediaId: string}): Promise<CheckResponse> {
     const accessToken = useAuthStore.getState().accessToken;
     const res = await fetch(`${API_URL}/playlist/check/${params?.mediaId}`, {
       method: "POST",
@@ -158,6 +158,38 @@ export async function checkPlaylists(params?:{mediaId: String}): Promise<CheckRe
         if (!res.ok) {
         const errBody = await res.json();
         throw new Error(errBody.message || "Check request failed")
+        }
+    return res.json();
+}
+
+export async function removeMediaFromPlaylist(params?:{playlistId: string,junctionId:string}): Promise<RemoveMediaFromPlaylistResponse> {
+    const accessToken = useAuthStore.getState().accessToken;
+    const res = await fetch(`${API_URL}/playlist/remove/${params?.playlistId}/${params?.junctionId}`, {
+      method: "DELETE",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${accessToken}`
+     },
+    });
+        if (!res.ok) {
+        const errBody = await res.json();
+        throw new Error(errBody.message || "Delete request failed")
+        }
+    return res.json();
+}
+
+export async function deletePlaylist(params?:{id: string}): Promise<RemoveMediaFromPlaylistResponse> {
+    const accessToken = useAuthStore.getState().accessToken;
+    const res = await fetch(`${API_URL}/playlist/delete/${params?.id}`, {
+      method: "DELETE",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${accessToken}`
+     },
+    });
+        if (!res.ok) {
+        const errBody  = await res.json();
+        throw new Error(errBody.message || "Delete request failed")
         }
     return res.json();
 }

@@ -12,25 +12,23 @@ import {
   Pressable,
   PanResponder,
   Dimensions,
+  ScrollView,
 } from "react-native";
 import React, { useEffect, useState, useRef } from "react";
-import { router, useLocalSearchParams } from "expo-router";
 import { useBackend } from "@/lib/useBackend";
-import { getPlaylistById, GetPlaylistByIdResponse } from "@/lib/api/playlist";
+
 import LargeCard from "@/components/MediaCards/LargeCard";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { images } from "@/constants";
-import { Trash2, X } from "lucide-react-native";
+import Top from "@/components/top";
+import { getFavourites, GetFavouritesResponse } from "@/lib/api/favourite";
 import { StatusBar } from "react-native";
+import { router } from "expo-router";
+import { Cross, X } from "lucide-react-native";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 const PlaylistMedia = () => {
-  const { total } = useLocalSearchParams();
-  const { _id } = useLocalSearchParams<{ _id: string }>();
-
-  // --------------------- HOOKS (always on top) ---------------------
-  const [playlist, setPlaylist] = useState<GetPlaylistByIdResponse | null>(null);
+  const [favourite, setFavourite] = useState<GetFavouritesResponse | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
@@ -41,7 +39,7 @@ const PlaylistMedia = () => {
   const [toastMessage, setToastMessage] = useState("");
   const [showToast, setShowToast] = useState(false);
 
-  const { refetch, loading } = useBackend({ fn: getPlaylistById });
+  const { refetch, loading } = useBackend({ fn: getFavourites });
 
   const panResponder = useRef(
     PanResponder.create({
@@ -58,9 +56,9 @@ const PlaylistMedia = () => {
   ).current;
 
   // --------------------- FUNCTIONS ---------------------
-  const fetchPlaylist = async () => {
-    const res = await refetch({ playlistId: _id });
-    if (res?.playlist) setPlaylist(res);
+  const fetchFavourite = async () => {
+    const res = await refetch();
+    if (res?.favourites) setFavourite(res);
   };
 
   const openMenu = () => {
@@ -106,21 +104,20 @@ const PlaylistMedia = () => {
   closeMenu();
 
   // 3. Show toast
-  showToastMessage("✅ Removed from playlist");
+  showToastMessage("✅ Removed from favourites");
 
   // 4. Refetch playlist after short delay to ensure overlay is closed first
   setTimeout(() => {
-    fetchPlaylist();
+    fetchFavourite();
   }, 2000); // small delay so UI updates smoothly
 };
 
 
   useEffect(() => {
-    fetchPlaylist();
+    fetchFavourite();
   }, []);
 
-  // --------------------- LOADING ---------------------
-  if (loading || !playlist) {
+  if (loading || !favourite) {
     return (
       <View style={styles.loader}>
         <ActivityIndicator size="large" color="#553434" />
@@ -128,55 +125,22 @@ const PlaylistMedia = () => {
     );
   }
 
-  const header = playlist.playlist;
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar
-        barStyle={overlayVisible ? "light-content" : "dark-content"}
-        backgroundColor={overlayVisible ? "transparent" : "#fff"}
-        translucent={overlayVisible}
-      />
-      {/* Back Button */}
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Image source={images.arrowBack} style={styles.backImage} />
-      </TouchableOpacity>
+        <StatusBar
+  barStyle={overlayVisible ? "light-content" : "dark-content"}
+  backgroundColor={overlayVisible ? "transparent" : "#fff"}
+  translucent={overlayVisible}
+/>
+        <ScrollView contentContainerStyle={{paddingHorizontal:24}}>
 
-      {/* HEADER */}
-      <View style={styles.headerContainer}>
-        <View style={styles.headerImageWrapper}>
-          {header.imageUrl ? (
-            <Image source={{ uri: header.imageUrl }} style={styles.headerImage} />
-          ) : (
-            <View
-              style={{
-                backgroundColor: "#fff",
-                height: 180,
-                width: "86%",
-                borderRadius: 20,
-                borderWidth: 4,
-                borderColor: "#553434",
-              }}
-            />
-          )}
-        </View>
-
-        <View style={styles.headerBottom}>
-          <View>
-            <Text style={styles.title}>{header.title}</Text>
-            <Text style={styles.subtitle}>{total} videos</Text>
-          </View>
-
-          <TouchableOpacity>
-            <Trash2 size={22} color="#C76350" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
+     <Top label="Favourites" onBack={()=>router.back()}/>
       {/* MAIN LIST */}
       <View style={styles.contentWrapper}>
         <FlatList
-          data={playlist.media}
+          data={favourite.favourites}
+          scrollEnabled={false}
           keyExtractor={(item) => item._id}
           contentContainerStyle={{ paddingBottom: 40 }}
           renderItem={({ item }) => (
@@ -191,6 +155,7 @@ const PlaylistMedia = () => {
         />
       </View>
 
+        </ScrollView>
       {/* OVERLAY */}
       {overlayVisible && <Pressable style={styles.overlayBg} onPress={closeMenu} />}
 
@@ -201,8 +166,7 @@ const PlaylistMedia = () => {
 
           <TouchableOpacity onPress={removeItem} style={{flexDirection:"row", gap:8, alignItems:"center"}}>
             <X color="#553434"/>
-
-            <Text style={styles.bottomItemText}>Remove from Playlist</Text>
+            <Text style={styles.bottomItemText}>Remove from Favourite</Text>
           </TouchableOpacity>
         </Animated.View>
       )}
@@ -236,9 +200,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
   loader: { flex: 1, justifyContent: "center", alignItems: "center" },
 
-  backButton: { paddingHorizontal: 24, marginTop: 16, marginBottom: 16 },
-  backImage: { width: 30, height: 30 },
-
   headerContainer: { width: "100%", backgroundColor: "#e2f2e7", paddingTop: 30, paddingBottom: 20, alignItems: "center" },
   headerImageWrapper: { width: "100%", alignItems: "center", marginBottom: 15 },
   headerImage: { width: "86%", height: 180, borderRadius: 20, borderWidth: 4, borderColor: "#553434",    boxShadow: '3px 3px 0px rgb(85, 52, 52)',
@@ -248,7 +209,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, color: "#553434", fontFamily: "KodchasanSemiBold" },
   subtitle: { fontSize: 14, color: "#553434", fontFamily: "KodchasanMedium" },
 
-  contentWrapper: { flex: 1, paddingHorizontal: 24, marginTop: 22 },
+  contentWrapper: { flex: 1,  marginTop: 22 },
 
   overlayBg: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 998 },
 
@@ -270,7 +231,7 @@ const styles = StyleSheet.create({
 
   dragHandle: { width: 60, height: 6, backgroundColor: "#553434", alignSelf: "center", borderRadius: 3, marginBottom: 16 },
 
-  bottomItemText: { fontSize: 18, color: "#553434", fontFamily: "KodchasanMedium" },
+  bottomItemText: { fontSize: 18, color: "#553434", fontFamily: "KodchasanMedium",  },
 
   toast: { position: "absolute", bottom: 60, left: "10%", right: "10%", backgroundColor: "rgba(255,255,255,0.95)", borderWidth: 3, borderColor: "#553434", borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, alignItems: "center", zIndex: 9999 },
   toastText: { fontFamily: "KodchasanMedium", color: "#553434", fontSize: 16 },

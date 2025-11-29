@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -6,21 +6,31 @@ import {
   StyleSheet,
   Dimensions,
   TouchableOpacity,
-  Animated
-} from 'react-native';
-import { router } from 'expo-router';
-import { LockKeyhole, MoreVertical } from 'lucide-react-native';
+  Animated,
+} from "react-native";
+import { router } from "expo-router";
+import { LockKeyhole, MoreVertical } from "lucide-react-native";
 
-const { width, height } = Dimensions.get('window');
-
-// Scale based on screen height
+const { width, height } = Dimensions.get("window");
 const scaleHeight = (size: number) => (size / 812) * height;
 
-const LargeCard = ({ item, isDot = true }: { item: any; isDot?: boolean }) => {
+const LargeCard = ({
+  item,
+  isDot = true,
+  onOpenMenu,
+}: {
+  item: any;
+  isDot?: boolean;
+  onOpenMenu?: (item: any) => void;
+}) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
-    Animated.spring(scaleAnim, { toValue: 0.95, friction: 4, useNativeDriver: true }).start();
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
+      friction: 4,
+      useNativeDriver: true,
+    }).start();
   };
 
   const handlePressOut = () => {
@@ -45,11 +55,10 @@ const LargeCard = ({ item, isDot = true }: { item: any; isDot?: boolean }) => {
         onPress={handlePress}
       >
         <View style={styles.cardRow}>
-
           <View style={styles.leftRow}>
-            {/* Left Image */}
             <View style={styles.imageContainer}>
               <View style={styles.shadowLayer} />
+
               <View style={styles.imageWrapper}>
                 <Image
                   source={{ uri: item.media.imageUrl }}
@@ -65,15 +74,14 @@ const LargeCard = ({ item, isDot = true }: { item: any; isDot?: boolean }) => {
               </View>
             </View>
 
-            {/* Right Content */}
             <View style={styles.contentBox}>
-              <Text numberOfLines={1} style={styles.songTitle}>
-                {item.media.title}
-              </Text>
+              <Text numberOfLines={1} ellipsizeMode="tail" style={styles.songTitle}>
+              {item.media.title}
+            </Text>
+            <Text numberOfLines={1} ellipsizeMode="tail" style={styles.artist}>
+              {item.media.by}
+            </Text>
 
-              <Text numberOfLines={1} style={styles.artist}>
-                {item.media.by}
-              </Text>
 
               {item.duration && (
                 <Text style={styles.duration}>{item.duration}</Text>
@@ -81,13 +89,14 @@ const LargeCard = ({ item, isDot = true }: { item: any; isDot?: boolean }) => {
             </View>
           </View>
 
-          {/* RIGHT: THREE DOT ICON */}
           {isDot && (
-            <TouchableOpacity style={styles.moreIcon}>
+            <TouchableOpacity
+              style={styles.moreIcon}
+              onPress={() => onOpenMenu?.(item)}
+            >
               <MoreVertical color="#553434" size={scaleHeight(22)} />
             </TouchableOpacity>
           )}
-
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -99,90 +108,79 @@ export default LargeCard;
 const styles = StyleSheet.create({
   cardRow: {
     width: width * 0.9,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',  
-    marginBottom: scaleHeight(18),
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: scaleHeight(24),
   },
-
   leftRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1, 
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
   },
-
-  // IMAGE AREA
   imageContainer: {
     width: scaleHeight(120),
     height: scaleHeight(120),
-    position: 'relative',
+    position: "relative",
     marginRight: scaleHeight(14),
   },
   shadowLayer: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
+    position: "absolute",
+    width: "100%",
+    height: "100%",
     borderRadius: scaleHeight(20),
     borderWidth: 4,
-    borderColor: '#553434',
-    backgroundColor: '#553434',
+    borderColor: "#553434",
+    backgroundColor: "#553434",
     top: scaleHeight(3),
     left: scaleHeight(3),
   },
   imageWrapper: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
+    position: "absolute",
+    width: "100%",
+    height: "100%",
     borderRadius: scaleHeight(20),
     borderWidth: 4,
-    borderColor: '#553434',
-    backgroundColor: '#fff',
-    overflow: 'hidden',
+    borderColor: "#553434",
+    backgroundColor: "#fff",
+    overflow: "hidden",
   },
-  image: { width: '100%', height: '100%' },
-
+  image: { width: "100%", height: "100%" },
   lockContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: scaleHeight(8),
     left: scaleHeight(8),
     width: scaleHeight(28),
     height: scaleHeight(28),
     borderRadius: scaleHeight(14),
-    backgroundColor: '#553434',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
+    backgroundColor: "#553434",
+    justifyContent: "center",
+    alignItems: "center",
   },
-
-  // CONTENT
   contentBox: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   songTitle: {
-    fontWeight: '600',
+    fontWeight: "600",
     fontSize: scaleHeight(18),
-    color: '#553434',
-    fontFamily: 'KodchasanSemiBold',
+    color: "#553434",
+    fontFamily: "KodchasanSemiBold",
     marginBottom: scaleHeight(4),
   },
   artist: {
-    color: '#553434',
+    color: "#553434",
     fontSize: scaleHeight(15),
-    fontFamily: 'KodchasanMedium',
-    marginBottom: scaleHeight(6),
+    fontFamily: "KodchasanMedium",
+    marginBottom: scaleHeight(4),
   },
   duration: {
-    color: '#553434',
+    color: "#553434",
     fontSize: scaleHeight(13),
     opacity: 0.8,
-    fontFamily: 'KodchasanMedium',
+    fontFamily: "KodchasanMedium",
   },
-
-  // 3 DOT ICON
   moreIcon: {
     padding: scaleHeight(6),
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });

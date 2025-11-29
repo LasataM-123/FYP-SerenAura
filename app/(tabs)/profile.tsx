@@ -168,7 +168,7 @@ const Profile = () => {
             </Text>
 
             <View style={styles.cardBoxGreen}>
-              <SettingItem icon={Heart} text="Favorites" onPress={() => {}} />
+              <SettingItem icon={Heart} text="Favorites" onPress={() => {router.push('/settings/favourites')}} />
               <SettingItem icon={ListVideo} text="Playlists" onPress={() => {router.push('/settings/playlist/playlists')}} />
               <SettingItem icon={ScrollText} text="Mood Logbook" onPress={() => {}} />
               <SettingItem icon={History} text="Chat History" onPress={() => {router.push('/chatHistory/chat-history')}} />

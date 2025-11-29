@@ -24,7 +24,7 @@ export type AddFavouriteResponse = {
 
 export type GetFavouritesResponse = {
   count: number;
-   media: {
+   favourites: {
     _id: string; 
     mediaType: MediaType;
     media: MusicItem | MeditationItem;
@@ -74,9 +74,9 @@ export async function checkFavourite(params?:{mediaId: string}): Promise<CheckFa
     return res.json();
 }
 
-export async function getFavourites(params?:{mediaId: string}): Promise<GetFavouritesResponse> {
+export async function getFavourites(): Promise<GetFavouritesResponse> {
       const accessToken = useAuthStore.getState().accessToken;
-    const res = await fetch(`${API_URL}/favourite/check/${params?.mediaId}`, {
+    const res = await fetch(`${API_URL}/favourite/get`, {
       method: "GET",
       headers: { 
         "Content-Type": "application/json",
