@@ -86,7 +86,7 @@ const getCounselor = asyncHandler(async (req, res) => {
 
 
 /**
- * @route  GET /api/counselor/get/:id
+ * @route  GET /api/counselors/get/:id
  * @desc   Get counselor by Id
  * @access Private (patient and counselor)
  */
@@ -119,4 +119,35 @@ const getCounselorById = asyncHandler(async (req, res) => {
     return res.status(500).json({message: e.message });
   }
 });
-module.exports = { createCounselor, getCounselor, getCounselorById };
+
+/**
+ * @route  DELETE /api/counselors/delete
+ * @desc   Delete counselor account
+ * @access Private (counselor only)
+ */
+const deleteCounselorAccount = asyncHandler(async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const counselor = await Counselor.findById(userId);
+
+        if (!counselor) {
+            return res.status(404).json({ message: "Counselor not found" });
+        }
+
+        // Delete profile image
+        await deleteUploadedFile(counselor.profileUrl);
+
+        // Delete counselor document
+        await Counselor.findByIdAndDelete(userId);
+
+        return res.status(200).json({
+            success: true,
+            message: "Counselor account deleted successfully"
+        });
+
+    } catch (err) {
+        return res.status(500).json({ message: err.message });
+    }
+});
+
+module.exports = { createCounselor, getCounselor, getCounselorById, deleteCounselorAccount };

@@ -6,6 +6,24 @@ const jwt = require('jsonwebtoken');
 const nodemailer = require("nodemailer");
 const OTP_EXPIRY = 5 * 60; 
 const JWT_SECRET = process.env.JWT_SECRET_KEY;
+const cloudinary = require('../config/cloudinaryConfig');
+const Playlist = require('../models/playlistModel');
+const PlaylistJunction = require('../models/playlistJunctionModel');
+const Favourite = require('../models/favouriteModel');
+const RecentSearch = require('../models/recentSearchModel');
+const Mood = require("../models/moodModel");
+const Onboarding = require("../models/onboardingModel")
+
+const deleteUploadedFile = async (file) => {
+    if (!file || !file.path) return;
+    try {
+        const publicId = file.filename || file.path.split('/').pop().split('.')[0]; // Extract public ID
+        await cloudinary.uploader.destroy(publicId);
+    } catch (error) {
+        console.error("Error deleting uploaded file from Cloudinary:", error);
+    }
+};
+
 
 // --- Helper: generate OTP ---
 const generateOTP = () =>
@@ -266,6 +284,53 @@ const changePassword = asyncHandler(async (req, res) => {
   }
 });
 
+/**
+ * @route  DELETE /api/users/delete
+ * @desc   Delete patient account
+ * @access Private (patient only)
+ */
+const deletePatientAccount = asyncHandler(async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const patient = await Patient.findById(userId);
+
+        if (!patient) {
+            return res.status(404).json({ message: "Patient not found" });
+        }
+
+        // Delete profile picture from Cloudinary
+        await deleteUploadedFile(patient.profileUrl);
+
+        // Delete playlists + junction rows
+        if (patient.playlists.length > 0) {
+            await PlaylistJunction.deleteMany({ playlistId: { $in: patient.playlists } });
+            await Playlist.deleteMany({ _id: { $in: patient.playlists } });
+        }
+
+        // Delete favourites
+        await Favourite.deleteMany({ _id: { $in: patient.favourites } });
+
+        // Delete recent searches
+        await RecentSearch.deleteMany({ _id: { $in: patient.recentSearch } });
+
+        // Delete onboarding rows
+        await Onboarding.deleteOne({ userId });
+
+        // Delete moods tied to patient
+        await Mood.deleteMany({ patientId: userId });
+
+        // Delete patient
+        await Patient.findByIdAndDelete(userId);
+
+        return res.status(200).json({
+            success: true,
+            message: "Patient and all related data deleted successfully"
+        });
+
+    } catch (err) {
+        return res.status(500).json({ message: err.message });
+    }
+});
 
 
 module.exports = {
@@ -273,6 +338,7 @@ module.exports = {
   resetPassword,
   addDOB,
   getProfile,
-  changePassword
+  changePassword,
+  deletePatientAccount
 };
 
