@@ -16,12 +16,13 @@ import {
 import React, { useEffect, useState, useRef } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import { useBackend } from "@/lib/useBackend";
-import { getPlaylistById, GetPlaylistByIdResponse } from "@/lib/api/playlist";
+import { deletePlaylist, getPlaylistById, GetPlaylistByIdResponse, removeMediaFromPlaylist } from "@/lib/api/playlist";
 import LargeCard from "@/components/MediaCards/LargeCard";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { images } from "@/constants";
 import { Trash2, X } from "lucide-react-native";
 import { StatusBar } from "react-native";
+import Overlay from "@/components/Overlay";
 
 const SCREEN_HEIGHT = Dimensions.get("window").height;
 
@@ -42,6 +43,15 @@ const PlaylistMedia = () => {
   const [showToast, setShowToast] = useState(false);
 
   const { refetch, loading } = useBackend({ fn: getPlaylistById });
+  const {refetch: removeMedia} = useBackend({
+    fn: removeMediaFromPlaylist
+  })
+  const [showDeleteOverlay,setShowDeleteOverlay] = useState(false);
+  const [showCompleteOverlay,setShowCompleteOverlay] = useState(false);
+
+  const {refetch: deleteList} = useBackend({
+    fn: deletePlaylist
+  }) 
 
   const panResponder = useRef(
     PanResponder.create({
@@ -98,26 +108,41 @@ const PlaylistMedia = () => {
     }, 1500);
   };
 
- const removeItem = async () => {
+const removeItem = async () => {
+  if (!selectedItem) return;
 
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  try {
+    await removeMedia({ playlistId: _id, junctionId:selectedItem._id});
+    setTimeout(() => {
+      closeMenu();
+    }, 1000);
+    showToastMessage("✅ Removed from favourites");
 
-  // 2. Close overlay
-  closeMenu();
+    setTimeout(() => {
+      fetchPlaylist();
+    }, 2000);
 
-  // 3. Show toast
-  showToastMessage("✅ Removed from playlist");
-
-  // 4. Refetch playlist after short delay to ensure overlay is closed first
-  setTimeout(() => {
-    fetchPlaylist();
-  }, 2000); // small delay so UI updates smoothly
+  } catch (err) {
+    showToastMessage("❌ Failed to remove");
+  }
 };
-
 
   useEffect(() => {
     fetchPlaylist();
   }, []);
+
+    const handleDelete = async () => {
+      try {
+        await deleteList({ id: _id });
+
+        setShowDeleteOverlay(false);
+
+        setShowCompleteOverlay(true);
+
+      } catch (err) {
+        console.error(err);
+      }
+    };
 
   // --------------------- LOADING ---------------------
   if (loading || !playlist) {
@@ -167,9 +192,10 @@ const PlaylistMedia = () => {
             <Text style={styles.subtitle}>{total} videos</Text>
           </View>
 
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowDeleteOverlay(true)}>
             <Trash2 size={22} color="#C76350" />
           </TouchableOpacity>
+
         </View>
       </View>
 
@@ -224,6 +250,12 @@ const PlaylistMedia = () => {
         >
           <Text style={styles.toastText}>{toastMessage}</Text>
         </Animated.View>
+      )}
+      {showDeleteOverlay &&(
+        <Overlay title = "Do you want to delete this playlist?" description="This action cannot be undone. All the playlist data will be permanently deleted." crossIcon={true} onClose={()=>setShowDeleteOverlay(false)} imageSource={images.Warning} label="Delete Playlist" onPress={handleDelete} includeOutlinedButton={true} outlineLabel="Cancel" onOutline={()=>{setShowDeleteOverlay(false)}}/>
+      )}
+      {showCompleteOverlay&&(
+        <Overlay title = "Playlist Deleted Successfully!" description="Your playlist has been deleted successfully." imageSource={images.tick} label="Go Back" onPress={()=>router.back()}/>
       )}
     </SafeAreaView>
   );

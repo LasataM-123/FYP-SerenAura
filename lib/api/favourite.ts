@@ -90,10 +90,10 @@ export async function getFavourites(): Promise<GetFavouritesResponse> {
     return res.json();
 }
 
-export async function removeFavourite(params?:{mediaId: string}): Promise<GetFavouritesResponse> {
+export async function removeFavourite(params?:{id: string}): Promise<RemoveFavouriteResponse> {
       const accessToken = useAuthStore.getState().accessToken;
-    const res = await fetch(`${API_URL}/favourite/check/${params?.mediaId}`, {
-      method: "GET",
+    const res = await fetch(`${API_URL}/favourite/remove/${params?.id}`, {
+      method: "DELETE",
       headers: { 
         "Content-Type": "application/json",
         "Authorization": `Bearer ${accessToken}`

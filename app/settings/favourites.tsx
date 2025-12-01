@@ -20,7 +20,7 @@ import { useBackend } from "@/lib/useBackend";
 import LargeCard from "@/components/MediaCards/LargeCard";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Top from "@/components/top";
-import { getFavourites, GetFavouritesResponse } from "@/lib/api/favourite";
+import { getFavourites, GetFavouritesResponse, removeFavourite } from "@/lib/api/favourite";
 import { StatusBar } from "react-native";
 import { router } from "expo-router";
 import { Cross, X } from "lucide-react-native";
@@ -40,6 +40,10 @@ const PlaylistMedia = () => {
   const [showToast, setShowToast] = useState(false);
 
   const { refetch, loading } = useBackend({ fn: getFavourites });
+
+  const {refetch:deleteFav} = useBackend({
+    fn: removeFavourite
+  })
 
   const panResponder = useRef(
     PanResponder.create({
@@ -96,22 +100,24 @@ const PlaylistMedia = () => {
     }, 1500);
   };
 
- const removeItem = async () => {
+const removeItem = async () => {
+  if (!selectedItem) return;
 
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  try {
+    await deleteFav({ id: selectedItem._id });
+    setTimeout(() => {
+      closeMenu();
+    }, 1000);
+    showToastMessage("✅ Removed from favourites");
 
-  // 2. Close overlay
-  closeMenu();
+    setTimeout(() => {
+      fetchFavourite();
+    }, 2000);
 
-  // 3. Show toast
-  showToastMessage("✅ Removed from favourites");
-
-  // 4. Refetch playlist after short delay to ensure overlay is closed first
-  setTimeout(() => {
-    fetchFavourite();
-  }, 2000); // small delay so UI updates smoothly
+  } catch (err) {
+    showToastMessage("❌ Failed to remove");
+  }
 };
-
 
   useEffect(() => {
     fetchFavourite();

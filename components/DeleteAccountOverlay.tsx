@@ -61,8 +61,6 @@ const DeleteAccountOverlay: React.FC<Props> = ({ onClose }) => {
   const handleDelete = () => {
     if (!isMatch) return;
 
-    console.log("ACCOUNT DELETED (placeholder)");
-
     closeOverlay();
   };
 

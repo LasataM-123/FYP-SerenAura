@@ -31,6 +31,7 @@ import { getProfile, ProfileResponse } from '@/lib/api/auth';
 import { images } from '@/constants';
 import { Animated } from 'react-native';
 import DeleteAccountOverlay from '@/components/DeleteAccountOverlay';
+import { useAuthStore } from '@/store/authStore';
 
 const BORDER = "#553434";
 
@@ -100,6 +101,8 @@ const Profile = () => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   const [showOverlay, setShowOverlay] =useState(false);
+
+  const {logout} = useAuthStore();
 
   useEffect(() => {
     const fetchProfile = async () => {
