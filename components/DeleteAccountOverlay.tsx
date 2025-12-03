@@ -20,12 +20,15 @@ import CustomInput from "./CustomInput";
 const BORDER = "#553434";
 
 interface Props {
-  onClose?: () => void; // 🔥 added here
+  onClose?: () => void;
+  onDeleteStart?: () => void;
 }
 
-const DeleteAccountOverlay: React.FC<Props> = ({ onClose }) => {
+const DeleteAccountOverlay: React.FC<Props> = ({ onClose, onDeleteStart }) => {
   const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+
 
   const [inputText, setInputText] = useState("");
   const [visible, setVisible] = useState(true);
@@ -55,14 +58,16 @@ const DeleteAccountOverlay: React.FC<Props> = ({ onClose }) => {
 
   const closeOverlay = () => {
     setVisible(false);
-    onClose?.(); // 🔥 call parent if provided
+    onClose?.(); 
   };
 
-  const handleDelete = () => {
-    if (!isMatch) return;
+ const handleDelete = () => {
+  if (!isMatch) return;
 
-    closeOverlay();
-  };
+  onDeleteStart?.();   
+  closeOverlay();
+};
+
 
   const handleCancel = () => {
     closeOverlay(); // cancel also closes overlay

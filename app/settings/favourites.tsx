@@ -5,7 +5,6 @@ import {
   Text,
   View,
   FlatList,
-  Image,
   TouchableOpacity,
   ActivityIndicator,
   Animated,
@@ -104,10 +103,10 @@ const removeItem = async () => {
   if (!selectedItem) return;
 
   try {
-    await deleteFav({ id: selectedItem._id });
     setTimeout(() => {
       closeMenu();
-    }, 1000);
+    }, 500);
+    await deleteFav({ id: selectedItem._id });
     showToastMessage("✅ Removed from favourites");
 
     setTimeout(() => {
@@ -142,6 +141,12 @@ const removeItem = async () => {
         <ScrollView contentContainerStyle={{paddingHorizontal:24}}>
 
      <Top label="Favourites" onBack={()=>router.back()}/>
+      {!loading && favourite?.favourites?.length === 0 && (
+  <View style={styles.emptyContainer}>
+    <Text style={styles.emptyText}>No favourites yet</Text>
+  </View>
+)}
+
       {/* MAIN LIST */}
       <View style={styles.contentWrapper}>
         <FlatList
@@ -205,6 +210,19 @@ export default PlaylistMedia;
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#fff" },
   loader: { flex: 1, justifyContent: "center", alignItems: "center" },
+   emptyContainer: {
+  flex: 1,
+  justifyContent: "center",
+  alignItems: "center",
+  marginTop: 50,
+},
+emptyText: {
+  fontSize: 18,
+  color: "#553434",
+  fontFamily: "KodchasanSemiBold",
+  opacity: 0.7,
+},
+
 
   headerContainer: { width: "100%", backgroundColor: "#e2f2e7", paddingTop: 30, paddingBottom: 20, alignItems: "center" },
   headerImageWrapper: { width: "100%", alignItems: "center", marginBottom: 15 },

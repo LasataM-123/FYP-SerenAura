@@ -1,5 +1,6 @@
 import { API_URL } from "@/config";
 import { useAuthStore } from "@/store/authStore";
+import { DeleteResponse } from "./auth";
 
 export type CounselorType = {
   _id: string;
@@ -47,6 +48,23 @@ export async function getIndividualCounselor(params?:{id:string}): Promise<GetIn
         if (!res.ok) {
         const errBody = await res.json();
         throw new Error(errBody.message || "Get request failed")
+        }
+    return res.json();
+}
+export async function deleteCounselorAccount(): Promise<DeleteResponse> {
+    const accessToken = useAuthStore.getState().accessToken;
+    
+    const res = await fetch(`${API_URL}/counselors/delete`, {
+      method: "DELETE",
+      headers: { 
+        "Content-Type": "application/json",
+         "Authorization": `Bearer ${accessToken}`
+
+     },
+    });
+        if (!res.ok) {
+        const errBody = await res.json();
+        throw new Error(errBody.message || "Delete request failed")
         }
     return res.json();
 }

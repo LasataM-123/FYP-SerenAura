@@ -27,7 +27,6 @@ import {
   ListPlus,
   RotateCcw,
   RotateCw,
-  ChevronLeft,
   ListCheck,
   Check,
 } from "lucide-react-native";
@@ -379,21 +378,29 @@ const NowPlayingScreen: React.FC = () => {
     }
   };
 
-  const handleCreatePlaylistPress = async () => {
-  try {
-    const res = await createPlaylistRefetch({ title: newPlaylistName.trim() });
-    if (res?.playlist) {
-      const plRes = await getUserPlaylistRefetch();
-      setPlaylists(plRes?.playlists || []);
-      closeCreatePlaylist(true);
-    } else {
-      setErrorText(error || "Failed to create playlist");
-    }
-  } catch (err) {
-    triggerToast("Failed to create playlist");
-  }
-};
+const handleCreatePlaylistPress = async () => {
+  Keyboard.dismiss();
 
+  const sub = Keyboard.addListener("keyboardDidHide", async () => {
+    sub.remove(); // remove listener immediately so it doesn't trigger twice
+
+    try {
+      const res = await createPlaylistRefetch({ title: newPlaylistName.trim() });
+
+      if (res?.playlist) {
+        const plRes = await getUserPlaylistRefetch();
+        setPlaylists(plRes?.playlists || []);
+
+        // Only close overlay AFTER keyboard is fully hidden
+        closeCreatePlaylist(true);
+      } else {
+        setErrorText(error || "Failed to create playlist");
+      }
+    } catch (err) {
+      triggerToast("Failed to create playlist");
+    }
+  });
+};
 
   // favourite (keep behavior unchanged)
   const handleToggleFavourite = async () => {

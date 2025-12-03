@@ -1,3 +1,4 @@
+"use client";
 import {
   ScrollView,
   StatusBar,
@@ -7,11 +8,18 @@ import {
   Image,
   TouchableOpacity,
   ActivityIndicator,
-} from 'react-native';
-import React, { useCallback, useEffect, useState } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Header from '@/components/Header';
-import { router, useFocusEffect } from 'expo-router';
+  Animated,
+  TextInput,
+  Pressable,
+  PanResponder,
+  Dimensions,
+  Keyboard,
+  Platform,
+} from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Header from "@/components/Header";
+import { router, useFocusEffect } from "expo-router";
 import {
   Heart,
   ListVideo,
@@ -24,16 +32,18 @@ import {
   CircleHelpIcon,
   LogOut,
   ChevronRight,
-} from 'lucide-react-native';
-
-import { useBackend } from '@/lib/useBackend';
-import { getProfile, ProfileResponse } from '@/lib/api/auth';
-import { images } from '@/constants';
-import { Animated } from 'react-native';
-import DeleteAccountOverlay from '@/components/DeleteAccountOverlay';
-import { useAuthStore } from '@/store/authStore';
+  Camera,
+} from "lucide-react-native";
+import { useBackend } from "@/lib/useBackend";
+import { getProfile, ProfileResponse } from "@/lib/api/auth";
+import { images } from "@/constants";
+import DeleteAccountOverlay from "@/components/DeleteAccountOverlay";
+import DeletingAccountOverlay from "@/components/DeletingAccountOverlay";
+import { useAuthStore } from "@/store/authStore";
+import Button from "@/components/Button"; // your button component
 
 const BORDER = "#553434";
+const SCREEN_HEIGHT = Dimensions.get("window").height;
 
 type SettingItemProps = {
   icon: React.ComponentType<{ size?: number; color?: string }>;
@@ -48,9 +58,7 @@ const SettingItem: React.FC<SettingItemProps> = ({
   showArrow = true,
   onPress,
 }) => {
-
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
-
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
       toValue: 0.95,
@@ -58,7 +66,6 @@ const SettingItem: React.FC<SettingItemProps> = ({
       useNativeDriver: true,
     }).start();
   };
-
   const handlePressOut = () => {
     Animated.spring(scaleAnim, {
       toValue: 1,
@@ -86,189 +93,457 @@ const SettingItem: React.FC<SettingItemProps> = ({
 };
 
 const Profile = () => {
-
+  // initial StatusBar and closing overlay on blur using useFocusEffect
   useFocusEffect(
     useCallback(() => {
-      StatusBar.setBarStyle('dark-content');
-      StatusBar.setBackgroundColor('#ffffff');
+      StatusBar.setBarStyle("dark-content");
+      StatusBar.setBackgroundColor("#ffffff");
+      // cleanup runs when screen is unfocused — close overlays/sheets
+      return () => {
+        setOverlayVisible(false);
+        setSheetVisible(false);
+        sheetY.setValue(SCREEN_HEIGHT);
+        keyboardOffset.setValue(0);
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
   );
 
   const { refetch, loading } = useBackend({ fn: getProfile });
+  const { logout } = useAuthStore();
 
   const [user, setUser] = useState<ProfileResponse | null>(null);
-
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [showOverlay, setShowOverlay] = useState(false);
+  const [showDeleting, setShowDeleting] = useState(false);
+  const [showLogoutOverlay, setShowLogoutOverlay] = useState(false);
 
-  const [showOverlay, setShowOverlay] =useState(false);
+  const sheetY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  // small offset when keyboard appears (we'll cap this to a small value so whole screen doesn't jump)
+  const keyboardOffset = useRef(new Animated.Value(0)).current;
+  const [sheetVisible, setSheetVisible] = useState(false);
+  const [overlayVisible, setOverlayVisible] = useState(false);
 
-  const {logout} = useAuthStore();
+  // track keyboardHeight for padding inside ScrollView
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editDob, setEditDob] = useState("");
+
+  const formatDOB = (dobString: string) => {
+    if (!dobString) return "";
+    const date = new Date(dobString);
+    if (isNaN(date.getTime())) return dobString;
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4,
+      onPanResponderMove: (_, g) => {
+        if (g.dy > 0) {
+          sheetY.setValue(g.dy);
+        }
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > 80) {
+          closeSheet();
+        } else {
+          openSheet(); // snap back
+        }
+      },
+    })
+  ).current;
+
+  // --------------------- FUNCTIONS ---------------------
+  const fetchProfile = async () => {
+    const res = await refetch();
+    if (res?.success) {
+      setUser(res);
+      // preload fields for editing
+      setEditName(res.profile?.name || "");
+      setEditEmail(res.profile?.email || "");
+      setEditDob(res?.profile?.dob ? formatDOB(res.profile.dob) : "");
+    }
+  };
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      const res = await refetch();
-      if (res?.success) {
-        setUser(res);
-      }
-    };
     fetchProfile();
+
+    // keyboard listeners
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      (e: any) => {
+        const height = e.endCoordinates ? e.endCoordinates.height : 300;
+        setKeyboardHeight(height);
+
+        // Only nudge the sheet a little; do NOT lift the whole screen.
+        // Cap to a small value (80-100px depending on available height).
+        const liftAmount = Math.min(30, Math.max(40, height - 60));
+        Animated.timing(keyboardOffset, {
+          toValue: -liftAmount,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      }
+    );
+
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => {
+        setKeyboardHeight(0);
+        Animated.timing(keyboardOffset, {
+          toValue: 0,
+          duration: 180,
+          useNativeDriver: true,
+        }).start();
+      }
+    );
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const maskEmail = (email: string) => {
     if (!email || !email.includes("@")) return email;
     const [name, domain] = email.split("@");
-
-    const maskedName =
-      name.length <= 2
-        ? name[0] + "****"
-        : name.slice(0, 2) + "****";
-
+    const maskedName = name.length <= 2 ? name[0] + "****" : name.slice(0, 2) + "****";
     return `${maskedName}@${domain}`;
   };
+
+  // open/close sheet (mirrors favourites)
+  const openSheet = () => {
+    setOverlayVisible(true);
+    setSheetVisible(true);
+    // animate sheet translateY to 0 (visible)
+    Animated.timing(sheetY, {
+      toValue: 0,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeSheet = () => {
+    // dismiss keyboard first
+    Keyboard.dismiss();
+    Animated.timing(sheetY, {
+      toValue: SCREEN_HEIGHT,
+      duration: 220,
+      useNativeDriver: true,
+    }).start(() => {
+      setSheetVisible(false);
+      setOverlayVisible(false);
+      // reset sheetY so next open animates from bottom
+      sheetY.setValue(SCREEN_HEIGHT);
+      keyboardOffset.setValue(0);
+      setKeyboardHeight(0);
+    });
+  };
+
+  // immediate close without animation (used by focus cleanup)
+  const closeSheetImmediate = () => {
+    Keyboard.dismiss();
+    setSheetVisible(false);
+    setOverlayVisible(false);
+    sheetY.setValue(SCREEN_HEIGHT);
+    keyboardOffset.setValue(0);
+    setKeyboardHeight(0);
+  };
+
+  // simple local "save" — you can replace with actual API call later
+  const handleSave = () => {
+    // Dismiss keyboard immediately (as requested)
+    Keyboard.dismiss();
+
+    setUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            profile: {
+              ...prev.profile,
+              name: editName,
+              email: editEmail,
+              dob: editDob,
+            },
+          }
+        : prev
+    );
+
+    // close sheet after saving (sheet will animate down)
+    closeSheet();
+  };
+
+  if (loading || !user) {
+    return (
+      <View style={styles.loadingBox}>
+        <ActivityIndicator size="large" color={BORDER} />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       <Header isProfile={true} />
-
-      {loading && (
-        <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color={BORDER} />
-        </View>
-      )}
-
-      {!loading && (
-        <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 24 }}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.profileContainer}>
-            <Text style={styles.sectionTitle}>Profile</Text>
-
-            <View style={styles.profileCard}>
-              <Image
-                source={
-                  user?.profile.profileUrl
-                    ? { uri: user.profile.profileUrl }
-                    : images.Avatar
-                }
-                style={styles.avatar}
-              />
-
-              <View style={{ flex: 1 }}>
-                <Text style={styles.name}>{user?.profile.name || "---"}</Text>
-                <Text style={styles.email}>
-                  {user?.profile?.email ? maskEmail(user.profile.email) : "---"}
-                </Text>
-              </View>
-
-              <TouchableOpacity style={styles.editBtn}>
-                <PenLine size={22} color={BORDER} />
-              </TouchableOpacity>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 24 }} showsVerticalScrollIndicator={false}>
+        <View style={styles.profileContainer}>
+          <Text style={styles.sectionTitle}>Profile</Text>
+          <View style={styles.profileCard}>
+            <Image
+              source={user?.profile.profileUrl ? { uri: user.profile.profileUrl } : images.Avatar}
+              style={styles.avatar}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.name}>{user?.profile.name || "---"}</Text>
+              <Text style={styles.email}>{user?.profile?.email ? maskEmail(user.profile.email) : "---"}</Text>
             </View>
-
-            <Text style={[styles.sectionTitle, { marginTop: 26 }]}>
-              My Wellness Hub
-            </Text>
-
-            <View style={styles.cardBoxGreen}>
-              <SettingItem icon={Heart} text="Favorites" onPress={() => {router.push('/settings/favourites')}} />
-              <SettingItem icon={ListVideo} text="Playlists" onPress={() => {router.push('/settings/playlist/playlists')}} />
-              <SettingItem icon={ScrollText} text="Mood Logbook" onPress={() => {}} />
-              <SettingItem icon={History} text="Chat History" onPress={() => {router.push('/chatHistory/chat-history')}} />
-            </View>
-
-            <Text style={[styles.sectionTitle, { marginTop: 26 }]}>
-              General Settings
-            </Text>
-
-            <View style={styles.cardBoxPeach}>
-
-              <SettingItem
-                icon={LockKeyhole}
-                text="Change Password"
-                onPress={() => {router.push('../settings/change_password')}}
-              />
-
-              {/* WORKING TOGGLE SWITCH */}
-              <TouchableOpacity
-                style={styles.settingRow}
-                onPress={() => setNotificationsEnabled(!notificationsEnabled)}
-                activeOpacity={0.8}
-              >
-                <Bell size={22} color={BORDER} />
-                <Text style={styles.settingText}>Notifications</Text>
-
-                <View
-                  style={[
-                    styles.toggleOuter,
-                    {
-                      backgroundColor: notificationsEnabled ? BORDER : "#fff",
-                    },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.toggleCircle,
-                      {
-                        alignSelf: notificationsEnabled
-                          ? "flex-end"
-                          : "flex-start",
-                        backgroundColor: notificationsEnabled ? "#fff" : BORDER,
-                      },
-                    ]}
-                  />
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={[styles.sectionTitle, { marginTop: 26 }]}>
-              Support
-            </Text>
-
-            <View style={styles.cardBoxPurple}>
-              <SettingItem icon={CircleHelpIcon} text="Help & Support" onPress={() => {}} />
-              <SettingItem icon={Trash2} text="Delete Account" onPress={() => {setShowOverlay(true)}} showArrow={false} />
-              <SettingItem icon={LogOut} text="Logout" onPress={() => {}} showArrow={false} />
-            </View>
+            {/* EDIT opens bottom sheet */}
+            <TouchableOpacity style={styles.editBtn} onPress={() => openSheet()}>
+              <PenLine size={22} color={BORDER} />
+            </TouchableOpacity>
           </View>
 
-          <View style={{ marginBottom: 100 }} />
-        </ScrollView>
-      )}
-      {showOverlay && (
-  <DeleteAccountOverlay onClose={() => setShowOverlay(false)} />
-)}
+          <Text style={[styles.sectionTitle, { marginTop: 26 }]}>My Wellness Hub</Text>
+          <View style={styles.cardBoxGreen}>
+            <SettingItem
+              icon={Heart}
+              text="Favorites"
+              onPress={() => {
+                router.push("/settings/favourites");
+              }}
+            />
+            <SettingItem
+              icon={ListVideo}
+              text="Playlists"
+              onPress={() => {
+                router.push("/settings/playlist/playlists");
+              }}
+            />
+            <SettingItem icon={ScrollText} text="Mood Logbook" onPress={() => {}} />
+            <SettingItem
+              icon={History}
+              text="Chat History"
+              onPress={() => {
+                router.push("/chatHistory/chat-history");
+              }}
+            />
+          </View>
 
+          <Text style={[styles.sectionTitle, { marginTop: 26 }]}>General Settings</Text>
+          <View style={styles.cardBoxPeach}>
+            <SettingItem
+              icon={LockKeyhole}
+              text="Change Password"
+              onPress={() => {
+                router.push("../settings/change_password");
+              }}
+            />
+            <TouchableOpacity
+              style={styles.settingRow}
+              onPress={() => setNotificationsEnabled(!notificationsEnabled)}
+              activeOpacity={0.8}
+            >
+              <Bell size={22} color={BORDER} />
+              <Text style={styles.settingText}>Notifications</Text>
+              <View
+                style={[
+                  styles.toggleOuter,
+                  { backgroundColor: notificationsEnabled ? BORDER : "#fff" },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.toggleCircle,
+                    {
+                      alignSelf: notificationsEnabled ? "flex-end" : "flex-start",
+                      backgroundColor: notificationsEnabled ? "#fff" : BORDER,
+                    },
+                  ]}
+                />
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={[styles.sectionTitle, { marginTop: 26 }]}>Support</Text>
+          <View style={styles.cardBoxPurple}>
+            <SettingItem icon={CircleHelpIcon} text="Help & Support" onPress={() => {}} />
+            <SettingItem
+              icon={Trash2}
+              text="Delete Account"
+              showArrow={false}
+              onPress={() => setShowOverlay(true)}
+            />
+            <SettingItem
+              icon={LogOut}
+              text="Logout"
+              showArrow={false}
+              onPress={() => {
+                setShowLogoutOverlay(true);
+                setTimeout(() => {
+                  logout();
+                  router.replace("/login");
+                }, 1500);
+              }}
+            />
+          </View>
+        </View>
+
+        <View style={{ marginBottom: 140 }} />
+      </ScrollView>
+
+      {/* Delete Confirmation Overlay */}
+      {showOverlay && (
+        <DeleteAccountOverlay
+          onClose={() => setShowOverlay(false)}
+          onDeleteStart={() => {
+            setShowOverlay(false);
+            setShowDeleting(true);
+            setTimeout(() => {
+              setShowDeleting(false);
+              router.replace("/login");
+            }, 2000);
+          }}
+        />
+      )}
+      {showDeleting && <DeletingAccountOverlay />}
+
+      {/* Logout overlay */}
+      {showLogoutOverlay && (
+        <Animated.View style={styles.fullOverlay}>
+          <View style={styles.cardWrapper}>
+            <View style={styles.shadowLayer} />
+            <View style={styles.cardMain}>
+              <ActivityIndicator size="large" color={BORDER} />
+              <Text style={styles.overlayText}>Logging Out...</Text>
+            </View>
+          </View>
+        </Animated.View>
+      )}
+
+      {/* dark overlay behind sheet when visible */}
+      {overlayVisible && <Pressable style={styles.sheetOverlay} onPress={closeSheet} />}
+
+      {/* bottom sheet - Animated + custom keyboard handling */}
+      {sheetVisible && (
+        // We do NOT use KeyboardAvoidingView here to prevent whole-screen jumping.
+        <Animated.View
+          style={[
+            styles.editSheet,
+            {
+              transform: [{ translateY: Animated.add(sheetY, keyboardOffset) }],
+            },
+          ]}
+        >
+          {/* drag handle */}
+          <View {...panResponder.panHandlers} style={styles.sheetDragHandle} />
+
+          <ScrollView
+            contentContainerStyle={{
+              paddingHorizontal: 20,
+              paddingBottom: Math.max(10, keyboardHeight + 10),
+            }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.sheetContent}>
+              <Text style={styles.sheetTitle}>Edit Profile</Text>
+
+              {/* Avatar centered */}
+              <View style={styles.centeredAvatarWrap}>
+                <View style={styles.avatarCircle}>
+                  {user?.profile?.profileUrl ? (
+                    <Image source={{ uri: user.profile.profileUrl }} style={styles.avatarPreview} />
+                  ) : (
+                    <View style={styles.cameraPlaceholder}>
+                      <Camera size={28} color={BORDER} />
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              <View style={{ marginTop: 18 }}>
+                <Text style={styles.fieldLabelSmall}>Name</Text>
+                <TextInput
+                  style={[styles.inputUnderline]}
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Your name"
+                  placeholderTextColor="#999"
+                  returnKeyType="next"
+                  onSubmitEditing={() => {
+                    // keep sheet steady; user can manually scroll to next input
+                  }}
+                />
+              </View>
+
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.fieldLabelSmall}>Email</Text>
+                <TextInput
+                  style={[styles.inputUnderline]}
+                  value={editEmail}
+                  onChangeText={setEditEmail}
+                  placeholder="you@example.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  placeholderTextColor="#999"
+                  returnKeyType="next"
+                />
+              </View>
+
+              <View style={{ marginTop: 12 }}>
+                <Text style={styles.fieldLabelSmall}>Date of Birth</Text>
+                <TextInput
+                  style={[styles.inputUnderline]}
+                  value={editDob}
+                  onChangeText={setEditDob}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor="#999"
+                  returnKeyType="done"
+                />
+              </View>
+
+              <View style={{ marginTop: 18, marginBottom: 40 }}>
+                {/* When pressed: keyboard dismissed then sheet closed (handled inside handleSave) */}
+                <Button label="Edit Profile" onPress={handleSave} />
+              </View>
+            </View>
+          </ScrollView>
+        </Animated.View>
+      )}
     </SafeAreaView>
   );
 };
 
 export default Profile;
 
+// --------------------- STYLES ---------------------
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
   },
-
   loadingBox: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-
   profileContainer: {
     marginTop: 22,
     marginBottom: 30,
   },
-
   sectionTitle: {
     fontSize: 22,
     fontFamily: "KodchasanSemiBold",
     color: BORDER,
     marginBottom: 16,
   },
-
   profileCard: {
     borderRadius: 20,
     borderWidth: 4,
@@ -277,40 +552,32 @@ const styles = StyleSheet.create({
     padding: 16,
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 10,
-    boxShadow: '3px 3px 0px rgb(85, 52, 52)',
   },
-
   avatar: {
     width: 55,
     height: 58,
     borderRadius: 10,
     marginRight: 14,
   },
-
   name: {
     fontSize: 18,
     fontFamily: "KodchasanSemiBold",
     color: BORDER,
   },
-
   email: {
     fontSize: 14,
     fontFamily: "KodchasanRegular",
     color: BORDER,
     opacity: 0.7,
   },
-
   editBtn: {
     padding: 6,
   },
-
   settingRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 8,
   },
-
   settingText: {
     flex: 1,
     fontSize: 15,
@@ -318,7 +585,6 @@ const styles = StyleSheet.create({
     marginLeft: 14,
     fontFamily: "KodchasanSemiBold",
   },
-
   cardBoxGreen: {
     paddingHorizontal: 18,
     paddingVertical: 12,
@@ -326,11 +592,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#B5EAD7",
     borderWidth: 4,
     borderColor: BORDER,
-    marginTop: 12,
-    boxShadow: '3px 3px 0px rgb(85, 52, 52)',
-
   },
-
   cardBoxPeach: {
     paddingHorizontal: 18,
     paddingVertical: 12,
@@ -338,11 +600,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFD6A5",
     borderWidth: 4,
     borderColor: BORDER,
-    marginTop: 12,
-    boxShadow: '3px 3px 0px rgb(85, 52, 52)',
-
   },
-
   cardBoxPurple: {
     paddingHorizontal: 18,
     paddingVertical: 12,
@@ -350,11 +608,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E0BBFF",
     borderWidth: 4,
     borderColor: BORDER,
-    marginTop: 12,    
-    boxShadow: '3px 3px 0px rgb(85, 52, 52)',
-
   },
-
   toggleOuter: {
     width: 42,
     height: 22,
@@ -364,10 +618,165 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 2,
   },
-
   toggleCircle: {
     width: 16,
     height: 16,
     borderRadius: 20,
+  },
+  /* overlays and cards reused */
+  fullOverlay: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 9999,
+  },
+  cardWrapper: {
+    width: 255,
+    height: 160,
+    position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  shadowLayer: {
+    position: "absolute",
+    top: 3,
+    left: 3,
+    width: "100%",
+    height: "100%",
+    backgroundColor: BORDER,
+    borderRadius: 20,
+    borderWidth: 3,
+    borderColor: BORDER,
+  },
+  cardMain: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    borderWidth: 3,
+    borderColor: BORDER,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  overlayText: {
+    marginTop: 18,
+    color: BORDER,
+    fontFamily: "Schoolbell",
+    fontSize: 20,
+  },
+  /* ---------- EDIT SHEET styles ---------- */
+  sheetOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    zIndex: 998,
+  },
+  editSheet: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    paddingTop: 14,
+    paddingBottom: 36,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    zIndex: 999,
+    borderColor: BORDER,
+    borderWidth: 4,
+    maxHeight: SCREEN_HEIGHT * 0.85,
+  },
+  sheetDragHandle: {
+    width: 60,
+    height: 6,
+    backgroundColor: BORDER,
+    alignSelf: "center",
+    borderRadius: 3,
+    marginBottom: 12,
+  },
+  sheetContent: {
+    paddingBottom: 40,
+  },
+  sheetTitle: {
+    fontSize: 20,
+    color: BORDER,
+    fontFamily: "KodchasanSemiBold",
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  /* centered avatar block inside sheet */
+  centeredAvatarWrap: {
+    alignItems: "center",
+    marginTop: 6,
+  },
+  avatarCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 48,
+    borderWidth: 3,
+    borderColor: BORDER,
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+    backgroundColor: "#fff",
+  },
+  cameraPlaceholder: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarPreview: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  profileNameSmall: {
+    marginTop: 4,
+    fontSize: 16,
+    fontFamily: "KodchasanSemiBold",
+    color: BORDER,
+  },
+  profileEmailSmall: {
+    marginTop: 2,
+    fontSize: 13,
+    fontFamily: "KodchasanRegular",
+    color: BORDER,
+    opacity: 0.8,
+  },
+  fieldLabelSmall: {
+    fontSize: 13,
+    color: BORDER,
+    fontFamily: "KodchasanSemiBold",
+    marginBottom: 6,
+  },
+  inputUnderline: {
+    borderBottomWidth: 2,
+    borderColor: BORDER,
+    borderRadius: 0,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    fontSize: 15,
+    color: BORDER,
+    fontFamily: "KodchasanRegular",
+    backgroundColor: "#fff",
+  },
+  cancelRow: {
+    marginTop: 12,
+    alignItems: "center",
+  },
+  cancelText: {
+    color: BORDER,
+    fontFamily: "KodchasanSemiBold",
+    fontSize: 16,
   },
 });

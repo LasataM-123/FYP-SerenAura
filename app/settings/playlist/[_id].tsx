@@ -112,11 +112,11 @@ const removeItem = async () => {
   if (!selectedItem) return;
 
   try {
-    await removeMedia({ playlistId: _id, junctionId:selectedItem._id});
     setTimeout(() => {
       closeMenu();
-    }, 1000);
-    showToastMessage("✅ Removed from favourites");
+    }, 500);
+    await removeMedia({ playlistId: _id, junctionId:selectedItem._id});
+    showToastMessage("✅ Removed from playlists");
 
     setTimeout(() => {
       fetchPlaylist();

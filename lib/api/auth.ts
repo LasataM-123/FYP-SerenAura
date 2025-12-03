@@ -17,6 +17,10 @@ export type ChangePasswordResponse = {
   message: string;
   success: boolean;
 };
+export type DeleteResponse = {
+  message: string;
+  success: boolean;
+};
 
 export type ResetPasswordResponse = {
   success:string;
@@ -28,6 +32,7 @@ export type ProfileResponse = {
   profile: {
     name: string;
     email: string;
+    dob:string;
     profileUrl: string | null;
   };
 }
@@ -139,6 +144,19 @@ export async function getProfile(): Promise<ProfileResponse> {
     },
   });
   if (!res.ok) throw new Error((await res.json()).message || "Get profile request failed");
+  return res.json();
+}
+
+export async function deletePatientAccount(): Promise<DeleteResponse> {
+  const accessToken = useAuthStore.getState().accessToken;
+  const res = await fetch(`${API_URL}/users/delete`, {
+    method: "GET",
+    headers: { 
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${accessToken}`
+    },
+  });
+  if (!res.ok) throw new Error((await res.json()).message || "Delete account request failed");
   return res.json();
 }
 

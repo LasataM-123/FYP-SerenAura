@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import { useBackend } from "@/lib/useBackend";
 import { getUserPlaylists, GetUserPlaylistsResponse } from "@/lib/api/playlist";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Top from "@/components/top";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 
 
 // ---------------------------------------------
@@ -91,7 +91,8 @@ const Playlists = () => {
     fn: getUserPlaylists,
   });
 
-  useEffect(() => {
+  useFocusEffect(
+  useCallback(() => {
     const fetchPlaylists = async () => {
       const res = await refetch();
       if (res?.playlists) {
@@ -99,7 +100,9 @@ const Playlists = () => {
       }
     };
     fetchPlaylists();
-  }, []);
+  }, [])
+);
+
 
   if (loading) {
     return (
@@ -117,6 +120,11 @@ const Playlists = () => {
   return (
     <SafeAreaView style={styles.container}>
       <Top label="Playlists" onBack={()=>router.back()} />
+        {!loading && playlists.length === 0 && (
+  <View style={styles.emptyContainer}>
+    <Text style={styles.emptyText}>No playlists yet</Text>
+  </View>
+)}
 
       <FlatList
         data={playlists}
@@ -140,6 +148,19 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     paddingHorizontal: 24,
   },
+  emptyContainer: {
+  flex: 1,
+  justifyContent: "center",
+  alignItems: "center",
+  marginTop: 50,
+},
+emptyText: {
+  fontSize: 18,
+  color: "#553434",
+  fontFamily: "KodchasanSemiBold",
+  opacity: 0.7,
+},
+
   row: {
     flexDirection: "row",
     alignItems: "center",
