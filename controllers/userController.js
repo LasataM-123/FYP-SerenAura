@@ -201,11 +201,11 @@ const getProfile = asyncHandler(async (req, res) => {
     }
 
     // Try Patient
-    let user = await Patient.findById(userId).select("name email profileUrl");
+    let user = await Patient.findById(userId).select("name email dateOfBirth profileUrl");
 
     // If not patient, try Counselor
     if (!user) {
-      user = await Counselor.findById(userId).select("name email profileUrl");
+      user = await Counselor.findById(userId).select("name email dateOfBirth profileUrl");
     }
 
     if (!user) {
@@ -218,6 +218,7 @@ const getProfile = asyncHandler(async (req, res) => {
       profile: {
         name: user.name,
         email: user.email,
+        dob: user.dateOfBirth,
         profileUrl: user.profileUrl || null,
       },
     });
@@ -332,6 +333,91 @@ const deletePatientAccount = asyncHandler(async (req, res) => {
     }
 });
 
+/**
+ * @route  PUT /api/users/edit-profile
+ * @desc   Edit profile (name, email, date of birth, profile picture)
+ * @access Private (patient & counselor)
+ */
+const editProfile = asyncHandler(async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { name, email, dateOfBirth, profileUrl } = req.body;
+
+        // Find user in Patient or Counselor
+        let user = await Patient.findById(userId);
+        if (!user) {
+            user = await Counselor.findById(userId);
+        }
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        // Update name & email
+        if (name) user.name = name;
+        if (email) user.email = email;
+
+        // Update dateOfBirth with validation
+        if (dateOfBirth) {
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dateRegex.test(dateOfBirth)) {
+                return res.status(400).json({ message: "Date of Birth must be in YYYY-MM-DD format" });
+            }
+            const [yearStr, monthStr, dayStr] = dateOfBirth.split("-");
+            const year = parseInt(yearStr, 10);
+            const month = parseInt(monthStr, 10);
+            const day = parseInt(dayStr, 10);
+
+            if (month < 1 || month > 12) {
+                return res.status(400).json({ message: "Month must be between 01 and 12" });
+            }
+
+            const daysInMonth = [
+                31,
+                (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 29 : 28,
+                31, 30, 31, 30, 31, 31, 30, 31, 30, 31
+            ];
+
+            if (day < 1 || day > daysInMonth[month - 1]) {
+                return res.status(400).json({
+                    message: `Day must be between 01 and ${daysInMonth[month - 1]} for month ${monthStr}`,
+                });
+            }
+
+            user.dateOfBirth = dateOfBirth;
+        }
+
+        // Handle profile picture
+        if (req.file && req.file.path) {
+            // Delete old profile image from Cloudinary
+            if (user.profileUrl) {
+                await deleteUploadedFile(user.profileUrl);
+            }
+            user.profileUrl = req.file.path; // multer + CloudinaryStorage sets secure URL here
+        } else if (profileUrl) {
+            // Update profileUrl via direct URL if provided
+            if (user.profileUrl && user.profileUrl !== profileUrl) {
+                await deleteUploadedFile(user.profileUrl);
+            }
+            user.profileUrl = profileUrl;
+        }
+
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile updated successfully",
+            profile: {
+                name: user.name,
+                email: user.email,
+    dob: user.dateOfBirth ? user.dateOfBirth.toISOString().split('T')[0] : null,
+                profileUrl: user.profileUrl || null,
+            },
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ message: err.message });
+    }
+});
+
+
 
 module.exports = {
   forgotPassword,
@@ -339,6 +425,7 @@ module.exports = {
   addDOB,
   getProfile,
   changePassword,
-  deletePatientAccount
+  deletePatientAccount,
+  editProfile
 };
 
