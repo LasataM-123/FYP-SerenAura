@@ -26,6 +26,7 @@ router.post('/change-password',tokenHandler,changePassword)
 router.delete('/delete',tokenHandler, validPatient, deletePatientAccount )
 router.put(
     '/edit-profile',
+    tokenHandler,
     upload.single('profileUrl'),
     editProfile
 );

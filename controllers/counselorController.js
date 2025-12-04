@@ -5,14 +5,34 @@ const cloudinary = require('../config/cloudinaryConfig');
 const mongoose = require('mongoose');
 
 const deleteUploadedFile = async (file) => {
-    if (!file || !file.path) return;
     try {
-        const publicId = file.filename || file.path.split('/').pop().split('.')[0]; // Extract public ID
-        await cloudinary.uploader.destroy(publicId);
+        if (!file) return;
+
+        let url = typeof file === "string" ? file : file.path;
+        if (!url) return;
+        const uploadIndex = url.indexOf('/upload/');
+        if (uploadIndex === -1) return;
+
+        const afterUpload = url.substring(uploadIndex + 8); 
+        // Example: v1764859307/Patients/abc123.webp
+
+        // Remove version
+        const parts = afterUpload.split('/');
+        parts.shift(); // remove v1764859307
+
+        let publicId = parts.join('/');
+        publicId = publicId.replace(/\.[^/.]+$/, ""); 
+
+        if (publicId) {
+            const res = await cloudinary.uploader.destroy(publicId);
+            console.log("Cloudinary delete response:", res);
+        }
     } catch (error) {
         console.error("Error deleting uploaded file from Cloudinary:", error);
     }
 };
+
+
 
 /**
  * @route  POST /api/counselors/create
