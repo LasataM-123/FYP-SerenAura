@@ -147,16 +147,43 @@ export async function getProfile(): Promise<ProfileResponse> {
   return res.json();
 }
 
-export async function deletePatientAccount(): Promise<DeleteResponse> {
+export async function editProfile({
+  name,
+  email,
+  dateOfBirth,
+  imageUri,
+}: {
+  name: string;
+  email: string;
+  dateOfBirth: string;
+  imageUri: string | null;
+}) {
   const accessToken = useAuthStore.getState().accessToken;
-  const res = await fetch(`${API_URL}/users/delete`, {
-    method: "GET",
-    headers: { 
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${accessToken}`
+
+  const formData = new FormData();
+  formData.append("name", name);
+  formData.append("email", email);
+  formData.append("dateOfBirth", dateOfBirth);
+
+  if (imageUri) {
+    formData.append("profileUrl", {
+      uri: imageUri,
+      type: "image/jpeg",
+      name: "profile.jpg",
+    } as any);
+  }
+
+  const res = await fetch(`${API_URL}/users/edit-profile`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
     },
+    body: formData,
   });
-  if (!res.ok) throw new Error((await res.json()).message || "Delete account request failed");
-  return res.json();
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message);
+
+  return data;
 }
 

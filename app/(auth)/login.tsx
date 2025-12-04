@@ -7,6 +7,7 @@ import {
   Keyboard,
   Animated,
   StatusBar,
+  TouchableOpacity,
 } from "react-native";
 import { Link, router } from "expo-router";
 
@@ -31,6 +32,7 @@ const Login = () => {
   const [isGoogleLoading, setGoogleLoading] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
   const { refetch, loading, error } = useBackend({ fn: login });
+  const [rememberMe, setRememberMe] = useState(false);
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: GOOGLE_CLIENT_ID,
@@ -144,15 +146,29 @@ const Login = () => {
 
         {error && <Text style={styles.errorText}>{error}</Text>}
 
-        <View style={styles.forgotRow}>
+      <View style={styles.forgotRow}>
+  {/* Remember Me */}
+        <TouchableOpacity
+          style={styles.checkboxContainer}
+          onPress={() => setRememberMe(!rememberMe)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.checkbox, rememberMe && styles.checkedBox]}>
+            {rememberMe && <Text style={styles.checkmark}>✓</Text>}
+          </View>
+
           <Text style={styles.smallDarkText}>Remember Me</Text>
-          <Text
-            style={styles.smallDarkText}
-            onPress={() => router.push("./forgot-password")}
-          >
-            Forgot Password?
-          </Text>
-        </View>
+        </TouchableOpacity>
+
+        {/* Forgot Password */}
+        <Text
+          style={styles.smallDarkText}
+          onPress={() => router.push("./forgot-password")}
+        >
+          Forgot Password?
+        </Text>
+      </View>
+
       </View>
 
       {/* Buttons Section */}
@@ -312,4 +328,35 @@ const styles = StyleSheet.create({
     color: "#553434",
     textAlign: "center",
   },
+  checkboxContainer: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 6,
+},
+
+checkbox: {
+  width: 20,
+  height: 20,
+  borderWidth:2,
+  borderColor: "#555",
+  borderRadius: 4,
+  alignItems: "center",
+  justifyContent: "center",
+      boxShadow: '1px 1px 0px rgb(85, 52, 52)',
+
+},
+
+checkedBox: {
+  backgroundColor: "#553434",  
+  borderColor: "#553434",
+  boxShadow: '1px 1px 0px rgb(85, 52, 52)',
+
+},
+
+checkmark: {
+  color: "#fff",
+  fontSize: 14,
+  fontWeight: "bold",
+},
+
 });

@@ -15,8 +15,11 @@ import {
   Dimensions,
   Keyboard,
   Platform,
+  Alert,
 } from "react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import * as ImagePicker from "expo-image-picker";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 import Header from "@/components/Header";
 import { router, useFocusEffect } from "expo-router";
@@ -33,14 +36,16 @@ import {
   LogOut,
   ChevronRight,
   Camera,
+  Pencil,
 } from "lucide-react-native";
 import { useBackend } from "@/lib/useBackend";
-import { getProfile, ProfileResponse } from "@/lib/api/auth";
+import { editProfile, getProfile, ProfileResponse } from "@/lib/api/auth";
 import { images } from "@/constants";
 import DeleteAccountOverlay from "@/components/DeleteAccountOverlay";
 import DeletingAccountOverlay from "@/components/DeletingAccountOverlay";
 import { useAuthStore } from "@/store/authStore";
 import Button from "@/components/Button"; // your button component
+import Overlay from "@/components/Overlay";
 
 const BORDER = "#553434";
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -93,12 +98,12 @@ const SettingItem: React.FC<SettingItemProps> = ({
 };
 
 const Profile = () => {
+    const [overlayVisible, setOverlayVisible] = useState(false);
   // initial StatusBar and closing overlay on blur using useFocusEffect
   useFocusEffect(
     useCallback(() => {
-      StatusBar.setBarStyle("dark-content");
-      StatusBar.setBackgroundColor("#ffffff");
-      // cleanup runs when screen is unfocused — close overlays/sheets
+          StatusBar.setBarStyle("dark-content");
+    StatusBar.setBackgroundColor("#ffffff");
       return () => {
         setOverlayVisible(false);
         setSheetVisible(false);
@@ -122,11 +127,11 @@ const Profile = () => {
   // small offset when keyboard appears (we'll cap this to a small value so whole screen doesn't jump)
   const keyboardOffset = useRef(new Animated.Value(0)).current;
   const [sheetVisible, setSheetVisible] = useState(false);
-  const [overlayVisible, setOverlayVisible] = useState(false);
+
 
   // track keyboardHeight for padding inside ScrollView
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editDob, setEditDob] = useState("");
@@ -140,6 +145,16 @@ const Profile = () => {
     const day = String(date.getUTCDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   };
+  useEffect(() => {
+  if (sheetVisible) {
+    StatusBar.setBarStyle("light-content");
+    StatusBar.setBackgroundColor("rgba(0,0,0,0.5)");
+  } else {
+    StatusBar.setBarStyle("dark-content");
+    StatusBar.setBackgroundColor("#ffffff");
+  }
+}, [sheetVisible]);
+
 
   const panResponder = useRef(
     PanResponder.create({
@@ -247,39 +262,52 @@ const Profile = () => {
       setKeyboardHeight(0);
     });
   };
+  const pickImage = async () => {
+  // Ask for permission
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== "granted") {
+    return Alert.alert("Permission required", "Please allow gallery access.");
+  }
 
-  // immediate close without animation (used by focus cleanup)
-  const closeSheetImmediate = () => {
-    Keyboard.dismiss();
-    setSheetVisible(false);
-    setOverlayVisible(false);
-    sheetY.setValue(SCREEN_HEIGHT);
-    keyboardOffset.setValue(0);
-    setKeyboardHeight(0);
-  };
+  // Open gallery
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    quality: 0.7,
+  });
 
+  if (!result.canceled) {
+    setSelectedImage(result.assets[0].uri); // show instantly
+  }
+};
+
+const [showEditOverlay, setShowEditOverlay] = useState(false);
+const [editLoading, setEditLoading] = useState(false);
   // simple local "save" — you can replace with actual API call later
-  const handleSave = () => {
-    // Dismiss keyboard immediately (as requested)
+  const handleSave = async () => {
     Keyboard.dismiss();
+  try {
+    setEditLoading(true);
+    await editProfile({
+      name: editName,
+      email: editEmail,
+      dateOfBirth: editDob,
+      imageUri: selectedImage ?? null,
+    });
+    setEditLoading(false);
+      closeSheet();
+    setShowEditOverlay(true);
+  } catch (err: any) {
+    Alert.alert("Error", err.message);
+  } finally {
+    setEditLoading(false);
+  }
+};
+const Edit = async() =>{
+  setShowEditOverlay(false);
+  const updated = await refetch();
+  setUser(updated);
+}
 
-    setUser((prev) =>
-      prev
-        ? {
-            ...prev,
-            profile: {
-              ...prev.profile,
-              name: editName,
-              email: editEmail,
-              dob: editDob,
-            },
-          }
-        : prev
-    );
-
-    // close sheet after saving (sheet will animate down)
-    closeSheet();
-  };
 
   if (loading || !user) {
     return (
@@ -444,7 +472,7 @@ const Profile = () => {
           {/* drag handle */}
           <View {...panResponder.panHandlers} style={styles.sheetDragHandle} />
 
-          <ScrollView
+           <ScrollView
             contentContainerStyle={{
               paddingHorizontal: 20,
               paddingBottom: Math.max(10, keyboardHeight + 10),
@@ -456,17 +484,26 @@ const Profile = () => {
               <Text style={styles.sheetTitle}>Edit Profile</Text>
 
               {/* Avatar centered */}
-              <View style={styles.centeredAvatarWrap}>
-                <View style={styles.avatarCircle}>
-                  {user?.profile?.profileUrl ? (
-                    <Image source={{ uri: user.profile.profileUrl }} style={styles.avatarPreview} />
-                  ) : (
-                    <View style={styles.cameraPlaceholder}>
-                      <Camera size={28} color={BORDER} />
-                    </View>
-                  )}
-                </View>
-              </View>
+             <View style={styles.avatarWrapper}>
+              <TouchableOpacity onPress={pickImage}>
+                <Image
+                  source={
+                    selectedImage
+                      ? { uri: selectedImage }
+                      : user?.profile?.profileUrl
+                      ? { uri: user.profile.profileUrl }
+                      : images.Camera
+                  }
+                  style={styles.centeredAvatar}
+                />
+
+                {/* Edit icon only if profile exists */}
+                <View style={styles.editIcon}>
+                  <Pencil size={20} color="#553434"/>               
+                 </View>
+              </TouchableOpacity>
+            </View>
+
 
               <View style={{ marginTop: 18 }}>
                 <Text style={styles.fieldLabelSmall}>Name</Text>
@@ -511,11 +548,21 @@ const Profile = () => {
 
               <View style={{ marginTop: 18, marginBottom: 40 }}>
                 {/* When pressed: keyboard dismissed then sheet closed (handled inside handleSave) */}
-                <Button label="Edit Profile" onPress={handleSave} />
+                <Button label={editLoading?"Saving Changes...":"Save Changes"} onPress={handleSave} />
               </View>
             </View>
           </ScrollView>
         </Animated.View>
+      )}
+      {showEditOverlay && (
+        <Overlay
+        title="Profile Updated successfully!"
+        description="Your profile has been updated successfully."
+        label="Continue"
+        onPress={Edit}
+        imageSource={images.tick}
+        />
+
       )}
     </SafeAreaView>
   );
@@ -558,6 +605,10 @@ const styles = StyleSheet.create({
     height: 58,
     borderRadius: 10,
     marginRight: 14,
+    borderWidth: 2,
+    borderColor:"#553434",
+    boxShadow: '2px 2px 0px rgb(85, 52, 52)',
+
   },
   name: {
     fontSize: 18,
@@ -710,17 +761,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: BORDER,
     fontFamily: "KodchasanSemiBold",
-    marginBottom: 6,
+    marginBottom: 2,
     textAlign: "center",
   },
-  /* centered avatar block inside sheet */
-  centeredAvatarWrap: {
-    alignItems: "center",
-    marginTop: 6,
-  },
+
   avatarCircle: {
-    width: 90,
-    height: 90,
+    width: 84,
+    height: 84,
     borderRadius: 48,
     borderWidth: 3,
     borderColor: BORDER,
@@ -741,7 +788,7 @@ const styles = StyleSheet.create({
     resizeMode: "cover",
   },
   profileNameSmall: {
-    marginTop: 4,
+    marginTop: 2,
     fontSize: 16,
     fontFamily: "KodchasanSemiBold",
     color: BORDER,
@@ -779,4 +826,30 @@ const styles = StyleSheet.create({
     fontFamily: "KodchasanSemiBold",
     fontSize: 16,
   },
+  avatarWrapper: {
+  alignSelf: "center",
+  marginVertical: 20,
+},
+centeredAvatar: {
+  width: 120,
+  height: 120,
+  borderRadius: 60,
+  backgroundColor: "#ddd",
+  borderColor:"#553434",
+  borderWidth: 4,
+  boxShadow: '3px 3px 0px rgb(85, 52, 52)',
+
+},
+editIcon: {
+  position: "absolute",
+  right: 0,
+  top: 0,
+  borderColor:"#553434",
+  borderWidth: 3,
+  boxShadow: '2px 2px 0px rgb(85, 52, 52)',
+  backgroundColor: "#fff",
+  padding: 6,
+  borderRadius: 50,
+},
+
 });
