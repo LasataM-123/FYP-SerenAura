@@ -187,3 +187,20 @@ export async function editProfile({
   return data;
 }
 
+export async function deletePatientAccount(): Promise<DeleteResponse> {
+    const accessToken = useAuthStore.getState().accessToken;
+    
+    const res = await fetch(`${API_URL}/users/delete`, {
+      method: "DELETE",
+      headers: { 
+        "Content-Type": "application/json",
+         "Authorization": `Bearer ${accessToken}`
+
+     },
+    });
+        if (!res.ok) {
+        const errBody = await res.json();
+        throw new Error(errBody.message || "Delete request failed")
+        }
+    return res.json();
+}
