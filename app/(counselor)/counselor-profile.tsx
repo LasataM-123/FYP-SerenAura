@@ -343,7 +343,7 @@ const Edit = async() =>{
               icon={LockKeyhole}
               text="Change Password"
               onPress={() => {
-                router.push("../settings/change_password");
+                router.push("../settings/change-password");
               }}
             />
             <TouchableOpacity

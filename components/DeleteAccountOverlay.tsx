@@ -16,6 +16,10 @@ import { StatusBar } from "expo-status-bar";
 import { images } from "@/constants";
 import Button from "./Button";
 import CustomInput from "./CustomInput";
+import { useAuthStore } from "@/store/authStore";
+import { useBackend } from "@/lib/useBackend";
+import { deleteCounselorAccount } from "@/lib/api/counselor";
+import { deletePatientAccount } from "@/lib/api/auth";
 
 const BORDER = "#553434";
 
@@ -25,9 +29,15 @@ interface Props {
 }
 
 const DeleteAccountOverlay: React.FC<Props> = ({ onClose, onDeleteStart }) => {
+  const role = useAuthStore((state)=>state.role);
   const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
-
+  const {refetch: deleteCounselor} = useBackend({
+    fn: deleteCounselorAccount
+  })
+  const {refetch: deletePatient} = useBackend({
+    fn: deletePatientAccount
+  })
 
 
   const [inputText, setInputText] = useState("");
@@ -63,14 +73,18 @@ const DeleteAccountOverlay: React.FC<Props> = ({ onClose, onDeleteStart }) => {
 
  const handleDelete = () => {
   if (!isMatch) return;
-
+  if(role==="counselor"){
+    console.log("Delete counselor account logic here");
+  }  else if(role==="patient"){
+    console.log("Delete patient account logic here");
+  }
   onDeleteStart?.();   
   closeOverlay();
 };
 
 
   const handleCancel = () => {
-    closeOverlay(); // cancel also closes overlay
+    closeOverlay();
   };
 
   if (!visible) return null;

@@ -232,7 +232,7 @@ useEffect(() => {
       <Header />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24 }}>
         <View style={styles.heroContainer}>
-          <Image source={images.homeImage} style={{ height: 300, width: 316 }} />
+          <Image source={images.homeImage} style={{ height: 298, width: 308 }} />
           <View style={styles.mainTextContainer}>
             <Text style={styles.mainWelcomeText}>
               {greeting}, {name?.toUpperCase()}!

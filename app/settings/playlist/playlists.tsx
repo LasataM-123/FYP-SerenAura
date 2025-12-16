@@ -16,10 +16,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Top from "@/components/top";
 import { router, useFocusEffect } from "expo-router";
 
-
-// ---------------------------------------------
-// 🔹 COMPONENT FOR EACH ROW (ANIMATED ITEM)
-// ---------------------------------------------
 const PlaylistRow = ({ item }: { item: GetUserPlaylistsResponse["playlists"][number] }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -138,10 +134,6 @@ const Playlists = () => {
 
 export default Playlists;
 
-
-// ---------------------------------------------
-// 🔹 STYLES
-// ---------------------------------------------
 const styles = StyleSheet.create({
   container: {
     flex: 1,

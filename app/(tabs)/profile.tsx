@@ -354,7 +354,7 @@ const Edit = async() =>{
                 router.push("/settings/playlist/playlists");
               }}
             />
-            <SettingItem icon={ScrollText} text="Mood Logbook" onPress={() => {}} />
+            <SettingItem icon={ScrollText} text="Mood Logbook" onPress={() => {router.push("../settings/mood-logbook")}} />
             <SettingItem
               icon={History}
               text="Chat History"
@@ -370,7 +370,7 @@ const Edit = async() =>{
               icon={LockKeyhole}
               text="Change Password"
               onPress={() => {
-                router.push("../settings/change_password");
+                router.push("../settings/change-password");
               }}
             />
             <TouchableOpacity

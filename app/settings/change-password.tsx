@@ -1,9 +1,9 @@
-import { View, Text, StyleSheet } from "react-native";
-import React, { useState } from "react";
+import { View, Text, StyleSheet, StatusBar } from "react-native";
+import React, { useCallback, useState } from "react";
 import Top from "@/components/top";
 import CustomInput from "@/components/CustomInput";
 import Button from "@/components/Button";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import Overlay from "@/components/Overlay";
 import { images } from "@/constants";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -26,6 +26,13 @@ const ChangePassword = () => {
       alert(err.message || "Failed to reset password. Please try again.");
     }
   }
+  useFocusEffect(
+      useCallback(() => {
+            StatusBar.setBarStyle("dark-content");
+      StatusBar.setBackgroundColor("#ffffff");
+        
+      }, [])
+    );
 
   return (
     <>
@@ -89,7 +96,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   content: {
-    marginTop: 24,
+    marginTop: 40,
     gap: 16,
   },
  
