@@ -1,3 +1,4 @@
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -8,571 +9,419 @@ import {
   Platform,
   StatusBar,
   Dimensions,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
-import React, { useEffect, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { 
-  MapPin, 
-  Calendar as CalendarIcon, 
-  PieChart, 
-  Tag, 
-  ChevronLeft, 
-  ChevronRight, 
-  PartyPopper 
-} from 'lucide-react-native';
-import Top from '@/components/top';
+import {
 
-// --- Constants ---
-const { width } = Dimensions.get('window');
+  Tag,
+  ChevronLeft,
+  ChevronRight,
+  PartyPopper,
+  PieChart as PieIcon,
+  Info,
+  CalendarDays,
+} from 'lucide-react-native';
+import Svg, { G, Circle, Path } from 'react-native-svg';
+
+import Top from '@/components/top';
+import { useBackend } from '@/lib/useBackend';
+import { getMoodCalendar, getMoodInsights, getTodayMood } from '@/lib/api/mood';
+import { 
+  MonthlyInsightsSuccessResponse, 
+  CalendarMoodDay 
+} from '@/lib/api/mood'; 
+import { images } from '@/constants';
+import Button from '@/components/Button';
+
+const { width, height } = Dimensions.get('window');
 const PADDING_HORIZONTAL = 24;
 const GAP = 10;
-// Calculate precise width for 3 columns: (Screen - Padding - Gaps) / 3
-const TAG_ITEM_WIDTH = (width - (PADDING_HORIZONTAL * 2) - (GAP * 2)) / 3;
+const TAG_ITEM_WIDTH = (width - PADDING_HORIZONTAL * 2 - GAP * 2) / 3;
+
+const MOOD_DEFS = [
+  { name: "Happy", image: images.Happy, color: "#FFE37A" , lightColor:"#FFF3B0"},
+  { name: "Good", image: images.Good, color: "#74CEE2", lightColor:"#B3ECF9" },
+  { name: "Okay", image: images.Okay, color: "#96D1BD", lightColor:"#B5EAD7" },
+  { name: "Sad", image: images.Sad, color: "#CB9DF0", lightColor:"#E1CFF7" },
+  { name: "Anxious", image: images.Anxious, color: "#7395D0", lightColor:"#A8C2F0" },
+  { name: "Angry", image: images.Angry, color: "#E87964", lightColor:"#F4B3A8" },
+];
+
+const feelings = [
+  { id: "1", name: "Grateful", image: images.Grateful },
+  { id: "2", name: "Energetic", image: images.Energetic },
+  { id: "3", name: "Calm", image: images.Calm },
+  { id: "4", name: "Stressed", image: images.Stressed },
+  { id: "5", name: "Tired", image: images.Tired },
+  { id: "6", name: "Excited", image: images.Excited },
+];
 
 const COLORS = {
-  border: '#553434',
   text: '#553434',
-  textLight: '#BCAAA4', 
-  bg: '#fff',
-  
-  cardYellow: '#FFF3B0',
-  cardPurple: '#E1BEE7',
-  cardGreen: '#96D1BD',
-  cardRed: '#E87964',
-  
-  // Chart Colors
-  chartYellow: '#FFE082', 
-  chartBlue: '#81D4FA',   
-  chartGreen: '#A5D6A7',  
-  chartRed: '#EF9A9A',    
-  chartPurple: '#CE93D8', 
-};
-
-const FONTS = {
-  bold: "KodchasanSemiBold",
-  medium: "KodchasanMedium",
-  regular: "KodchasanRegular",
-  light: "KodchasanLight",
-};
-
-// Reusable Hard Shadow Style (3px 3px 0px)
-const hardShadow = {
-  borderWidth: 3,
-  borderColor: COLORS.border,
-  shadowColor: COLORS.border,
-  shadowOffset: { width: 3, height: 3 },
-  shadowOpacity: 1,
-  shadowRadius: 0,
-  elevation: 4, 
+  cardMint: '#E6F2EA',
+  emptyGrey: '#BCAAA4'
 };
 
 const MoodLogBook = () => {
-  // --- Calendar State ---
   const [currentDate, setCurrentDate] = useState(new Date());
-  
-  const today = new Date();
-  const minDate = new Date();
-  minDate.setFullYear(today.getFullYear() - 1);
+  const now = new Date();
+
+  const { data: calendarDataRes, loading: calendarLoading, refetch: refetchCalendar } = useBackend({ fn: getMoodCalendar });
+  const { data: insightsRes, loading: insightLoading, refetch: refetchInsights } = useBackend({ fn: getMoodInsights });
+  const { data: todayMoodRes, loading: todayLoading, refetch: refetchToday } = useBackend({ fn: getTodayMood });
+
+  const isLoading = calendarLoading || insightLoading || todayLoading;
 
   useEffect(() => {
     StatusBar.setBarStyle("dark-content");
-    if (Platform.OS === "android") {
-      StatusBar.setBackgroundColor("#fff");
-    }
-  }, []);
+    const month = currentDate.getMonth() + 1;
+    const year = currentDate.getFullYear();
+    refetchCalendar({ month, year });
+    refetchInsights({ month, year });
+    refetchToday(); 
+  }, [currentDate]);
 
-  // --- Calendar Handlers ---
-  const handlePrevMonth = () => {
-    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
-    if (newDate >= minDate) setCurrentDate(newDate);
-  };
+  const isCurrentMonth = currentDate.getMonth() === now.getMonth() && currentDate.getFullYear() === now.getFullYear();
+  const handlePrevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+  const handleNextMonth = () => !isCurrentMonth && setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
 
-  const handleNextMonth = () => {
-    const newDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
-    if (newDate <= today) setCurrentDate(newDate);
-  };
+  const insights = useMemo(() => {
+    if (insightsRes?.success && 'totalEntries' in insightsRes) return insightsRes as MonthlyInsightsSuccessResponse;
+    return null;
+  }, [insightsRes]);
 
-  const isNextDisabled = currentDate.getMonth() === today.getMonth() && currentDate.getFullYear() === today.getFullYear();
-  const isPrevDisabled = currentDate.getMonth() === minDate.getMonth() && currentDate.getFullYear() === minDate.getFullYear();
+  const hasMonthData = insights && insights.totalEntries > 0;
 
-  // --- Grid Generation ---
-  const generateCalendarGrid = () => {
+  const distributionData = useMemo(() => {
+    const list = MOOD_DEFS.map(m => {
+      const percentageStr = insights?.moodPercentages?.[m.name] || "0%";
+      const percentage = parseFloat(percentageStr);
+      const count = insights?.totalEntries ? Math.round((percentage / 100) * insights.totalEntries) : 0;
+      return { ...m, percentage, count };
+    });
+    return list.sort((a, b) => b.count - a.count);
+  }, [insights]);
+
+  const calendarGrid = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
-    const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+    const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const daysInPrevMonth = new Date(year, month, 0).getDate();
-    
-    // Adjust start to Monday (Mon=0, Sun=6)
-    const startDayIndex = firstDay === 0 ? 6 : firstDay - 1; 
+    const startDayIndex = firstDay === 0 ? 6 : firstDay - 1;
 
     const grid = [];
-    
-    // 1. Prev Month Days (Grey)
-    for (let i = startDayIndex - 1; i >= 0; i--) {
-      grid.push({ day: daysInPrevMonth - i, isCurrent: false, key: `prev-${i}` });
-    }
-    
-    // 2. Current Month Days
+    for (let i = startDayIndex - 1; i >= 0; i--) grid.push({ day: daysInPrevMonth - i, isCurrent: false, key: `prev-${i}` });
     for (let i = 1; i <= daysInMonth; i++) {
-      grid.push({ day: i, isCurrent: true, key: `curr-${i}` });
+      const entry = (calendarDataRes?.success && 'entries' in calendarDataRes) 
+        ? calendarDataRes.entries.find((e: CalendarMoodDay) => e.day === i) : null;
+      grid.push({ day: i, isCurrent: true, key: `curr-${i}`, entry });
     }
-    
-    // 3. Next Month (Only fill the remaining slots in the LAST row)
-    const totalCellsSoFar = grid.length;
-    const remainder = totalCellsSoFar % 7;
-    
-    if (remainder !== 0) {
-      const daysNeeded = 7 - remainder;
-      for (let i = 1; i <= daysNeeded; i++) {
-        grid.push({ day: i, isCurrent: false, key: `next-${i}` });
-      }
-    }
-    
+    const remainder = grid.length % 7;
+    if (remainder !== 0) { for (let i = 1; i <= (7 - remainder); i++) grid.push({ day: i, isCurrent: false, key: `next-${i}` }); }
     return grid;
-  };
-
-  const calendarData = generateCalendarGrid();
-  const monthLabel = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+  }, [currentDate, calendarDataRes]);
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: PADDING_HORIZONTAL, paddingBottom: 40 }}
-      >
-        <Top label='Mood Logbook' onBack={() => router.back()}/>
 
-        {/* --- SECTION 1: TODAY'S MOOD --- */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.headerRow}>
-            <MapPin size={18} color={COLORS.text} />
-            <Text style={styles.headerText}>Today's Mood</Text>
-          </View>
-
-          <View style={[styles.card, { backgroundColor: COLORS.cardYellow }]}>
-             <View style={styles.moodHeader}>
-                <View style={styles.moodIconCircle}>
-                  <Text style={{ fontSize: 24 }}>😃</Text>
-                </View>
-                <View>
-                  <Text style={styles.cardTitle}>Happy</Text>
-                  <Text style={styles.subText}>Logged at 10:30 a.m.</Text>
-                </View>
-             </View>
-
-             <Text style={styles.label}>Journal:</Text>
-             <TextInput 
-               style={styles.readOnlyInput} 
-               value="Hello" 
-               editable={false} 
-             />
-          </View>
+      {isLoading ? (
+        <View style={styles.centerLoader}>
+          <ActivityIndicator size="large" color={COLORS.text} />
+          <Text style={styles.loadingText}>Fetching your insights...</Text>
         </View>
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          
+     
+        <Top label='Mood Logbook' onBack={() => router.back()}/>
+          {!hasMonthData && (
+            <View style={styles.noDataBanner}>
+              <View style={styles.infoIconCircle}><Info size={18} color={COLORS.text} /></View>
+              <View style={{flex:1}}>
+                <Text style={styles.noDataTitle}>Monthly Overview</Text>
+                <Text style={styles.noDataSub}>No entries recorded for {currentDate.toLocaleString('default', { month: 'long' })}.</Text>
+              </View>
+            </View>
+          )}
 
-        {/* --- SECTION 2: MOOD CALENDAR --- */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.headerRow}>
-            <CalendarIcon size={18} color={COLORS.text} />
-            <Text style={styles.headerText}>Mood Calendar</Text>
+          {/* --- TODAY'S MOOD --- */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.headerRow}>
+              <Image source={images.Pin} style={{width:18, height:18}}/>
+              <Text style={styles.headerText}>Today's Mood</Text>
+            </View>
+            {todayMoodRes?.data ? (
+              <View style={[styles.card, { backgroundColor: MOOD_DEFS.find(m => m.name === todayMoodRes.data?.mood)?.lightColor || '#fff' }]}>
+                 <View style={styles.moodHeader}>
+                   
+                      <Image source={MOOD_DEFS.find(m => m.name === todayMoodRes.data?.mood)?.image} style={styles.moodImageLarge} />
+             
+                    <View>
+                      <Text style={styles.cardTitle}>{todayMoodRes.data.mood}</Text>
+                      <Text style={styles.subText}>
+                        Logged today at {new Date(todayMoodRes.data.entryDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase()}
+                      </Text>
+                    </View>
+                 </View>
+                 <Text style={styles.label}>Journal:</Text>
+                 <TextInput 
+                   style={styles.readOnlyInput} 
+                   value={todayMoodRes.data.journal || "No journal entry recorded."} 
+                   editable={false} multiline
+                 />
+              </View>
+            ) : (
+              <View style={{flexDirection:'column', alignItems:'center', gap:12}}>
+              <Text style={styles.emptyLabel}>You haven't logged your mood today.</Text>
+              <Button label='Log Mood' onPress={()=>{router.push('../media/moodTracker')}}/>
+              </View>
+            )}
           </View>
 
-          <View style={[styles.card, { backgroundColor: COLORS.cardPurple }]}>
-            {/* Nav */}
-            <View style={styles.calendarHeader}>
-              <TouchableOpacity onPress={handlePrevMonth} disabled={isPrevDisabled} style={{opacity: isPrevDisabled ? 0.3 : 1}}>
-                <ChevronLeft size={24} color={COLORS.text} />
-              </TouchableOpacity>
-              <View style={styles.dateBadge}>
-                 <Text style={styles.calendarTitle}>{monthLabel}</Text>
-              </View>
-              <TouchableOpacity onPress={handleNextMonth} disabled={isNextDisabled} style={{opacity: isNextDisabled ? 0.3 : 1}}>
-                <ChevronRight size={24} color={COLORS.text} />
-              </TouchableOpacity>
+          {/* --- CALENDAR --- */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.headerRow}>
+              <CalendarDays size={18} color={COLORS.text} />
+              <Text style={styles.headerText}>Mood Calendar</Text>
             </View>
-
-            {/* Grid */}
-            <View style={styles.calendarGrid}>
-              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
-                <Text key={i} style={styles.dayLabel}>{day}</Text>
-              ))}
-              
-              {calendarData.map((item) => {
-                let emoji = null;
-                if (item.isCurrent) {
-                   if (item.day === 1) emoji = "😝";
-                   if (item.day === 2) emoji = "😑";
-                   if (item.day === 3) emoji = "😍";
-                   if (item.day === 30) emoji = "😴";
-                }
-                
-                return (
+            <View style={[styles.card, { backgroundColor: "#FFE5D9" }]}>
+              <View style={styles.calendarHeader}>
+                <TouchableOpacity onPress={handlePrevMonth}><ChevronLeft size={24} color={COLORS.text} /></TouchableOpacity>
+                <View style={styles.dateBadge}>
+                  <Text style={styles.calendarTitle}>{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</Text>
+                </View>
+                <TouchableOpacity onPress={handleNextMonth} disabled={isCurrentMonth}>
+                  <ChevronRight size={24} color={COLORS.text} opacity={isCurrentMonth ? 0.3 : 1} />
+                </TouchableOpacity>
+              </View>
+              {/* FIXED: Changed div to View */}
+              <View style={styles.calendarGrid}>
+                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => <Text key={i} style={styles.dayLabel}>{day}</Text>)}
+                {calendarGrid.map((item) => (
                   <View key={item.key} style={styles.dayCell}>
-                    <Text style={[styles.dateText, !item.isCurrent && styles.dateTextDisabled]}>
-                      {item.day}
-                    </Text>
+                    <Text style={[styles.dateText, !item.isCurrent && styles.dateTextDisabled]}>{item.day}</Text>
                     <View style={styles.moodDotContainer}>
-                      {emoji ? (
-                        <Text style={{fontSize: 12}}>{emoji}</Text>
+                      {item.entry?.mood ? (
+                        <Image source={MOOD_DEFS.find(m => m.name === item.entry?.mood)?.image} style={styles.moodImageSmall} />
                       ) : (
                         <View style={[styles.emptyDot, !item.isCurrent && styles.emptyDotDisabled]} />
                       )}
                     </View>
                   </View>
-                )
-              })}
-            </View>
-          </View>
-        </View>
-
-        {/* --- SECTION 3: PIE CHART --- */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.headerRow}>
-            <PartyPopper size={18} color={COLORS.text} />
-            <Text style={styles.headerText}>Your #1 mood</Text>
-          </View>
-
-          <View style={styles.chartWrapper}>
-            <View style={styles.donutContainer}>
-              {/* Slices */}
-              <View style={[styles.donutSlice, { backgroundColor: COLORS.chartYellow, transform: [{rotate: '0deg'}] }]} /> 
-              <View style={[styles.donutSlice, { backgroundColor: COLORS.chartBlue, transform: [{rotate: '140deg'}] }]} />
-              <View style={[styles.donutSlice, { backgroundColor: COLORS.chartGreen, transform: [{rotate: '250deg'}] }]} />
-              <View style={[styles.donutSlice, { backgroundColor: COLORS.chartRed, transform: [{rotate: '290deg'}] }]} />
-              <View style={[styles.donutSlice, { backgroundColor: COLORS.chartPurple, transform: [{rotate: '330deg'}] }]} />
-              
-              {/* Dividers */}
-              <View style={[styles.chartDivider, { transform: [{rotate: '140deg'}] }]} />
-              <View style={[styles.chartDivider, { transform: [{rotate: '250deg'}] }]} />
-              <View style={[styles.chartDivider, { transform: [{rotate: '290deg'}] }]} />
-              <View style={[styles.chartDivider, { transform: [{rotate: '330deg'}] }]} />
-              <View style={[styles.chartDivider, { transform: [{rotate: '0deg'}] }]} />
-
-              <View style={styles.donutHole}>
-                 <Text style={{fontSize: 24}}>😃</Text>
-                 <Text style={styles.smallText}>Happy</Text>
+                ))}
               </View>
             </View>
           </View>
-          
-          <Text style={styles.summaryText}>
-            Your most logged mood is Happy with 6 entries this month.
-          </Text>
-        </View>
 
-        {/* --- SECTION 4: DISTRIBUTION --- */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.headerRow}>
-            <PieChart size={18} color={COLORS.text} />
-            <Text style={styles.headerText}>Mood Distribution</Text>
+          {/* --- DONUT CHART --- */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.headerRow}><PartyPopper size={18} color={COLORS.text} /><Text style={styles.headerText}>Your #1 Mood</Text></View>
+            {hasMonthData ? (
+              <View style={styles.donutSection}>
+                <DonutChart 
+                  data={distributionData} 
+                  centerMood={MOOD_DEFS.find(m => m.name.toLowerCase() === insights.mostCommonMoods[0].mood.toLowerCase()) || MOOD_DEFS[0]} 
+                />
+                <Text style={styles.summaryText}>
+                  {insights.mostCommonMoods.length > 1 
+                    ? `Your most logged moods this month are ${insights.mostCommonMoods.map(m => m.mood).join(' and ')} with ${insights.mostCommonMoods[0].count} entries each.`
+                    : `Your most logged mood this month ${isCurrentMonth ? 'is' : 'was'} ${insights.mostCommonMoods[0].mood} with ${insights.mostCommonMoods[0].count} entries.`
+                  }
+                </Text>
+              </View>
+            ) : <Text style={styles.emptyLabel}>No data to calculate insights.</Text>}
+          </View>
+
+          {/* --- DISTRIBUTION LIST --- */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.headerRow}><PieIcon size={18} color={COLORS.text} /><Text style={styles.headerText}>Mood Distribution</Text></View>
+            {hasMonthData ? (
+              distributionData.filter(d => d.count > 0).map((item, idx) => (
+                <View key={idx} style={[styles.distCard]}>
+                  <View style={styles.distLeft}>
+                    <View style={styles.distIconBox}><Image source={item.image} style={styles.img24} /></View>
+                    <View><Text style={styles.distName}>{item.name}</Text><Text style={styles.distPercent}>{item.percentage}%</Text></View>
+                  </View>
+                  <Text style={styles.distEntries}>{item.count} entries</Text>
+                </View>
+              ))
+            ) : <Text style={styles.emptyLabel}>Log a mood to see distribution.</Text>}
+          </View>
+
+          {/* --- TAGS --- */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.headerRow}><Tag size={18} color={COLORS.text} /><Text style={styles.headerText}>Most Logged Tags</Text></View>
+            {hasMonthData && insights.topFeelings.length > 0 ? (
+              <View style={styles.tagsGrid}>
+                {insights.topFeelings.map((f, idx) => <TagItem key={idx} label={f.feeling} />)}
+              </View>
+            ) : <Text style={styles.emptyLabel}>No tags recorded this month.</Text>}
           </View>
           
-          <View style={{ gap: 12 }}>
-            <DistributionItem label="Happy" pct="30%" color={COLORS.chartYellow} icon="😃" />
-            <DistributionItem label="Good" pct="30%" color={COLORS.chartBlue} icon="😄" />
-            <DistributionItem label="Okay" pct="20%" color={COLORS.chartGreen} icon="😐" />
-            <DistributionItem label="Angry" pct="10%" color={COLORS.chartRed} icon="😡" />
-            <DistributionItem label="Sad" pct="10%" color={COLORS.chartPurple} icon="👿" />
-          </View>
-        </View>
-
-        {/* --- SECTION 5: TAGS (3 per line) --- */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.headerRow}>
-            <Tag size={18} color={COLORS.text} />
-            <Text style={styles.headerText}>Most Logged tags</Text>
-          </View>
-          
-          <View style={styles.tagsGrid}>
-            <TagItem label="Grateful" />
-            <TagItem label="Energetic" />
-            <TagItem label="Calm" />
-            <TagItem label="Stressed" />
-          </View>
-        </View>
-
-      </ScrollView>
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 };
 
-// --- SUB-COMPONENTS ---
+// --- HELPER COMPONENTS ---
 
-const DistributionItem = ({ label, pct, color, icon }: any) => (
-  <View style={[styles.distContent, hardShadow]}>
-     <View style={[styles.iconBox, { backgroundColor: color }]}>
-        <Text>{icon}</Text>
-     </View>
-     <View style={{flex: 1, marginLeft: 10}}>
-        <Text style={styles.distLabel}>{label}</Text>
-        <Text style={styles.distPct}>{pct}</Text>
-     </View>
-     <Text style={styles.distCount}>6 entries</Text>
-  </View>
-);
+const DonutChart = ({ data, centerMood }: { data: any[], centerMood: any }) => {
+  const radius = 80;
+  const strokeWidth = 35;
+  const center = 100;
+  let currentAngle = 0;
 
-const TagItem = ({ label }: { label: string }) => (
-  <View style={[styles.tagContent, hardShadow]}>
-    <Tag size={14} color={COLORS.text} style={{marginRight:4}} />
-    <Text style={styles.tagText} numberOfLines={1}>{label}</Text>
-  </View>
-);
+  return (
+    <View style={styles.donutContainer}>
+      <Svg width={200} height={200}>
+        <G rotation="-90" origin="100, 100">
+          <Circle cx={center} cy={center} r={radius + strokeWidth / 2} stroke={COLORS.text} strokeWidth={2} fill="none" />
+          <Circle cx={center} cy={center} r={radius - strokeWidth / 2} stroke={COLORS.text} strokeWidth={2} fill="none" />
+          {data.map((item, i) => {
+            if (item.percentage <= 0) return null;
+            const angle = (item.percentage / 100) * 360;
+            const x1 = center + radius * Math.cos((Math.PI * currentAngle) / 180);
+            const y1 = center + radius * Math.sin((Math.PI * currentAngle) / 180);
+            currentAngle += angle;
+            const x2 = center + radius * Math.cos((Math.PI * currentAngle) / 180);
+            const y2 = center + radius * Math.sin((Math.PI * currentAngle) / 180);
+            const largeArcFlag = angle > 180 ? 1 : 0;
+            const d = `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`;
+            return <Path key={i} d={d} fill="none" stroke={item.color} strokeWidth={strokeWidth} />;
+          })}
+        </G>
+      </Svg>
+      <View style={styles.donutCenterLabel}>
+        <Image source={centerMood.image} style={styles.img32} />
+        <Text style={styles.centerMoodName}>{centerMood.name}</Text>
+      </View>
+    </View>
+  );
+};
 
+const TagItem = ({ label }: { label: string }) => {
+  const feelingData = feelings.find(f => f.name.toLowerCase() === label.toLowerCase());
 
-export default MoodLogBook;
+  return (
+    <View style={[styles.tagContent]}>
+      {feelingData?.image ? (
+        <Image source={feelingData.image} style={{width: 22, height: 22,
+    resizeMode: "contain",}} />
+      ) : (
+        <Tag size={14} color={COLORS.text} style={{ marginRight: 4 }} />
+      )}
+      <Text style={styles.tagText} numberOfLines={1}>{label}</Text>
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.bg
+  container: { 
+    flex: 1, 
+    backgroundColor: '#fff' 
   },
-  sectionContainer: {
-    marginTop: 24,
+  scrollContent: { 
+    paddingHorizontal: PADDING_HORIZONTAL, 
+    paddingBottom: 40 
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-    gap: 8
-  },
-  headerText: {
-    fontSize: 18,
-    color: COLORS.text,
-    fontFamily: FONTS.bold,
-  },
-  
-  card: {
-    width: '100%',
-    borderRadius: 16,
-    padding: 16,
-    ...hardShadow
-  },
-
-  // --- TODAY'S MOOD ---
-  moodHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  moodIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    borderWidth: 2,
-    borderColor: COLORS.border
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontFamily: FONTS.bold,
-    color: COLORS.text,
-  },
-  subText: {
-    fontSize: 12,
-    fontFamily: FONTS.medium,
-    color: COLORS.text,
-    opacity: 0.8,
-  },
-  label: {
-    fontSize: 16,
-    fontFamily: FONTS.bold,
-    color: COLORS.text,
-    marginTop: 12,
-    marginBottom: 8
-  },
-  readOnlyInput: {
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 14,
-    fontFamily: FONTS.medium,
-    backgroundColor: '#fff', 
-    color: COLORS.text,
-    ...hardShadow,
-    borderWidth: 2,
-    elevation: 0 
-  },
-
-  // --- CALENDAR ---
-  calendarHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 10
-  },
-  dateBadge: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: COLORS.border
-  },
-  calendarTitle: {
-    fontFamily: FONTS.bold,
-    color: COLORS.text,
-    fontSize: 14
-  },
-  calendarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start', // keeps days aligned to left (standard grid)
-  },
-  dayLabel: {
-    width: '14.28%', 
-    textAlign: 'center',
-    fontFamily: FONTS.bold,
-    marginBottom: 8,
-    color: COLORS.text,
-  },
-  dayCell: {
-    width: '14.28%',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  dateText: {
-    fontSize: 12,
-    color: COLORS.text,
-    fontFamily: FONTS.medium,
-    marginBottom: 4,
-  },
-  dateTextDisabled: {
-    color: COLORS.textLight,
-  },
-  moodDotContainer: {
-    height: 18, 
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: COLORS.border,
-    backgroundColor: '#fff',
-  },
-  emptyDotDisabled: {
-    borderColor: COLORS.textLight,
-    opacity: 0.5,
-  },
-
-  // --- CHART ---
-  chartWrapper: {
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  donutContainer: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    borderWidth: 3,
-    borderColor: COLORS.border,
-    position: 'relative',
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.border, 
-  },
-  donutSlice: {
-    position: 'absolute',
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    top: 0,
-    left: 0,
-  },
-  chartDivider: {
-    position: 'absolute',
-    height: 160,
-    width: 3,
-    backgroundColor: COLORS.border,
-    zIndex: 10,
-  },
-  donutHole: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#fff',
-    borderWidth: 3,
-    borderColor: COLORS.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 20,
-  },
-  smallText: {
-    fontSize: 12,
-    fontFamily: FONTS.bold,
-    color: COLORS.text,
-  },
-  summaryText: {
-    textAlign: 'center',
-    color: COLORS.text,
-    fontFamily: FONTS.medium,
-    marginTop: 10,
-    lineHeight: 20,
-    paddingHorizontal: 20,
-  },
-
-  // --- DISTRIBUTION ---
-  distContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    height: 56,
-    backgroundColor: '#ECF4F3',
-    marginBottom: 2
-  },
-  iconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: COLORS.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  distLabel: {
-    fontFamily: FONTS.bold,
-    color: COLORS.text,
-    fontSize: 14,
-  },
-  distPct: {
-    fontSize: 12,
-    fontFamily: FONTS.regular,
-    color: COLORS.text,
-  },
-  distCount: {
-    fontSize: 12,
-    fontFamily: FONTS.medium,
-    color: COLORS.text,
-  },
-  
-  // --- TAGS GRID LAYOUT ---
-  tagsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: GAP, 
-  },
-  tagContent: {
-    width: TAG_ITEM_WIDTH, 
-    flexDirection: 'row',
-    alignItems: 'center',
+  centerLoader: { 
+    height: height * 0.7, 
     justifyContent: 'center', 
-    backgroundColor: COLORS.cardYellow,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    marginBottom: 4, 
+    alignItems: 'center' 
   },
-  tagText: {
-    fontFamily: FONTS.bold,
-    color: COLORS.text,
-    fontSize: 13,
-  }
+  loadingText: { 
+    marginTop: 12, 
+    fontFamily: "KodchasanMedium", 
+    color: COLORS.text, 
+    fontSize: 14 
+  },
+  sectionContainer: { 
+    marginTop: 24 
+  },
+  headerRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginBottom: 10, 
+    gap: 10 
+  },
+  headerText: { 
+    fontSize: 18, 
+    color: COLORS.text, 
+    fontFamily: "KodchasanSemiBold" 
+  },
+  card: { 
+    width: '100%', 
+    borderRadius: 16,
+    padding: 16, 
+    borderWidth: 2,
+    borderColor: COLORS.text,
+    boxShadow: '2px 2px 0px 0px #553434'
+  },
+  noDataBanner: { 
+    flexDirection: 'row', 
+    backgroundColor: '#F8F8F8', 
+    padding: 14, 
+    borderRadius: 14, 
+    marginTop: 24, 
+    alignItems: 'center', 
+    borderStyle: 'dashed', 
+    borderWidth: 2, 
+    borderColor: '#DDD' 
+  },
+  infoIconCircle: { 
+    width: 34, 
+    height: 34, 
+    borderRadius: 17, 
+    backgroundColor: '#fff', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginRight: 12, 
+    borderWidth: 1, 
+    borderColor: '#DDD'
+   },
+  noDataTitle: { fontFamily: "KodchasanSemiBold", color: COLORS.text, fontSize: 14 },
+  noDataSub: { fontFamily: "KodchasanMedium", color: COLORS.text, fontSize: 12, opacity: 0.6 },
+  emptyLabel: { color: COLORS.text, fontFamily: "KodchasanMedium", fontSize: 14, marginLeft: 4, opacity : 0.7 },
+  donutSection: { alignItems: 'center', marginTop: 10 },
+  donutContainer: { width: 200, height: 200, justifyContent: 'center', alignItems: 'center' },
+  donutCenterLabel: { position: 'absolute', alignItems: 'center' },
+  centerMoodName: { fontFamily: "KodchasanSemiBold", color: COLORS.text, fontSize: 13, marginTop: 2 },
+  summaryText: { textAlign: 'center', color: COLORS.text, fontFamily: "KodchasanMedium", marginTop: 20, fontSize: 15, lineHeight: 22 },
+  distCard: { backgroundColor: COLORS.cardMint, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderRadius: 14, marginBottom: 12, boxShadow: '2px 2px 0px 0px #553434' },
+  distLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  distIconBox: { backgroundColor: '#fff', padding: 6, borderRadius: 10, borderWidth: 2, borderColor: COLORS.text },
+  distName: { fontFamily: "KodchasanSemiBold", color: COLORS.text, fontSize: 14 },
+  distPercent: { fontFamily: "KodchasanMedium", color: COLORS.text, fontSize: 11, opacity: 0.6 },
+  distEntries: { fontFamily: "KodchasanMedium", color: COLORS.text, fontSize: 13 },
+  calendarHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  dateBadge: { backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 10, borderWidth: 2, borderColor: COLORS.text },
+  calendarTitle: { fontFamily: "KodchasanSemiBold", color: COLORS.text, fontSize: 14 },
+  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  dayLabel: { width: '14.28%', textAlign: 'center', fontFamily: "KodchasanSemiBold", marginBottom: 8, color: COLORS.text },
+  dayCell: { width: '14.28%', alignItems: 'center', marginBottom: 12 },
+  dateText: { fontSize: 12, color: COLORS.text, fontFamily: "KodchasanMedium", marginBottom: 4 },
+  dateTextDisabled: { color: '#BCAAA4' },
+  moodDotContainer: { height: 20, justifyContent: 'center', alignItems: 'center' },
+  emptyDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: COLORS.text, backgroundColor: '#fff' },
+  emptyDotDisabled: { borderColor: '#BCAAA4', opacity: 0.5 },
+  moodImageLarge: { width: 56, height: 56, resizeMode: 'contain' },
+  moodImageSmall: { width: 16, height: 16, resizeMode: 'contain' },
+  img32: { width: 32, height: 32, resizeMode: 'contain' },
+  img24: { width: 24, height: 24, resizeMode: 'contain' },
+  moodHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  moodIconCircle: { width: 54, height: 54, borderRadius: 27, backgroundColor: 'rgba(255,255,255,0.6)', justifyContent: 'center', alignItems: 'center', marginRight: 12, borderWidth: 2, borderColor: COLORS.text },
+  cardTitle: { fontSize: 18, fontFamily: "KodchasanSemiBold", color: COLORS.text },
+  subText: { fontSize: 12, fontFamily: "KodchasanMedium", color: COLORS.text, opacity: 0.8 },
+  label: { fontSize: 16, fontFamily: "KodchasanSemiBold", color: COLORS.text, marginTop: 12, marginBottom: 8 },
+  readOnlyInput: { borderRadius: 12, padding: 12, fontSize: 14, fontFamily: "KodchasanMedium", backgroundColor: '#fff', color: COLORS.text, borderWidth: 2, borderColor: COLORS.text },
+  tagsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: GAP },
+  tagContent: { width: TAG_ITEM_WIDTH, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF3B0', paddingVertical: 10, paddingHorizontal: 8, borderRadius: 12, boxShadow: '2px 2px 0px 0px #553434' },
+  tagText: { fontFamily: "KodchasanSemiBold", color: COLORS.text, fontSize: 13 }
 });
+
+export default MoodLogBook;

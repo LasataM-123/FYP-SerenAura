@@ -48,6 +48,8 @@ import SimpleCross from '@/assets/icons/SimpleCross.png';
 import Avatar from '@/assets/images/Avatar.jpg';
 import Warning from '@/assets/icons/Warning.png';
 import Camera from '@/assets/icons/Camera.png';
+import Edit from '@/assets/icons/Edit.png';
+import Pin from '@/assets/icons/Pin.png';
 export const images={
     welcomeImage,
     ribbon,
@@ -98,5 +100,7 @@ export const images={
     SimpleCross,
     Avatar,
     Warning,
-    Camera
+    Camera,
+    Edit,
+    Pin
 }

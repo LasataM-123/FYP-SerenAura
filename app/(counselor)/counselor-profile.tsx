@@ -533,7 +533,7 @@ const Edit = async() =>{
         description="Your profile has been updated successfully."
         label="Continue"
         onPress={Edit}
-        imageSource={images.tick}
+        imageSource={images.Edit}
         />
 
       )}

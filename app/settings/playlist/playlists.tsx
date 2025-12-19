@@ -75,10 +75,6 @@ const PlaylistRow = ({ item }: { item: GetUserPlaylistsResponse["playlists"][num
   );
 };
 
-
-// ---------------------------------------------
-// 🔹 MAIN SCREEN
-// ---------------------------------------------
 const Playlists = () => {
   const [playlists, setPlaylists] =
     useState<GetUserPlaylistsResponse["playlists"]>([]);

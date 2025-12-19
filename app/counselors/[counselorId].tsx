@@ -14,7 +14,7 @@ import Top from '@/components/top';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useBackend } from '@/lib/useBackend';
 import { getIndividualCounselor } from '@/lib/api/counselor';
-import { Calendar, Clock, Hourglass, Stethoscope, UserRound } from 'lucide-react-native';
+import { Calendar, CalendarDays, Clock, Hourglass, Stethoscope, UserRound } from 'lucide-react-native';
 import Button from '@/components/Button';
 import { sendChatRequest } from '@/lib/api/chat';
 import { useAuthStore } from '@/store/authStore';
@@ -303,7 +303,7 @@ const IndividualCounselor = () => {
           <View style={styles.shadowLayer} />
           <View style={[styles.sectionCard, { backgroundColor: '#9EC6F3' }]}>
             <View style={styles.sectionHeader}>
-              <Calendar size={18} color={BORDER_COLOR} />
+              <CalendarDays size={18} color={BORDER_COLOR} />
               <Text style={styles.sectionTitle}>Select Date</Text>
             </View>
             <View style={styles.dateGrid}>
