@@ -75,49 +75,54 @@ const createOrUpdateMood = asyncHandler(async(req,res)=>{
  * @desc    Get mood entries for a specific month(calendar-friendly)
  * @access  Private (patient only)
  */
+/**
+ * @route   GET /api/mood/calendar
+ * @desc    Get mood entries for a specific month/year
+ */
 const getCalendarMoodEntries = asyncHandler(async (req, res) => {
-    try{
+    try {
         const patientId = req.user.id;
         const now = new Date();
-        const month = parseInt(req.query.month) || now.getMonth() + 1; // 1-12
+        
+        // Parse month and year from query params or default to current
+        const month = parseInt(req.query.month) || now.getMonth() + 1; 
         const year = parseInt(req.query.year) || now.getFullYear();
 
-        // First and last day of requested month
         const startOfMonth = new Date(year, month - 1, 1);
         const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
 
-        // 🧹 Enforce 1-year data retention
+        // 1-year data retention check
         const oneYearAgo = new Date();
         oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
         if (endOfMonth < oneYearAgo) {
             return res.status(400).json({
-            success: false,
-            message: "Data older than 1 year is not available.",
+                success: false,
+                message: "Data older than 1 year is not available.",
             });
         }
 
-        // Fetch moods in the requested month
         const entries = await Mood.find({
             patientId,
             entryDate: { $gte: startOfMonth, $lte: endOfMonth },
-        });
+        }).sort({ entryDate: 1 });
 
-        const daysInMonth = endOfMonth.getDate();
-
-        // Build calendar array (one entry per day)
+        const daysInMonth = new Date(year, month, 0).getDate();
         const calendar = [];
+
         for (let day = 1; day <= daysInMonth; day++) {
-            const entryForDay = entries.find(e => e.entryDate.getDate() === day);
+            // Check if there's an entry for this specific day
+            const entryForDay = entries.find(e => new Date(e.entryDate).getDate() === day);
+            
             if (entryForDay) {
-            calendar.push({
-                day,
-                mood: entryForDay.mood,
-                journal: entryForDay.journal || null,
-                feeling: entryForDay.feeling || null,
-            });
+                calendar.push({
+                    day,
+                    mood: entryForDay.mood,
+                    journal: entryForDay.journal || null,
+                    feeling: entryForDay.feeling || null, // feeling is a string
+                });
             } else {
-            calendar.push({ day, mood: null, journal: null, feeling: null });
+                calendar.push({ day, mood: null, journal: null, feeling: null });
             }
         }
 
@@ -128,22 +133,21 @@ const getCalendarMoodEntries = asyncHandler(async (req, res) => {
             daysInMonth,
             entries: calendar,
         });
-    }catch(e){
-        return res.status(500).json({message:e.message})
+    } catch (e) {
+        return res.status(500).json({ success: false, message: e.message });
     }
- 
 });
 
 /**
- * @route  GET /api/mood/insights
- * @desc   Get mood insights of each month
- * @access Private (patient only)
+ * @route   GET /api/mood/insights
+ * @desc    Get mood stats/insights for a specific month/year
  */
 const getMonthlyInsights = asyncHandler(async (req, res) => {
-    try{
+    try {
         const patientId = req.user.id;
-        const month = parseInt(req.query.month) || new Date().getMonth() + 1;
-        const year = parseInt(req.query.year) || new Date().getFullYear();
+        const now = new Date();
+        const month = parseInt(req.query.month) || now.getMonth() + 1;
+        const year = parseInt(req.query.year) || now.getFullYear();
 
         const start = new Date(year, month - 1, 1);
         const end = new Date(year, month, 0, 23, 59, 59, 999);
@@ -151,51 +155,54 @@ const getMonthlyInsights = asyncHandler(async (req, res) => {
         const entries = await Mood.find({ patientId, entryDate: { $gte: start, $lte: end } });
 
         if (entries.length === 0) {
-            return res.status(200).json({ success: true, message: "No entries found for this month." });
+            return res.status(200).json({ 
+                success: true, 
+                totalEntries: 0, 
+                message: "No entries found for this month." 
+            });
         }
 
-        // Mood frequency
         const moodCounts = {};
         const feelingCounts = {};
 
         for (const e of entries) {
             moodCounts[e.mood] = (moodCounts[e.mood] || 0) + 1;
-
-            if (Array.isArray(e.feeling)) {
-            for (const f of e.feeling) {
-                feelingCounts[f] = (feelingCounts[f] || 0) + 1;
-            }
+            if (e.feeling) {
+                feelingCounts[e.feeling] = (feelingCounts[e.feeling] || 0) + 1;
             }
         }
 
-        // Top mood
-        const mostCommonMood = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0][0];
+        // Logic for Ties in Mood
+        const maxMoodCount = Math.max(...Object.values(moodCounts));
+        const mostCommonMoods = Object.entries(moodCounts)
+            .filter(([_, count]) => count === maxMoodCount)
+            .map(([mood, count]) => ({ mood, count }));
 
-        // Top 3 feelings
+        // Top 3 Feelings (handles single tags automatically)
         const topFeelings = Object.entries(feelingCounts)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 3)
             .map(([feeling, count]) => ({ feeling, count }));
 
-        // Mood percentage
         const total = entries.length;
         const moodPercentages = Object.fromEntries(
-            Object.entries(moodCounts).map(([mood, count]) => [mood, ((count / total) * 100).toFixed(1) + "%"])
+            Object.entries(moodCounts).map(([mood, count]) => [
+                mood, 
+                ((count / total) * 100).toFixed(1) + "%"
+            ])
         );
 
         return res.status(200).json({
             success: true,
             totalEntries: total,
-            mostCommonMood,
+            mostCommonMoods,
             topFeelings,
             moodPercentages,
         });
-    }catch(e){
-        return res.status(500).json({message:e.message})
+    } catch (e) {
+        return res.status(500).json({ success: false, message: e.message });
     }
- 
 });
-
 /**
  * @route  GET /api/mood/today
  * @desc   Get today's mood
@@ -215,7 +222,7 @@ const getTodayMood = asyncHandler(async (req, res) => {
   });
 
   if (!moodEntry) {
-    return res.status(200).json({ success: true, message: "No mood logged today." });
+    return res.status(200).json({ success: true,data: moodEntry});
   }
 
   return res.status(200).json({ success: true, data: moodEntry });
