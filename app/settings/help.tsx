@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   Platform,
   StatusBar,
   StyleSheet,
   Text,
   View,
   TextInput,
-  TouchableOpacity,
+  TouchableWithoutFeedback,
   ScrollView,
   LayoutAnimation,
 } from 'react-native';
@@ -17,9 +18,9 @@ import Top from '@/components/top';
 
 const COLORS = {
   border: '#553434',
-  text: '#000',
+  text: '#553434',
   bg: '#fff',
-  inputBg: '#fff',
+  inputBg: '#F5EFFF', 
   accordionBg: '#E6F2EA', 
 };
 
@@ -54,34 +55,59 @@ const FAQ_DATA = [
 
 const AccordionItem = ({ question, answer }: { question: string, answer: string }) => {
   const [expanded, setExpanded] = useState(false);
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.96,
+      friction: 4,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 4,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+  };
 
   const toggleExpand = () => {
-    // Smooth transition for expanding/shrinking
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpanded(!expanded);
   };
 
   return (
-    <View style={styles.accordionContainer}>
-      <TouchableOpacity 
-        style={[styles.accordionHeader, expanded && { borderBottomWidth: 3 }]} 
-        onPress={toggleExpand}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.questionText}>{question}</Text>
-        {expanded ? (
-          <Minus size={20} color={COLORS.border} strokeWidth={3} />
-        ) : (
-          <Plus size={20} color={COLORS.border} strokeWidth={3} />
-        )}
-      </TouchableOpacity>
-      
-      {expanded && (
-        <View style={styles.answerContainer}>
-          <Text style={styles.answerText}>{answer}</Text>
+    <TouchableWithoutFeedback 
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onPress={toggleExpand}
+    >
+      <Animated.View style={[styles.faqWrapper, { transform: [{ scale: scaleAnim }] }]}>
+        {/* THE NEUBRUTALIST SHADOW LAYER */}
+        <View style={styles.shadowLayer} />
+
+        {/* THE MAIN CONTENT BOX */}
+        <View style={[styles.accordionBox, expanded && styles.expandedBox]}>
+          <View style={[styles.accordionHeader, expanded && styles.headerBorder]}>
+            <Text style={styles.questionText}>{question}</Text>
+            {expanded ? (
+              <Minus size={20} color={COLORS.border} strokeWidth={3} />
+            ) : (
+              <Plus size={20} color={COLORS.border} strokeWidth={3} />
+            )}
+          </View>
+          
+          {expanded && (
+            <View style={styles.answerContainer}>
+              <Text style={styles.answerText}>{answer}</Text>
+            </View>
+          )}
         </View>
-      )}
-    </View>
+      </Animated.View>
+    </TouchableWithoutFeedback>
   );
 };
 
@@ -95,22 +121,25 @@ const HelpSupport = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Top label='Help & Support' onBack={() => { router.back() }} />
-      
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <Top label='Help & Support' onBack={() => { router.back() }} />
+
         {/* --- QUESTION INPUT SECTION --- */}
         <Text style={styles.sectionTitle}>Got a Question?</Text>
         <View style={styles.inputWrapper}>
-          <TextInput
-            style={styles.textInput}
-            placeholder="Type your question here..."
-            placeholderTextColor="#A0A0A0"
-            multiline
-            textAlignVertical="top"
-          />
+          <View style={styles.shadowLayer} />
+          <View style={styles.inputBox}>
+             <TextInput
+                style={styles.textInput}
+                placeholder="Type your question here..."
+                placeholderTextColor="#553434"
+                multiline
+                textAlignVertical="top"
+              />
+          </View>
         </View>
 
         {/* --- FAQ SECTION --- */}
@@ -138,73 +167,92 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingBottom: 40,
+    paddingBottom: 30,
   },
   sectionTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontFamily: FONTS.bold,
     color: COLORS.text,
     marginTop: 24,
-    marginBottom: 16,
+    marginBottom: 10,
   },
   
-  // Input Styles
+  // Input Section Fixes
   inputWrapper: {
+    height: 150,
+    position: 'relative',
+    marginBottom: 20,
+  },
+  inputBox: {
+    flex: 1,
     backgroundColor: COLORS.inputBg,
     borderRadius: 20,
     borderWidth: 3,
     borderColor: COLORS.border,
-    height: 150,
-    padding: 16,
-    marginBottom: 10,
+    padding: 12,
+    zIndex: 1,
   },
   textInput: {
     flex: 1,
     fontFamily: FONTS.medium,
-    fontSize: 16,
+    fontSize: 14,
     color: COLORS.text,
   },
 
-  // Accordion Styles
   faqList: {
-    gap: 16,
+    gap: 20, // Increased gap so shadows don't touch
   },
-  accordionContainer: {
+  faqWrapper: {
+    position: 'relative',
+  },
+  shadowLayer: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    right: -4,
+    bottom: -4,
+    backgroundColor: COLORS.border,
+    borderRadius: 20,
+    zIndex: 0,
+  },
+  accordionBox: {
     backgroundColor: COLORS.accordionBg,
-    borderRadius: 15,
+    borderRadius: 20,
     borderWidth: 3,
     borderColor: COLORS.border,
-    // The "Hard Shadow" effect
-    shadowColor: COLORS.border,
-    shadowOffset: { width: 4, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
-    elevation: 5,
     overflow: 'hidden',
+    zIndex: 1,
+  },
+  expandedBox: {
+    backgroundColor: COLORS.bg, 
   },
   accordionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: COLORS.accordionBg,
+  },
+  headerBorder: {
+    borderBottomWidth: 3,
     borderColor: COLORS.border,
   },
   questionText: {
     fontSize: 15,
     fontFamily: FONTS.bold,
-    color: COLORS.border,
+    color: COLORS.text,
     flex: 1,
     marginRight: 10,
   },
   answerContainer: {
-    padding: 20,
+    padding: 16,
     backgroundColor: '#fff',
   },
   answerText: {
     fontSize: 14,
     fontFamily: FONTS.medium,
-    color: '#666',
-    lineHeight: 20,
+    color: COLORS.text,
+    lineHeight: 22,
   },
 });

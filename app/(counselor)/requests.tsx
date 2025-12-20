@@ -136,13 +136,6 @@ const Requests = () => {
     }, [isTokenReady])
   );
 
-  const handleLogout = () => {
-    logout();
-    router.replace("/login");
-  };
-
-  // 🧩 Handle socket or manual updates
-  // --- CHANGE 1: Wrap in useCallback ---
   const handleStatusChange = useCallback((chatId: string, newStatus: string) => {
     setRequests((prev) => {
       if (newStatus === "closed") {
@@ -242,9 +235,7 @@ const Requests = () => {
           />
         )}
 
-        <View style={{ marginTop: 40 }}>
-          <Button label="Logout" onPress={handleLogout} />
-        </View>
+       
       </ScrollView>
 
       {showToast && (

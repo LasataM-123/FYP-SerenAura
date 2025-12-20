@@ -374,7 +374,7 @@ const Edit = async() =>{
 
           <Text style={[styles.sectionTitle, { marginTop: 26 }]}>Support</Text>
           <View style={styles.cardBoxPurple}>
-            <SettingItem icon={CircleHelpIcon} text="Help & Support" onPress={() => {}} />
+            <SettingItem icon={CircleHelpIcon} text="Help & Support" onPress={() => {router.push("../settings/help")}} />
             <SettingItem
               icon={Trash2}
               text="Delete Account"
@@ -396,7 +396,7 @@ const Edit = async() =>{
           </View>
         </View>
 
-        <View style={{ marginBottom: 140 }} />
+        <View style={{ marginBottom: 100 }} />
       </ScrollView>
 
       {/* Delete Confirmation Overlay */}
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   profileContainer: {
-    marginTop: 22,
+    marginTop: 4,
     marginBottom: 30,
   },
   sectionTitle: {
@@ -572,6 +572,7 @@ const styles = StyleSheet.create({
     padding: 16,
     flexDirection: "row",
     alignItems: "center",
+    boxShadow: '3px 3px 0px rgb(85, 52, 52)',
   },
   avatar: {
     width: 55,
@@ -609,14 +610,6 @@ const styles = StyleSheet.create({
     marginLeft: 14,
     fontFamily: "KodchasanSemiBold",
   },
-  cardBoxGreen: {
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: 20,
-    backgroundColor: "#B5EAD7",
-    borderWidth: 4,
-    borderColor: BORDER,
-  },
   cardBoxPeach: {
     paddingHorizontal: 18,
     paddingVertical: 12,
@@ -624,6 +617,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFD6A5",
     borderWidth: 4,
     borderColor: BORDER,
+    boxShadow: '2px 2px 0px rgb(85, 52, 52)',
+
   },
   cardBoxPurple: {
     paddingHorizontal: 18,
@@ -632,6 +627,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E0BBFF",
     borderWidth: 4,
     borderColor: BORDER,
+    boxShadow: '2px 2px 0px rgb(85, 52, 52)',
   },
   toggleOuter: {
     width: 42,

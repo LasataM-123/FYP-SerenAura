@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -13,7 +13,7 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {
 
   Tag,
@@ -23,8 +23,9 @@ import {
   PieChart as PieIcon,
   Info,
   CalendarDays,
+  Pin,
 } from 'lucide-react-native';
-import Svg, { G, Circle, Path } from 'react-native-svg';
+import Svg, { G, Circle, Path, Line } from 'react-native-svg';
 
 import Top from '@/components/top';
 import { useBackend } from '@/lib/useBackend';
@@ -83,6 +84,19 @@ const MoodLogBook = () => {
     refetchInsights({ month, year });
     refetchToday(); 
   }, [currentDate]);
+
+
+useFocusEffect(
+  useCallback(() => {
+   
+const month = currentDate.getMonth() + 1;
+    const year = currentDate.getFullYear();
+    refetchCalendar({ month, year });
+    refetchInsights({ month, year });
+    refetchToday();
+  }, [])
+);
+
 
   const isCurrentMonth = currentDate.getMonth() === now.getMonth() && currentDate.getFullYear() === now.getFullYear();
   const handlePrevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
@@ -151,7 +165,7 @@ const MoodLogBook = () => {
           {/* --- TODAY'S MOOD --- */}
           <View style={styles.sectionContainer}>
             <View style={styles.headerRow}>
-              <Image source={images.Pin} style={{width:18, height:18}}/>
+              <Pin size={18} color={COLORS.text} />
               <Text style={styles.headerText}>Today's Mood</Text>
             </View>
             {todayMoodRes?.data ? (
@@ -190,15 +204,14 @@ const MoodLogBook = () => {
             </View>
             <View style={[styles.card, { backgroundColor: "#FFE5D9" }]}>
               <View style={styles.calendarHeader}>
-                <TouchableOpacity onPress={handlePrevMonth}><ChevronLeft size={24} color={COLORS.text} /></TouchableOpacity>
                 <View style={styles.dateBadge}>
+                <TouchableOpacity onPress={handlePrevMonth}><ChevronLeft size={24} color={COLORS.text} /></TouchableOpacity>
                   <Text style={styles.calendarTitle}>{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</Text>
-                </View>
                 <TouchableOpacity onPress={handleNextMonth} disabled={isCurrentMonth}>
                   <ChevronRight size={24} color={COLORS.text} opacity={isCurrentMonth ? 0.3 : 1} />
                 </TouchableOpacity>
+                </View>
               </View>
-              {/* FIXED: Changed div to View */}
               <View style={styles.calendarGrid}>
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => <Text key={i} style={styles.dayLabel}>{day}</Text>)}
                 {calendarGrid.map((item) => (
@@ -241,13 +254,20 @@ const MoodLogBook = () => {
             <View style={styles.headerRow}><PieIcon size={18} color={COLORS.text} /><Text style={styles.headerText}>Mood Distribution</Text></View>
             {hasMonthData ? (
               distributionData.filter(d => d.count > 0).map((item, idx) => (
-                <View key={idx} style={[styles.distCard]}>
-                  <View style={styles.distLeft}>
-                    <View style={styles.distIconBox}><Image source={item.image} style={styles.img24} /></View>
-                    <View><Text style={styles.distName}>{item.name}</Text><Text style={styles.distPercent}>{item.percentage}%</Text></View>
+               <View key={idx} style={[styles.distCard]}>
+                <View style={styles.distLeft}>
+                  {/* Update this line below */}
+                  <View style={[styles.distIconBox, { backgroundColor: item.color }]}>
+                    <Image source={item.image} style={styles.img24} />
                   </View>
-                  <Text style={styles.distEntries}>{item.count} entries</Text>
+                  
+                  <View>
+                    <Text style={styles.distName}>{item.name}</Text>
+                    <Text style={styles.distPercent}>{item.percentage}%</Text>
+                  </View>
                 </View>
+                <Text style={styles.distEntries}>{item.count} entries</Text>
+              </View>
               ))
             ) : <Text style={styles.emptyLabel}>Log a mood to see distribution.</Text>}
           </View>
@@ -271,33 +291,86 @@ const MoodLogBook = () => {
 // --- HELPER COMPONENTS ---
 
 const DonutChart = ({ data, centerMood }: { data: any[], centerMood: any }) => {
-  const radius = 80;
-  const strokeWidth = 35;
-  const center = 100;
-  let currentAngle = 0;
+  const size = 200;
+  const center = size / 2;
+  const radius = 72; 
+  const strokeWidth = 52; 
+  
+  const innerRadius = radius - strokeWidth / 2;
+  const outerRadius = radius + strokeWidth / 2;
+  const innerCircleSize = innerRadius * 2;
+
+  let currentPathAngle = -90;
+  let currentLineAngle = -90;
+
+  // Filter to get only active moods
+  const activeMoods = data.filter(d => d.percentage > 0);
 
   return (
-    <View style={styles.donutContainer}>
-      <Svg width={200} height={200}>
-        <G rotation="-90" origin="100, 100">
-          <Circle cx={center} cy={center} r={radius + strokeWidth / 2} stroke={COLORS.text} strokeWidth={2} fill="none" />
-          <Circle cx={center} cy={center} r={radius - strokeWidth / 2} stroke={COLORS.text} strokeWidth={2} fill="none" />
-          {data.map((item, i) => {
-            if (item.percentage <= 0) return null;
+    <View style={styles.donutShadowWrapper}>
+      <Svg width={size} height={size}>
+        <G>
+          {/* STEP 1: Draw all color segments first */}
+          {activeMoods.map((item, i) => {
             const angle = (item.percentage / 100) * 360;
-            const x1 = center + radius * Math.cos((Math.PI * currentAngle) / 180);
-            const y1 = center + radius * Math.sin((Math.PI * currentAngle) / 180);
-            currentAngle += angle;
-            const x2 = center + radius * Math.cos((Math.PI * currentAngle) / 180);
-            const y2 = center + radius * Math.sin((Math.PI * currentAngle) / 180);
+            const startAngle = currentPathAngle;
+            const x1 = center + radius * Math.cos((Math.PI * startAngle) / 180);
+            const y1 = center + radius * Math.sin((Math.PI * startAngle) / 180);
+            currentPathAngle += angle;
+            const x2 = center + radius * Math.cos((Math.PI * currentPathAngle) / 180);
+            const y2 = center + radius * Math.sin((Math.PI * currentPathAngle) / 180);
             const largeArcFlag = angle > 180 ? 1 : 0;
             const d = `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`;
-            return <Path key={i} d={d} fill="none" stroke={item.color} strokeWidth={strokeWidth} />;
+
+            return (
+              <Path 
+                key={`path-${i}`} 
+                d={d} 
+                fill="none" 
+                stroke={item.color} 
+                strokeWidth={strokeWidth} 
+                strokeLinecap="butt" // Keeps ends flat so lines sit better
+              />
+            );
+          })}
+
+          {/* STEP 2: Draw divider lines ON TOP of the paths */}
+          {activeMoods.length > 1 && activeMoods.map((item, i) => {
+            const angle = (item.percentage / 100) * 360;
+            const lineAngle = currentLineAngle;
+            currentLineAngle += angle;
+
+            // We subtract/add 1 pixel to overlap the borders slightly 
+            // This prevents "light gaps" and ensures uniform thickness
+            const lx1 = center + (innerRadius - 1) * Math.cos((Math.PI * lineAngle) / 180);
+            const ly1 = center + (innerRadius - 1) * Math.sin((Math.PI * lineAngle) / 180);
+            const lx2 = center + (outerRadius + 1) * Math.cos((Math.PI * lineAngle) / 180);
+            const ly2 = center + (outerRadius + 1) * Math.sin((Math.PI * lineAngle) / 180);
+
+            return (
+              <Line
+                key={`line-${i}`}
+                x1={lx1} y1={ly1}
+                x2={lx2} y2={ly2}
+                stroke={COLORS.text}
+                strokeWidth={2.5} // Use a slightly smaller width for a cleaner look
+                strokeLinecap="round" // Smooths out the edges of the divider
+              />
+            );
           })}
         </G>
       </Svg>
-      <View style={styles.donutCenterLabel}>
-        <Image source={centerMood.image} style={styles.img32} />
+
+      {/* --- THE INNER CIRCLE VIEW --- */}
+      <View style={[
+        styles.innerCircleShadow, 
+        { 
+          width: innerCircleSize, 
+          height: innerCircleSize, 
+          borderRadius: innerRadius 
+        }
+      ]}>
+        <Image source={centerMood.image} style={styles.img38} />
         <Text style={styles.centerMoodName}>{centerMood.name}</Text>
       </View>
     </View>
@@ -347,10 +420,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     alignItems: 'center', 
     marginBottom: 10, 
-    gap: 10 
+    gap: 6 
   },
   headerText: { 
-    fontSize: 18, 
+    fontSize: 16, 
     color: COLORS.text, 
     fontFamily: "KodchasanSemiBold" 
   },
@@ -358,9 +431,9 @@ const styles = StyleSheet.create({
     width: '100%', 
     borderRadius: 16,
     padding: 16, 
-    borderWidth: 2,
+    borderWidth: 4,
     borderColor: COLORS.text,
-    boxShadow: '2px 2px 0px 0px #553434'
+    boxShadow: '3px 3px 0px 0px #553434'
   },
   noDataBanner: { 
     flexDirection: 'row', 
@@ -384,44 +457,290 @@ const styles = StyleSheet.create({
     borderWidth: 1, 
     borderColor: '#DDD'
    },
-  noDataTitle: { fontFamily: "KodchasanSemiBold", color: COLORS.text, fontSize: 14 },
-  noDataSub: { fontFamily: "KodchasanMedium", color: COLORS.text, fontSize: 12, opacity: 0.6 },
-  emptyLabel: { color: COLORS.text, fontFamily: "KodchasanMedium", fontSize: 14, marginLeft: 4, opacity : 0.7 },
-  donutSection: { alignItems: 'center', marginTop: 10 },
-  donutContainer: { width: 200, height: 200, justifyContent: 'center', alignItems: 'center' },
-  donutCenterLabel: { position: 'absolute', alignItems: 'center' },
-  centerMoodName: { fontFamily: "KodchasanSemiBold", color: COLORS.text, fontSize: 13, marginTop: 2 },
-  summaryText: { textAlign: 'center', color: COLORS.text, fontFamily: "KodchasanMedium", marginTop: 20, fontSize: 15, lineHeight: 22 },
-  distCard: { backgroundColor: COLORS.cardMint, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderRadius: 14, marginBottom: 12, boxShadow: '2px 2px 0px 0px #553434' },
-  distLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  distIconBox: { backgroundColor: '#fff', padding: 6, borderRadius: 10, borderWidth: 2, borderColor: COLORS.text },
-  distName: { fontFamily: "KodchasanSemiBold", color: COLORS.text, fontSize: 14 },
-  distPercent: { fontFamily: "KodchasanMedium", color: COLORS.text, fontSize: 11, opacity: 0.6 },
-  distEntries: { fontFamily: "KodchasanMedium", color: COLORS.text, fontSize: 13 },
-  calendarHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  dateBadge: { backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 8, borderRadius: 10, borderWidth: 2, borderColor: COLORS.text },
-  calendarTitle: { fontFamily: "KodchasanSemiBold", color: COLORS.text, fontSize: 14 },
-  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  dayLabel: { width: '14.28%', textAlign: 'center', fontFamily: "KodchasanSemiBold", marginBottom: 8, color: COLORS.text },
-  dayCell: { width: '14.28%', alignItems: 'center', marginBottom: 12 },
-  dateText: { fontSize: 12, color: COLORS.text, fontFamily: "KodchasanMedium", marginBottom: 4 },
-  dateTextDisabled: { color: '#BCAAA4' },
-  moodDotContainer: { height: 20, justifyContent: 'center', alignItems: 'center' },
-  emptyDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: COLORS.text, backgroundColor: '#fff' },
-  emptyDotDisabled: { borderColor: '#BCAAA4', opacity: 0.5 },
-  moodImageLarge: { width: 56, height: 56, resizeMode: 'contain' },
-  moodImageSmall: { width: 16, height: 16, resizeMode: 'contain' },
-  img32: { width: 32, height: 32, resizeMode: 'contain' },
-  img24: { width: 24, height: 24, resizeMode: 'contain' },
-  moodHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  moodIconCircle: { width: 54, height: 54, borderRadius: 27, backgroundColor: 'rgba(255,255,255,0.6)', justifyContent: 'center', alignItems: 'center', marginRight: 12, borderWidth: 2, borderColor: COLORS.text },
-  cardTitle: { fontSize: 18, fontFamily: "KodchasanSemiBold", color: COLORS.text },
-  subText: { fontSize: 12, fontFamily: "KodchasanMedium", color: COLORS.text, opacity: 0.8 },
-  label: { fontSize: 16, fontFamily: "KodchasanSemiBold", color: COLORS.text, marginTop: 12, marginBottom: 8 },
-  readOnlyInput: { borderRadius: 12, padding: 12, fontSize: 14, fontFamily: "KodchasanMedium", backgroundColor: '#fff', color: COLORS.text, borderWidth: 2, borderColor: COLORS.text },
-  tagsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: GAP },
-  tagContent: { width: TAG_ITEM_WIDTH, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF3B0', paddingVertical: 10, paddingHorizontal: 8, borderRadius: 12, boxShadow: '2px 2px 0px 0px #553434' },
-  tagText: { fontFamily: "KodchasanSemiBold", color: COLORS.text, fontSize: 13 }
+  noDataTitle: { 
+    fontFamily: "KodchasanSemiBold", 
+    color: COLORS.text, 
+    fontSize: 14 
+  },
+  noDataSub: { 
+    fontFamily: "KodchasanMedium", 
+    color: COLORS.text, 
+    fontSize: 12, 
+    opacity: 0.6 
+  },
+  emptyLabel: { 
+    color: COLORS.text, 
+    fontFamily: "KodchasanMedium", 
+    fontSize: 14, 
+    marginLeft: 4, 
+    opacity : 0.7 
+  },
+  donutSection: { 
+    alignItems: 'center', 
+    marginTop: 10 
+  },
+  donutContainer: { 
+    width: 200, 
+    height: 200, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  donutCenterLabel: { 
+    position: 'absolute', 
+    alignItems: 'center' 
+  },
+  centerMoodName: { 
+    fontFamily: "KodchasanSemiBold", 
+    color: COLORS.text, 
+    fontSize: 13, 
+    marginTop: 2 
+  },
+  summaryText: { 
+    textAlign: 'center', 
+    color: COLORS.text, 
+    fontFamily: "KodchasanRegular", 
+    marginTop: 20, 
+    fontSize: 15, 
+    lineHeight: 22
+  },
+  distCard: { 
+    backgroundColor: COLORS.cardMint, 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    padding: 12, 
+    borderRadius: 14, 
+    marginBottom: 12, 
+    boxShadow: '2px 2px 0px 0px #553434' ,
+    borderWidth: 2,
+    borderColor: COLORS.text,
+  },
+  distLeft: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 12 
+  },
+  distIconBox: { 
+    padding: 6, 
+    borderRadius: 10, 
+    borderWidth: 2, 
+    borderColor: COLORS.text,
+    boxShadow: '2px 2px 0px 0px #553434' ,
+  },
+  distName: { 
+    fontFamily: "KodchasanSemiBold", 
+    color: COLORS.text, 
+    fontSize: 14 
+  },
+  distPercent: { 
+    fontFamily: "KodchasanRegular", 
+    color: COLORS.text, 
+    fontSize: 12, 
+  },
+  distEntries: { 
+    fontFamily: "KodchasanMedium", 
+    color: COLORS.text,
+    fontSize: 14 
+  },
+  calendarHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: 16 
+  },
+  dateBadge: { 
+
+    width:"100%",
+     flexDirection: 'row', 
+     justifyContent: 'space-between', 
+    backgroundColor: '#fff', 
+    paddingVertical: 8, 
+    borderRadius: 10, 
+    borderWidth: 2, 
+    borderColor: COLORS.text,
+    boxShadow: '2px 2px 0px 0px #553434',
+  },
+  calendarTitle: { 
+    fontFamily: "KodchasanSemiBold", 
+    color: COLORS.text, 
+    fontSize: 14 
+  },
+  calendarGrid: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap' 
+  },
+  dayLabel: { 
+    width: '14.28%', 
+    textAlign: 'center', 
+    fontFamily: "KodchasanSemiBold", 
+    marginBottom: 8, 
+    color: COLORS.text 
+  },
+  dayCell: { 
+    width: '14.28%',
+    alignItems: 'center', 
+    marginBottom: 12 
+  },
+  dateText: { 
+    fontSize: 12, 
+    color: COLORS.text, 
+    fontFamily: "KodchasanMedium",
+  },
+ dateTextDisabled: {
+  color: '#BCAAA4',
+  textAlign: 'center',
+},
+
+moodDotContainer: {
+  height: 20,
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+
+emptyDot: {
+  width: 20,
+  height: 20,
+  borderRadius: 10,
+  borderWidth: 1,
+  borderColor: COLORS.text,
+  backgroundColor: '#fff',
+  boxShadow: '1px 1px 0px 0px #553434',
+},
+
+emptyDotDisabled: {
+  borderColor: '#BCAAA4',
+  opacity: 0.5,
+},
+
+moodImageLarge: {
+  width: 56,
+  height: 56,
+  resizeMode: 'contain',
+},
+
+moodImageSmall: {
+  width: 20,
+  height: 20,
+  resizeMode: 'contain',
+},
+
+img38: {
+  width: 38,
+  height: 38,
+  resizeMode: 'contain',
+},
+
+img24: {
+  width: 24,
+  height: 24,
+  resizeMode: 'contain',
+},
+
+moodHeader: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginBottom: 12,
+  gap:6
+},
+
+moodIconCircle: {
+  width: 54,
+  height: 54,
+  borderRadius: 27,
+  backgroundColor: 'rgba(255,255,255,0.6)',
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginRight: 12,
+  borderWidth: 2,
+  borderColor: COLORS.text,
+},
+
+cardTitle: {
+  fontSize: 18,
+  fontFamily: "KodchasanSemiBold",
+  color: COLORS.text,
+},
+
+subText: {
+  fontSize: 12,
+  fontFamily: "KodchasanMedium",
+  color: COLORS.text,
+  opacity: 0.8,
+  marginTop: 2,
+},
+
+label: {
+  fontSize: 16,
+  fontFamily: "KodchasanSemiBold",
+  color: COLORS.text,
+  marginTop: 16,
+  marginBottom: 8,
+},
+
+readOnlyInput: {
+  borderRadius: 12,
+  paddingVertical: 12,
+  paddingHorizontal: 14,
+  fontSize: 14,
+  fontFamily: "KodchasanMedium",
+  backgroundColor: '#fff',
+  color: COLORS.text,
+  borderWidth: 2,
+  borderColor: COLORS.text,
+  boxShadow: '2px 2px 0px 0px #553434',
+},
+
+tagsGrid: {
+  flexDirection: 'row',
+  flexWrap: 'wrap',
+  rowGap: 12,
+  columnGap: 12,
+},
+
+tagContent: {
+  width: TAG_ITEM_WIDTH, 
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: '#FFF3B0',
+  paddingVertical: 10,
+  paddingHorizontal: 10,
+  borderRadius: 12,
+  borderWidth: 2,
+  borderColor: COLORS.text,
+  boxShadow: '2px 2px 0px 0px #553434',
+},
+
+tagText: {
+  fontFamily: "KodchasanSemiBold",
+  color: COLORS.text,
+  fontSize: 13,
+  textAlign: 'center',
+},
+
+donutShadowWrapper: {
+    width: 200,
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 100,      
+    borderWidth: 2,         
+    borderColor: COLORS.text,
+    boxShadow: '3px 3px 0px 0px #553434', 
+  },
+
+  innerCircleShadow: {
+    position: 'absolute', // Sits on top of the SVG center
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.text,
+    // Matching the shadow style of the outer circle
+    boxShadow: '3px 3px 0px 0px #553434',
+  },
+
 });
 
 export default MoodLogBook;

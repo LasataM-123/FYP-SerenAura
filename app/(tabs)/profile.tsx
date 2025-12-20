@@ -401,7 +401,7 @@ const Edit = async() =>{
 
           <Text style={[styles.sectionTitle, { marginTop: 26 }]}>Support</Text>
           <View style={styles.cardBoxPurple}>
-            <SettingItem icon={CircleHelpIcon} text="Help & Support" onPress={() => {}} />
+            <SettingItem icon={CircleHelpIcon} text="Help & Support" onPress={() => {router.push('../settings/help')}} />
             <SettingItem
               icon={Trash2}
               text="Delete Account"
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   profileContainer: {
-    marginTop: 22,
+    marginTop: 4,
     marginBottom: 30,
   },
   sectionTitle: {
@@ -599,6 +599,7 @@ const styles = StyleSheet.create({
     padding: 16,
     flexDirection: "row",
     alignItems: "center",
+    boxShadow: '3px 3px 0px rgb(85, 52, 52)',
   },
   avatar: {
     width: 55,
@@ -643,6 +644,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#B5EAD7",
     borderWidth: 4,
     borderColor: BORDER,
+    boxShadow: '3px 3px 0px rgb(85, 52, 52)',
+
   },
   cardBoxPeach: {
     paddingHorizontal: 18,
@@ -651,6 +654,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFD6A5",
     borderWidth: 4,
     borderColor: BORDER,
+    boxShadow: '3px 3px 0px rgb(85, 52, 52)',
+
   },
   cardBoxPurple: {
     paddingHorizontal: 18,
@@ -659,6 +664,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#E0BBFF",
     borderWidth: 4,
     borderColor: BORDER,
+    boxShadow: '3px 3px 0px rgb(85, 52, 52)',
+
   },
   toggleOuter: {
     width: 42,
