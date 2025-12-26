@@ -119,6 +119,15 @@ const CounselorProfile = () => {
 
   const [user, setUser] = useState<ProfileResponse | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const toggleAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+  Animated.timing(toggleAnim, {
+    toValue: notificationsEnabled ? 1 : 0,
+    duration: 180,
+    useNativeDriver: false,
+  }).start();
+}, [notificationsEnabled]);
+
   const [showOverlay, setShowOverlay] = useState(false);
   const [showDeleting, setShowDeleting] = useState(false);
   const [showLogoutOverlay, setShowLogoutOverlay] = useState(false);
@@ -353,22 +362,30 @@ const Edit = async() =>{
             >
               <Bell size={22} color={BORDER} />
               <Text style={styles.settingText}>Notifications</Text>
-              <View
-                style={[
-                  styles.toggleOuter,
-                  { backgroundColor: notificationsEnabled ? BORDER : "#fff" },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.toggleCircle,
+             <View
+            style={[
+              styles.toggleOuter,
+              { backgroundColor: notificationsEnabled ? BORDER : "#fff" },
+            ]}
+          >
+            <Animated.View
+              style={[
+                styles.toggleCircle,
+                {
+                  backgroundColor: notificationsEnabled ? "#fff" : BORDER,
+                  transform: [
                     {
-                      alignSelf: notificationsEnabled ? "flex-end" : "flex-start",
-                      backgroundColor: notificationsEnabled ? "#fff" : BORDER,
+                      translateX: toggleAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, 18],
+                      }),
                     },
-                  ]}
-                />
-              </View>
+                  ],
+                },
+              ]}
+            />
+          </View>
+
             </TouchableOpacity>
           </View>
 

@@ -99,6 +99,8 @@ const SettingItem: React.FC<SettingItemProps> = ({
 
 const Profile = () => {
     const [overlayVisible, setOverlayVisible] = useState(false);
+    const toggleAnim = useRef(new Animated.Value(0)).current;
+
   // initial StatusBar and closing overlay on blur using useFocusEffect
   useFocusEffect(
     useCallback(() => {
@@ -119,6 +121,14 @@ const Profile = () => {
 
   const [user, setUser] = useState<ProfileResponse | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  useEffect(() => {
+  Animated.timing(toggleAnim, {
+    toValue: notificationsEnabled ? 1 : 0,
+    duration: 180,
+    useNativeDriver: false,
+  }).start();
+}, [notificationsEnabled]);
+
   const [showOverlay, setShowOverlay] = useState(false);
   const [showDeleting, setShowDeleting] = useState(false);
   const [showLogoutOverlay, setShowLogoutOverlay] = useState(false);
@@ -386,16 +396,24 @@ const Edit = async() =>{
                   { backgroundColor: notificationsEnabled ? BORDER : "#fff" },
                 ]}
               >
-                <View
+                <Animated.View
                   style={[
                     styles.toggleCircle,
                     {
-                      alignSelf: notificationsEnabled ? "flex-end" : "flex-start",
                       backgroundColor: notificationsEnabled ? "#fff" : BORDER,
+                      transform: [
+                        {
+                          translateX: toggleAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, 18],
+                          }),
+                        },
+                      ],
                     },
                   ]}
                 />
               </View>
+
             </TouchableOpacity>
           </View>
 

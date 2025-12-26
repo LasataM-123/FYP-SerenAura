@@ -8,90 +8,88 @@ import {
   View,
   TextInput,
   TouchableWithoutFeedback,
+  TouchableOpacity,
   ScrollView,
-  LayoutAnimation,
+  Alert,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Plus, Minus } from 'lucide-react-native';
+
 import Top from '@/components/top';
+import Button from '@/components/Button';
+import Overlay from '@/components/Overlay';
+import { images } from '@/constants';
+import { useBackend } from '@/lib/useBackend';
+import { createSupportQuestion, getTopQuestions } from '@/lib/api/faq';
 
 const COLORS = {
   border: '#553434',
   text: '#553434',
   bg: '#fff',
-  inputBg: '#F5EFFF', 
-  accordionBg: '#E6F2EA', 
+  inputBg: '#F5EFFF',
+  accordionBg: '#E6F2EA',
 };
 
 const FONTS = {
-  bold: "KodchasanSemiBold",
-  medium: "KodchasanMedium",
-  regular: "KodchasanRegular",
+  bold: 'KodchasanSemiBold',
+  medium: 'KodchasanMedium',
+  regular: 'KodchasanRegular',
 };
 
-const FAQ_DATA = [
-  {
-    id: '1',
-    question: 'How do I track my mood?',
-    answer: 'Simply tap the "Log Mood" button on the dashboard, select your current feeling, add a journal entry if you wish, and save!',
-  },
-  {
-    id: '2',
-    question: 'Can I edit a past entry?',
-    answer: 'Yes! Navigate to the Mood Calendar, tap on the specific day you want to change, and update your details.',
-  },
-  {
-    id: '3',
-    question: 'Are my journals private?',
-    answer: 'Absolutely. Your data is encrypted and only accessible to you through your authenticated account.',
-  },
-  {
-    id: '4',
-    question: 'How do I export my data?',
-    answer: 'Go to Settings > Data Management and select "Export as PDF" to get a summary of your monthly insights.',
-  },
-];
-
-const AccordionItem = ({ question, answer }: { question: string, answer: string }) => {
+const AccordionItem = ({ question, answer }: { question: string; answer: string }) => {
   const [expanded, setExpanded] = useState(false);
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const [contentHeight, setContentHeight] = useState(0);
 
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.96,
-      friction: 4,
-      useNativeDriver: true,
-    }).start();
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const expandAnim = useRef(new Animated.Value(0)).current;
+
+  const onPressIn = () => {
+    Animated.spring(scaleAnim, { toValue: 0.96, friction: 4, useNativeDriver: true }).start();
   };
 
-  const handlePressOut = () => {
+  const onPressOut = () => {
     Animated.spring(scaleAnim, {
       toValue: 1,
       friction: 4,
-      tension: 100,
+      tension: 80,
       useNativeDriver: true,
     }).start();
   };
 
   const toggleExpand = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    const toValue = expanded ? 0 : 1;
+    Animated.timing(expandAnim, {
+      toValue,
+      duration: 220,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: false,
+    }).start();
     setExpanded(!expanded);
   };
 
+  const heightInterpolate = expandAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, contentHeight],
+  });
+
+  const opacityInterpolate = expandAnim.interpolate({
+    inputRange: [0, 0.3, 1],
+    outputRange: [0, 0.6, 1],
+  });
+
   return (
-    <TouchableWithoutFeedback 
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
+    <TouchableWithoutFeedback
       onPress={toggleExpand}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
     >
       <Animated.View style={[styles.faqWrapper, { transform: [{ scale: scaleAnim }] }]}>
-        {/* THE NEUBRUTALIST SHADOW LAYER */}
         <View style={styles.shadowLayer} />
-
-        {/* THE MAIN CONTENT BOX */}
-        <View style={[styles.accordionBox, expanded && styles.expandedBox]}>
-          <View style={[styles.accordionHeader, expanded && styles.headerBorder]}>
+        <View style={styles.accordionBox}>
+          {/* Header */}
+          <View style={styles.accordionHeader}>
             <Text style={styles.questionText}>{question}</Text>
             {expanded ? (
               <Minus size={20} color={COLORS.border} strokeWidth={3} />
@@ -99,11 +97,35 @@ const AccordionItem = ({ question, answer }: { question: string, answer: string 
               <Plus size={20} color={COLORS.border} strokeWidth={3} />
             )}
           </View>
-          
-          {expanded && (
-            <View style={styles.answerContainer}>
-              <Text style={styles.answerText}>{answer}</Text>
+
+          {/* Divider */}
+          <Animated.View style={[styles.divider, { opacity: opacityInterpolate }]} />
+
+          {/* Invisible content for measurement (FIXED) */}
+          {!contentHeight && (
+            <View
+              style={{ position: 'absolute', opacity: 0 }}
+              onLayout={e => setContentHeight(e.nativeEvent.layout.height)}
+            >
+              <View style={styles.answerContainer}>
+                <Text style={styles.answerText}>{answer}</Text>
+              </View>
             </View>
+          )}
+
+          {/* Answer */}
+          {contentHeight > 0 && (
+            <Animated.View
+              style={{
+                height: heightInterpolate,
+                opacity: opacityInterpolate,
+                overflow: 'hidden',
+              }}
+            >
+              <View style={styles.answerContainer}>
+                <Text style={styles.answerText}>{answer}</Text>
+              </View>
+            </Animated.View>
           )}
         </View>
       </Animated.View>
@@ -111,55 +133,121 @@ const AccordionItem = ({ question, answer }: { question: string, answer: string 
   );
 };
 
+/* ---------------- MAIN SCREEN ---------------- */
 const HelpSupport = () => {
+  const [question, setQuestion] = useState('');
+  const [showOverlay, setShowOverlay] = useState(false);
+
+  const { refetch: submitQuestion, loading: submitting } = useBackend({
+    fn: createSupportQuestion,
+  });
+
+  const {
+    data,
+    refetch: fetchQuestions,
+    loading: loadingFaqs,
+  } = useBackend({
+    fn: getTopQuestions,
+  });
+
   useEffect(() => {
-    StatusBar.setBarStyle("dark-content");
-    if (Platform.OS === "android") {
-      StatusBar.setBackgroundColor("#fff");
+    StatusBar.setBarStyle('dark-content');
+    if (Platform.OS === 'android') {
+      StatusBar.setBackgroundColor('#fff');
     }
+    fetchQuestions();
   }, []);
+
+  const createQuestion = async () => {
+    if (!question.trim()) return;
+
+    try {
+      const res = await submitQuestion({ question });
+      setQuestion('');
+      if (res?.success) setShowOverlay(true);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Something went wrong');
+    }
+  };
+
+  const isValid = question.trim().length > 0;
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Top label='Help & Support' onBack={() => { router.back() }} />
+        <Top label="Help & Support" onBack={() => router.back()} />
 
-        {/* --- QUESTION INPUT SECTION --- */}
         <Text style={styles.sectionTitle}>Got a Question?</Text>
+
         <View style={styles.inputWrapper}>
           <View style={styles.shadowLayer} />
           <View style={styles.inputBox}>
-             <TextInput
-                style={styles.textInput}
-                placeholder="Type your question here..."
-                placeholderTextColor="#553434"
-                multiline
-                textAlignVertical="top"
-              />
+            <TextInput
+              style={styles.textInput}
+              placeholder="Type your question here..."
+              placeholderTextColor="#553434"
+              multiline
+              value={question}
+              onChangeText={setQuestion}
+              textAlignVertical="top"
+            />
           </View>
         </View>
 
-        {/* --- FAQ SECTION --- */}
+        <TouchableOpacity
+          disabled={!isValid}
+          activeOpacity={0.8}
+          onPress={isValid ? createQuestion : undefined}
+          style={{ opacity: isValid ? 1 : 0.4, width: '100%' }}
+        >
+          <Button
+            label={submitting ? 'Sending...' : 'Send Question'}
+            variant="solid"
+            onPress={createQuestion}
+          />
+        </TouchableOpacity>
+
         <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
-        <View style={styles.faqList}>
-          {FAQ_DATA.map((item) => (
-            <AccordionItem 
-              key={item.id} 
-              question={item.question} 
-              answer={item.answer} 
-            />
-          ))}
-        </View>
+
+        {loadingFaqs ? (
+          <Text style={styles.infoText}>Loading FAQs...</Text>
+        ) : data?.data?.length ? (
+          <View style={styles.faqList}>
+            {data.data.map(item => (
+              <AccordionItem
+                key={item._id}
+                question={item.question}
+                answer={item.answer}
+              />
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.infoText}>No FAQs available yet.</Text>
+        )}
       </ScrollView>
+
+      {showOverlay && (
+        <Overlay
+          title="Support Question sent successfully!"
+          description="Your support question has been sent successfully."
+          imageSource={images.tick}
+          label="Continue"
+          onPress={() => {
+            setShowOverlay(false);
+            fetchQuestions();
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 };
 
 export default HelpSupport;
 
+/* ---------------- STYLES ---------------- */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -176,8 +264,11 @@ const styles = StyleSheet.create({
     marginTop: 24,
     marginBottom: 10,
   },
-  
-  // Input Section Fixes
+  infoText: {
+    fontFamily: FONTS.medium,
+    color: COLORS.text,
+    fontSize: 14,
+  },
   inputWrapper: {
     height: 150,
     position: 'relative',
@@ -198,9 +289,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.text,
   },
-
   faqList: {
-    gap: 20, // Increased gap so shadows don't touch
+    gap: 20,
   },
   faqWrapper: {
     position: 'relative',
@@ -213,7 +303,6 @@ const styles = StyleSheet.create({
     bottom: -4,
     backgroundColor: COLORS.border,
     borderRadius: 20,
-    zIndex: 0,
   },
   accordionBox: {
     backgroundColor: COLORS.accordionBg,
@@ -221,10 +310,6 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: COLORS.border,
     overflow: 'hidden',
-    zIndex: 1,
-  },
-  expandedBox: {
-    backgroundColor: COLORS.bg, 
   },
   accordionHeader: {
     flexDirection: 'row',
@@ -234,9 +319,10 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     backgroundColor: COLORS.accordionBg,
   },
-  headerBorder: {
-    borderBottomWidth: 3,
-    borderColor: COLORS.border,
+  divider: {
+    height: 3,
+    backgroundColor: COLORS.border,
+    width: '100%',
   },
   questionText: {
     fontSize: 15,
