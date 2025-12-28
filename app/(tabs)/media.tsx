@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View, ActivityIndicator, TouchableOpacity } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { ScrollView, StyleSheet, Text, View, ActivityIndicator, TouchableOpacity, StatusBar } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Header from "@/components/Header";
 import TagHeader from "@/components/TagHeader";
@@ -8,11 +8,17 @@ import { useBackend } from "@/lib/useBackend";
 import { getFilteredMedia } from "@/lib/api/media";
 import MusicSection from "@/components/MusicSection";
 import SmallCard from "@/components/MediaCards/SmallCard";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 const TAGS = ["All", "Meditation", "Calm", "Stress relief", "Focus", "Sleep", "Anxiety"];
 
 const Library = () => {
+  useFocusEffect(
+    useCallback(() => {
+      StatusBar.setBarStyle("dark-content");
+      StatusBar.setBackgroundColor("#FFFFFF");
+    }, [])
+  );
   const { tag } = useLocalSearchParams(); 
   const initialTag = Array.isArray(tag) ? tag[0] : tag;
 const [selectedTag, setSelectedTag] = useState(

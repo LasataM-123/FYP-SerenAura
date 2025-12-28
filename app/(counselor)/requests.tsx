@@ -61,6 +61,7 @@ const Requests = () => {
       useNativeDriver: true,
     }).start(() => setShowToast(false));
   };
+  
 
   // 🔐 Token validation and refresh
   useEffect(() => {
@@ -130,8 +131,7 @@ const Requests = () => {
 
   useFocusEffect(
     useCallback(() => {
-      StatusBar.setBarStyle("dark-content");
-      StatusBar.setBackgroundColor("#ffffff");
+      
       if (isTokenReady) fetchRequests();
     }, [isTokenReady])
   );

@@ -222,11 +222,6 @@ useEffect(() => {
   }, 500);
   };
 
-  const handleLogout = () => {
-    logout();
-    router.replace('/login');
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <Header />
@@ -266,7 +261,6 @@ useEffect(() => {
         <View style={{ marginBottom: 30, marginTop: 30 }}>
           <Button label="Refresh Recommendations" onPress={handleRefresh} />
         </View>
-        <Button label="Logout" onPress={handleLogout} />
         <View style={{ marginBottom: 100 }} />
       </ScrollView>
       <Animated.View

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -78,12 +78,14 @@ const CounselorChatScreen = () => {
   // ---------------- FOCUS HANDLER ----------------
   useFocusEffect(
     React.useCallback(() => {
+      StatusBar.setBarStyle("dark-content");
+      StatusBar.setBackgroundColor("#FFFFFF");
+    
       if (endedByCounselor) {
         setShowEndOverlay(true);
       }
     }, [endedByCounselor])
   );
-
   // ---------------- LOADING ----------------
   useEffect(() => {
     setShowEndOverlay(false);
@@ -125,14 +127,6 @@ const CounselorChatScreen = () => {
       showSub.remove();
       hideSub.remove();
     };
-  }, []);
-
-  useEffect(() => {
-    StatusBar.setBarStyle("dark-content");
-    if (Platform.OS === "android") {
-      StatusBar.setBackgroundColor("#fff");
-      StatusBar.setTranslucent(false);
-    }
   }, []);
 
   // ---------------- SEND MESSAGE ----------------
@@ -199,6 +193,11 @@ const CounselorChatScreen = () => {
   if (!chatId) {
     return (
       <SafeAreaView style={styles.container}>
+        <StatusBar 
+                barStyle="dark-content" 
+                backgroundColor="#FFFFFF" 
+                translucent={false} // Ensures it doesn't overlap on Android
+              />
         <View style={styles.center}>
           <Text>No chat selected.</Text>
         </View>
@@ -223,6 +222,11 @@ const CounselorChatScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar 
+              barStyle="dark-content" 
+              backgroundColor="#FFFFFF" 
+              translucent={false} // Ensures it doesn't overlap on Android
+            />
       <Header />
 
       <View style={styles.header}>

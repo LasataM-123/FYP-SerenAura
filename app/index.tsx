@@ -1,6 +1,6 @@
-import { router, useRouter } from "expo-router";
-import { useEffect, useRef } from "react";
-import { Animated, Easing, StyleSheet, Text, View } from "react-native";
+import { router, useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef } from "react";
+import { Animated, Easing, StatusBar, StyleSheet, Text, View } from "react-native";
 
 export default function Index() {
    const router = useRouter();
