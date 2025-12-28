@@ -4,6 +4,7 @@ const Patient = require("../models/patientModel");
 const Counselor = require("../models/counselorModel");
 const Message = require("../models/messageModel");
 const mongoose = require("mongoose");
+const { sendNotification } = require('../service/notificationService');
 
 /**
  * @route   POST /api/chat/request
@@ -12,7 +13,7 @@ const mongoose = require("mongoose");
  */
 const sendChatRequest = asyncHandler(async (req, res) => {
   const { patientId, counselorId, appointmentDate } = req.body;
-
+  const io = req.app.get('io');
   if (!patientId || !counselorId || !appointmentDate) {
     return res.status(400).json({ message: "All fields are required" });
   }
@@ -27,6 +28,13 @@ const sendChatRequest = asyncHandler(async (req, res) => {
   // Push chat ID to both Patient and Counselor
   await Patient.findByIdAndUpdate(patientId, { $push: { chat: chat._id } });
   await Counselor.findByIdAndUpdate(counselorId, { $push: { chat: chat._id } });
+  await sendNotification(io, counselorId, 'Counselor', {
+  type: 'REQUEST_SENT',
+  senderId: patientId,
+  senderModel: 'Patient',
+  title: 'New Patient Request',
+  message: 'A patient wants to connect with you.'
+});
 
   return res.status(201).json({
     success: true,
@@ -73,7 +81,13 @@ const acceptChatRequest = asyncHandler(async (req, res) => {
   await chat.save();
 
   io.to(chatId).emit("chatStatusUpdated", { chatId, status: "active" });
-
+    await sendNotification(io, chat.patientId, 'Patient', {
+      type: 'REQUEST_ACCEPTED',
+      senderId: chat.counselorId,
+      senderModel: 'Counselor',
+      title: 'Request Accepted',
+      message: 'Your counselor is ready to talk.'
+    });
   return res.status(200).json({
     message: "Chat request accepted successfully",
     status:"active",
@@ -88,18 +102,41 @@ const acceptChatRequest = asyncHandler(async (req, res) => {
 const cancelChatRequest = asyncHandler(async (req, res) => {
   const { chatId } = req.params;
   const io = req.app.get("io");
+  
+  const activeUserId = req.user.id; 
 
   const chat = await Chat.findById(chatId);
   if (!chat) return res.status(404).json({ message: "Chat not found" });
 
+  // 1. Determine who is the recipient of the notification
+  // If the person cancelling is the patient, notify the counselor (and vice versa)
+  const isPatientCancelling = activeUserId.toString() === chat.patientId.toString();
+  
+  const recipientId = isPatientCancelling ? chat.counselorId : chat.patientId;
+  const recipientModel = isPatientCancelling ? 'Counselor' : 'Patient';
+  const senderId = activeUserId;
+  const senderModel = isPatientCancelling ? 'Patient' : 'Counselor';
+
+  // 2. Cleanup Database
   await Patient.findByIdAndUpdate(chat.patientId, { $pull: { chat: chat._id } });
   await Counselor.findByIdAndUpdate(chat.counselorId, { $pull: { chat: chat._id } });
-
   await Chat.findByIdAndDelete(chatId);
 
+  // 3. Socket emit for real-time UI updates in the chat room
   io.to(chatId).emit("chatStatusUpdated", { chatId, status: "closed" });
 
-  return res.status(200).json({ message: "Chat request cancelled" , status:"closed"});
+  // 4. Send the Notification to the OTHER party
+  await sendNotification(io, recipientId, recipientModel, {
+    type: 'REQUEST_CANCELLED',
+    senderId: senderId,
+    senderModel: senderModel,
+    title: 'Request Cancelled',
+    message: isPatientCancelling 
+      ? 'A patient has cancelled their chat request.' 
+      : 'Your counselor has cancelled the request.'
+  });
+
+  return res.status(200).json({ message: "Chat request cancelled", status: "closed" });
 });
 
 
@@ -108,7 +145,7 @@ const cancelChatRequest = asyncHandler(async (req, res) => {
  * @desc    Delete pending chats older than 24 hours or expired by appointment
  * @access  Private
  */
- const deleteExpiredChatRequests = asyncHandler(async (req, res) => {
+const deleteExpiredChatRequests = asyncHandler(async (req, res) => {
   const { chatId } = req.params;
   const io = req.app.get("io");
 
@@ -125,22 +162,34 @@ const cancelChatRequest = asyncHandler(async (req, res) => {
     const appointment = chat.appointmentDate ? new Date(chat.appointmentDate) : null;
 
     if (appointment) {
-      // If appointment is within 24h → expire at appointment
       const twentyFourLater = new Date(requestTime.getTime() + 24 * 60 * 60 * 1000);
-      const expiryTime =
-        appointment.getTime() - requestTime.getTime() <= 24 * 60 * 60 * 1000
+      const expiryTime = appointment.getTime() - requestTime.getTime() <= 24 * 60 * 60 * 1000
           ? appointment
           : twentyFourLater;
 
       if (expiryTime <= now) isExpired = true;
     } else {
-      // fallback: expire 24h after request
       const expiryTime = new Date(requestTime.getTime() + 24 * 60 * 60 * 1000);
       if (expiryTime <= now) isExpired = true;
     }
 
     if (isExpired) {
-      // remove references
+      // --- NOTIFICATION LOGIC ---
+      // Notify Patient
+      await sendNotification(io, chat.patientId, 'Patient', {
+        type: 'REQUEST_EXPIRED', 
+        title: 'Request Expired',
+        message: 'Your chat request expired as it was not accepted within the time limit.'
+      });
+
+      // Notify Counselor
+      await sendNotification(io, chat.counselorId, 'Counselor', {
+        type: 'REQUEST_EXPIRED',
+        title: 'Request Expired',
+        message: 'A pending chat request has expired and is no longer available.'
+      });
+
+      // Remove references and delete
       await Patient.findByIdAndUpdate(chat.patientId, { $pull: { chat: chat._id } });
       await Counselor.findByIdAndUpdate(chat.counselorId, { $pull: { chat: chat._id } });
       await Chat.deleteOne({ _id: chat._id });
@@ -162,10 +211,8 @@ const deleteInactiveChatsAfterAppointment = async (req, res) => {
   try {
     const { userId } = req.params;
     const io = req.app.get("io");
-
     const now = new Date();
 
-    // Find active chats where appointment was at least 1 hour ago
     const chats = await Chat.find({
       status: "active",
       appointmentDate: { $lte: new Date(now.getTime() - 60 * 60 * 1000) },
@@ -179,29 +226,34 @@ const deleteInactiveChatsAfterAppointment = async (req, res) => {
     let deletedCount = 0;
 
     for (const chat of chats) {
-      // Get all sender roles in this chat
       const roles = await Message.distinct("senderRole", {
         chatId: new mongoose.Types.ObjectId(chat._id),
       });
 
-      // If both patient and counselor sent messages → keep chat active
       if (roles.includes("patient") && roles.includes("counselor")) {
         continue;
       }
 
-      // Otherwise, delete chat + messages
+      // --- NOTIFICATION LOGIC ---
+      // Notify both parties before deletion
+      const notificationData = {
+        type: 'REQUEST_CANCELLED',
+        title: 'Session Closed',
+        message: 'Your chat session was closed due to inactivity.'
+      };
+
+      await sendNotification(io, chat.patientId, 'Patient', notificationData);
+      await sendNotification(io, chat.counselorId, 'Counselor', notificationData);
+
+      // Cleanup
       await Message.deleteMany({ chatId: chat._id });
 
       const updates = [];
       if (chat.patientId) {
-        updates.push(
-          Patient.findByIdAndUpdate(chat.patientId, { $pull: { chat: chat._id } })
-        );
+        updates.push(Patient.findByIdAndUpdate(chat.patientId, { $pull: { chat: chat._id } }));
       }
       if (chat.counselorId) {
-        updates.push(
-          Counselor.findByIdAndUpdate(chat.counselorId, { $pull: { chat: chat._id } })
-        );
+        updates.push(Counselor.findByIdAndUpdate(chat.counselorId, { $pull: { chat: chat._id } }));
       }
 
       await Promise.allSettled(updates);
@@ -223,7 +275,6 @@ const deleteInactiveChatsAfterAppointment = async (req, res) => {
     return res.status(500).json({ error: "Server error during cleanup." });
   }
 };
-
 
 /**
  * @route  GET /api/chat/get

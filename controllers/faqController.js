@@ -65,6 +65,7 @@ const createSupportQuestion = asyncHandler(async (req, res) => {
 
         res.status(201).json({
             message: "Support question submitted successfully",
+            success: true,
             data: supportQuestion,
         });
     }catch(err){
@@ -80,7 +81,7 @@ const createSupportQuestion = asyncHandler(async (req, res) => {
 const answerSupportQuestion = asyncHandler(async (req, res) => {
     try{
         const { answer } = req.body;
-        const questionId = req.params.id;
+        const questionId = req.params.questionId;
 
         if (!questionId || !answer) {
             res.status(400);
@@ -131,7 +132,7 @@ const getTopQuestions = asyncHandler(async (req, res) => {
         },
         },
         {
-        $sort: { count: -1 }, // most repeated first
+        $sort: { count: -1 }, 
         },
         {
         $limit: 10,

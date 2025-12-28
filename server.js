@@ -7,10 +7,12 @@ const cookieParser = require('cookie-parser');
 const morgan = require('morgan');
 const { connection } = require('./config/dbConfig');
 const errorHandler = require('./middlewares/errorHandler');
+const initMoodCron = require('./jobs/moodJob');
 
 const app = express();
 const server = http.createServer(app);
 
+// Database Connection
 connection();
 
 const io = new Server(server, {
@@ -23,20 +25,52 @@ const io = new Server(server, {
 io.on('connection', (socket) => {
   console.log('New client connected:', socket.id);
 
-  // Join chat room
+  // 1. Register for private notifications (Used in RootLayout)
+  socket.on('registerNotifications', (userId) => {
+    socket.join(userId.toString());
+    console.log(`User ${userId} registered for private notifications`);
+  });
+
+  // 2. Join a specific chat room for messaging
   socket.on('joinChat', (chatId) => {
     socket.join(chatId);
     console.log(`User joined chat room: ${chatId}`);
   });
 
-  // When counselor accepts a chat
+  // 3. When counselor ACCEPTS a chat
   socket.on('chatAccepted', (data) => {
-    io.to(data.chatId).emit('chatStatusUpdated', { chatId: data.chatId, status: 'active' });
+    const { chatId, patientId, counselorName } = data;
+
+    // Update the status for everyone in the chat UI
+    io.to(chatId).emit('chatStatusUpdated', { chatId, status: 'active' });
+
+    // Send the ALERT notification to the specific patient
+    if (patientId) {
+      io.to(patientId.toString()).emit('new_notification', {
+        title: "Session Started! 🎉",
+        message: `${counselorName || 'A counselor'} has accepted your request. You can start chatting now.`,
+        type: "CHAT_ACCEPTED",
+        chatId: chatId
+      });
+    }
   });
 
-  // When counselor cancels a chat
+  // 4. When counselor CANCELS/DECLINES a chat
   socket.on('chatCancelled', (data) => {
-    io.to(data.chatId).emit('chatStatusUpdated', { chatId: data.chatId, status: 'closed' });
+    const { chatId, patientId, counselorName } = data;
+
+    // Update the status for everyone in the chat UI
+    io.to(chatId).emit('chatStatusUpdated', { chatId, status: 'closed' });
+
+    // Send the ALERT notification to the specific patient
+    if (patientId) {
+      io.to(patientId.toString()).emit('new_notification', {
+        title: "Request Declined",
+        message: `Your chat request with ${counselorName || 'the counselor'} was cancelled.`,
+        type: "CHAT_CANCELLED",
+        chatId: chatId
+      });
+    }
   });
 
   socket.on('disconnect', () => {
@@ -45,8 +79,9 @@ io.on('connection', (socket) => {
 });
 
 app.set('io', io);
+initMoodCron(io);
 
-
+// Middleware
 app.use((req, res, next) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   next();
@@ -56,11 +91,13 @@ app.use(cors({
   origin: true,
   credentials: true,
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(morgan('dev'));
 
+// Routes
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/counselors', require('./routes/counselorRoutes'));
@@ -76,6 +113,7 @@ app.use('/api/breathe', require('./routes/breathingRoutes'));
 app.use('/api/chat', require('./routes/chatRoutes'));
 app.use('/api/messages', require('./routes/messageRoutes'));  
 app.use('/api/faq', require('./routes/faqRoutes'));
+
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
