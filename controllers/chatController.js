@@ -108,8 +108,6 @@ const cancelChatRequest = asyncHandler(async (req, res) => {
   const chat = await Chat.findById(chatId);
   if (!chat) return res.status(404).json({ message: "Chat not found" });
 
-  // 1. Determine who is the recipient of the notification
-  // If the person cancelling is the patient, notify the counselor (and vice versa)
   const isPatientCancelling = activeUserId.toString() === chat.patientId.toString();
   
   const recipientId = isPatientCancelling ? chat.counselorId : chat.patientId;

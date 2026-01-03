@@ -35,7 +35,10 @@ const counselorSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Chat'
     }],
-   
+   notificationsEnabled: {
+        type: Boolean,
+        default: false 
+    }
 
 },{
     timestamps: true

@@ -43,7 +43,11 @@ const patientSchema = new mongoose.Schema({
     recentSearch:[{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'RecentSearch'
-    }]
+    }],
+    notificationsEnabled: {
+        type: Boolean,
+        default: false 
+    }
 
 },{
     timestamps: true

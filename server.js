@@ -8,6 +8,10 @@ const morgan = require('morgan');
 const { connection } = require('./config/dbConfig');
 const errorHandler = require('./middlewares/errorHandler');
 const initMoodCron = require('./jobs/moodJob');
+const Patient = require('./models/patientModel');
+const Mood = require('./models/moodModel');
+const Counselor = require('./models/counselorModel');
+const { sendNotification } = require('./service/notificationService');
 
 const app = express();
 const server = http.createServer(app);
@@ -114,6 +118,44 @@ app.use('/api/chat', require('./routes/chatRoutes'));
 app.use('/api/messages', require('./routes/messageRoutes'));  
 app.use('/api/faq', require('./routes/faqRoutes'));
 
+app.patch('/api/user/notifications', async (req, res) => {
+  const { userId, userType, enabled } = req.body;
+  const Model = userType === 'Counselor' ? Counselor : Patient;
+  await Model.findByIdAndUpdate(userId, { notificationsEnabled: enabled });
+  res.status(200).send("Settings updated");
+});
+
+app.post('/api/notifications/trigger-mood-check', async (req, res) => {
+  const { userId, userType } = req.body;
+  const io = req.app.get('io');
+  
+  try {
+
+    if (userType === 'Patient') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // 2. Check ONLY this specific patient
+      const entry = await Mood.findOne({
+        patientId: userId,
+        entryDate: { $gte: today }
+      });
+
+      if (!entry) {
+        await sendNotification(io, userId, 'Patient', {
+          type: 'MOOD_REMINDER',
+          title: 'Mood Check-in',
+          message: "Hi! You haven't logged your mood today."
+        });
+      }
+    }
+  
+    res.status(200).send("Triggered");
+  } catch (err) {
+    console.error("Trigger Error:", err);
+    res.status(500).send("Internal Server Error");
+  }
+});
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;

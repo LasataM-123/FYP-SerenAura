@@ -4,12 +4,14 @@ const Mood = require('../models/moodModel');
 const { sendNotification } = require('../service/notificationService');
 
 const initMoodCron = (io) => {
+  // Runs every day at 8:00 PM
   cron.schedule('0 20 * * *', async () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     try {
-      const patients = await Patient.find({});
+      const patients = await Patient.find({ notificationsEnabled: true });
+
       for (const patient of patients) {
         const entry = await Mood.findOne({
           patientId: patient._id,
@@ -17,6 +19,7 @@ const initMoodCron = (io) => {
         });
 
         if (!entry) {
+
           await sendNotification(io, patient._id, 'Patient', {
             type: 'MOOD_REMINDER',
             title: 'Mood Check-in',
