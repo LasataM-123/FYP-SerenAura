@@ -235,7 +235,7 @@ const deleteInactiveChatsAfterAppointment = async (req, res) => {
       // --- NOTIFICATION LOGIC ---
       // Notify both parties before deletion
       const notificationData = {
-        type: 'REQUEST_CANCELLED',
+        type: 'REQUEST_EXPIRED',
         title: 'Session Closed',
         message: 'Your chat session was closed due to inactivity.'
       };

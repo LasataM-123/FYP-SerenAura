@@ -51,6 +51,7 @@ const sendMessage = asyncHandler(async (req, res) => {
     await chat.save();
   }
 
+  // Emit real-time message
   io.to(chatId).emit("newMessage", {
     _id: message._id,
     chatId,
@@ -59,12 +60,44 @@ const sendMessage = asyncHandler(async (req, res) => {
     createdAt: message.createdAt,
   });
 
+  // 🔔 Notification data
+  const notificationData = {
+    type: "NEW_CHAT_MESSAGE",
+    title: "New Message",
+    message:
+      senderRole === "Patient"
+        ? "New message from patient"
+        : "New message from counselor",
+    chatId,
+  };
+
+  // 🔔 Send notification to Patient (if sender is counselor)
+  if (senderRole !== "patient") {
+    await sendNotification(
+      io,
+      chat.patientId,
+      "Patient",
+      notificationData
+    );
+  }
+
+  // 🔔 Send notification to Counselor (if sender is patient)
+  if (senderRole !== "counselor") {
+    await sendNotification(
+      io,
+      chat.counselorId,
+      "Counselor",
+      notificationData
+    );
+  }
+
   return res.status(201).json({
     success: true,
     message: "Message sent successfully",
     data: message,
   });
 });
+
 
 
 module.exports = {

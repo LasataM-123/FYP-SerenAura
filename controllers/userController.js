@@ -218,11 +218,11 @@ const getProfile = asyncHandler(async (req, res) => {
     }
 
     // Try Patient
-    let user = await Patient.findById(userId).select("name email dateOfBirth profileUrl");
+    let user = await Patient.findById(userId).select("name email dateOfBirth profileUrl notificationsEnabled");
 
     // If not patient, try Counselor
     if (!user) {
-      user = await Counselor.findById(userId).select("name email dateOfBirth profileUrl");
+      user = await Counselor.findById(userId).select("name email dateOfBirth profileUrl notificationsEnabled");
     }
 
     if (!user) {
@@ -237,6 +237,7 @@ const getProfile = asyncHandler(async (req, res) => {
         email: user.email,
         dob: user.dateOfBirth,
         profileUrl: user.profileUrl || null,
+        notificationsEnabled: user.notificationsEnabled,
       },
     });
   } catch (e) {
