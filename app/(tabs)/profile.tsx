@@ -46,6 +46,7 @@ import DeletingAccountOverlay from "@/components/DeletingAccountOverlay";
 import { useAuthStore } from "@/store/authStore";
 import Button from "@/components/Button"; // your button component
 import Overlay from "@/components/Overlay";
+import {API_URL} from "@/config";
 
 const BORDER = "#553434";
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -117,7 +118,7 @@ const Profile = () => {
   );
 
   const { refetch, loading } = useBackend({ fn: getProfile });
-  const { logout } = useAuthStore();
+  const { logout,role,userId } = useAuthStore();
 
   const [user, setUser] = useState<ProfileResponse | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -128,6 +129,61 @@ const Profile = () => {
     useNativeDriver: false,
   }).start();
 }, [notificationsEnabled]);
+const handleNotificationToggle = () => {
+    const isTurningOn = !notificationsEnabled;
+    const userRoleLabel = role === 'counselor' ? 'Counselor' : 'Patient';
+
+    if (isTurningOn) {
+      Alert.alert(
+        "Enable Notifications",
+        "Would you like to receive daily reminders and updates?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Enable", 
+            onPress: async () => {
+              setNotificationsEnabled(true);
+              try {
+                // 1. Update User Preference in DB
+                await fetch(`${API_URL}/user/notifications`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                    userId: userId, 
+                    userType: userRoleLabel, 
+                    enabled: true 
+                  })
+                });
+
+                // 2. If Patient, trigger the mood check immediately
+                if (role === 'patient') {
+                  await fetch(`${API_URL}/notifications/trigger-mood-check`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId, userType: 'Patient' })
+                  });
+                }
+              } catch (err) {
+                console.error("Update failed", err);
+              }
+            } 
+          }
+        ]
+      );
+    } else {
+      // TURNING OFF
+      setNotificationsEnabled(false);
+      fetch(`${API_URL}/user/notifications`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userId: userId, 
+          userType: userRoleLabel, 
+          enabled: false 
+        })
+      });
+    }
+  };
 
   const [showOverlay, setShowOverlay] = useState(false);
   const [showDeleting, setShowDeleting] = useState(false);
@@ -194,7 +250,11 @@ const Profile = () => {
       setEditName(res.profile?.name || "");
       setEditEmail(res.profile?.email || "");
       setEditDob(res?.profile?.dob ? formatDOB(res.profile.dob) : "");
+      if (res.profile?.notificationsEnabled !== undefined) {
+      setNotificationsEnabled(res.profile.notificationsEnabled);
     }
+    }
+    
   };
 
   useEffect(() => {
@@ -385,7 +445,7 @@ const Edit = async() =>{
             />
             <TouchableOpacity
               style={styles.settingRow}
-              onPress={() => setNotificationsEnabled(!notificationsEnabled)}
+              onPress={handleNotificationToggle}
               activeOpacity={0.8}
             >
               <Bell size={22} color={BORDER} />

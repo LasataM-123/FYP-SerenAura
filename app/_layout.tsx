@@ -89,9 +89,24 @@ export default function RootLayout() {
           fontSize: 14,
         },
         onPress: () => {
-            if (data.type === "CHAT_ACCEPTED" || data.chatId) {
+          if(role==="patient"){
+            if (data.type === "REQUEST_ACCEPTED" || data.type==="REQUEST_CANCELLED" || data.type==="REQUEST_EXPIRED") {
+                router.push("/chat");
+            }
+            if(data.type === "MOOD_REMINDER"){
+                router.push("/media/moodTracker");
+            }
+            if(data.type ==="NEW_CHAT_MESSAGE"){
+                router.push("/chat");
+            }
+          } else {
+            if(data.type ==="NEW_CHAT_MESSAGE"){
+                router.push("/user-chat");
+            }
+            if (data.type === "REQUEST_ACCEPTED" || data.type==="REQUEST_CANCELLED" || data.type==="REQUEST_EXPIRED") {
                 router.push("/requests");
             }
+          }
         }
       });
     });

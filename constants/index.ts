@@ -50,6 +50,8 @@ import Warning from '@/assets/icons/Warning.png';
 import Camera from '@/assets/icons/Camera.png';
 import Edit from '@/assets/icons/Edit.png';
 import Pin from '@/assets/icons/Pin.png';
+import Gift from '@/assets/images/Gift.png';
+import BlankTick from '@/assets/icons/BlankTick.png';
 export const images={
     welcomeImage,
     ribbon,
@@ -102,5 +104,7 @@ export const images={
     Warning,
     Camera,
     Edit,
-    Pin
+    Pin,
+    Gift,
+    BlankTick
 }

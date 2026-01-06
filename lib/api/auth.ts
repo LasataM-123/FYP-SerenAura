@@ -34,6 +34,7 @@ export type ProfileResponse = {
     email: string;
     dob:string;
     profileUrl: string | null;
+    notificationsEnabled: boolean;
   };
 }
 

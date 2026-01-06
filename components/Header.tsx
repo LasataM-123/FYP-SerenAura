@@ -6,7 +6,7 @@ import { router } from 'expo-router'
 const Header = ({ isProfile = false }) => {
   const handlePress = () => {
     if (isProfile) {
-      router.push('../premium/premium-screen')
+      router.push('../settings/subscription')
     } else {
       router.push('../chatHistory/chat-history')
     }
