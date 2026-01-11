@@ -97,7 +97,8 @@ const PremiumScreen = () => {
         useNativeDriver: true,
       }).start();
     };
-    const opacity = anySelected && !isSelected ? 0.5 : 1;
+   const opacity = anySelected && isSelected ? 0.5 :1;
+
     const borderWidth = isSelected ? 4 : 4; 
 
     return (
@@ -113,7 +114,7 @@ const PremiumScreen = () => {
           ]}
         >
           {/* Shadow Layer */}
-          <View style={styles.planShadowLayer} />
+          <View style={styles.planShadowLayer} pointerEvents="none" />
 
           {/* Main Card */}
           <View style={[styles.planBox, { backgroundColor: item.color, borderWidth }]}>
