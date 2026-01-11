@@ -37,7 +37,7 @@ const deleteUploadedFile = async (file) => {
 /**
  * @route  POST /api/counselors/create
  * @desc   Create counselor account
- * @access Public
+ * @access Private (admin only)
  */
 const createCounselor=asyncHandler(async(req, res) => {
     try{
@@ -170,4 +170,65 @@ const deleteCounselorAccount = asyncHandler(async (req, res) => {
     }
 });
 
-module.exports = { createCounselor, getCounselor, getCounselorById, deleteCounselorAccount };
+/**
+ * @route  GET /api/counselors/admin/get-all
+ * @desc   Get all counselors (for admin)
+ * @access Private (admin only)
+ */
+const getCounselorForAdmin = asyncHandler(async (req, res) => {
+  try {
+    const counselors = await Counselor.find().select(
+      "_id name profileUrl experience speciality"
+    );
+
+    const data = counselors.map(c => ({
+      id: c._id,            
+      name: c.name,
+      experience: c.experience,
+      speciality: c.speciality,
+      profileUrl: c.profileUrl,
+    }));
+
+    res.set('X-Total-Count', data.length);
+    res.set('Access-Control-Expose-Headers', 'X-Total-Count');
+
+    return res.status(200).json(data); 
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+});
+
+/**
+ * @route  GET /api/counselors/admin/get/:id
+ * @desc   Get counselor by Id (for admin)
+ * @access Private (admin only)
+ */
+const getCounselorByIdForAdmin = asyncHandler(async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid counselor ID format." });
+    }
+
+    const c = await Counselor.findById(id).select(
+      "_id name profileUrl experience speciality"
+    );
+
+    if (!c) {
+      return res.status(404).json({ message: "Counselor not found." });
+    }
+
+    return res.status(200).json({
+      id: c._id,                  
+      name: c.name,
+      experience: c.experience,
+      speciality: c.speciality,
+      profileUrl: c.profileUrl,
+    });
+  } catch (e) {
+    return res.status(500).json({ message: e.message });
+  }
+});
+
+module.exports = { createCounselor, getCounselor, getCounselorById, deleteCounselorAccount, getCounselorByIdForAdmin, getCounselorForAdmin };
