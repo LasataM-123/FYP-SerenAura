@@ -17,7 +17,8 @@ export type CreateSupportQuestionResponse = {
 export type TopQuestion = {
   _id: string;
   question: string;
-  answer: string;
+  answer: string | null;
+  isAnswered: boolean;
   count: number;
 }
 

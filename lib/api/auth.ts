@@ -32,6 +32,7 @@ export type ProfileResponse = {
   profile: {
     name: string;
     email: string;
+    contactNumber: string | null;
     dob:string;
     profileUrl: string | null;
     notificationsEnabled: boolean;

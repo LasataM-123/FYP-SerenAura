@@ -68,3 +68,43 @@ export async function deleteCounselorAccount(): Promise<DeleteResponse> {
         }
     return res.json();
 }
+
+export async function editCounselorProfile({
+  name,
+contactNumber,
+  dateOfBirth,
+  imageUri,
+}: {
+  name: string;
+  contactNumber: string;
+  dateOfBirth: string;
+  imageUri: string | null;
+}) {
+  const accessToken = useAuthStore.getState().accessToken;
+
+  const formData = new FormData();
+  formData.append("name", name);
+  formData.append("contactNumber", contactNumber);
+  formData.append("dateOfBirth", dateOfBirth);
+
+  if (imageUri) {
+    formData.append("profileUrl", {
+      uri: imageUri,
+      type: "image/jpeg",
+      name: "profile.jpg",
+    } as any);
+  }
+
+  const res = await fetch(`${API_URL}/counselors/edit-profile`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: formData,
+  });
+
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message);
+
+  return data;
+}

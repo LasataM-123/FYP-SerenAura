@@ -37,9 +37,10 @@ import {
   ChevronRight,
   Camera,
   Pencil,
+  Contact,
 } from "lucide-react-native";
 import { useBackend } from "@/lib/useBackend";
-import { editProfile, getProfile, ProfileResponse } from "@/lib/api/auth";
+import { getProfile, ProfileResponse } from "@/lib/api/auth";
 import { images } from "@/constants";
 import DeleteAccountOverlay from "@/components/DeleteAccountOverlay";
 import DeletingAccountOverlay from "@/components/DeletingAccountOverlay";
@@ -47,6 +48,7 @@ import { useAuthStore } from "@/store/authStore";
 import Button from "@/components/Button"; 
 import Overlay from "@/components/Overlay";
 import { API_URL } from "@/config";
+import { editCounselorProfile } from "@/lib/api/counselor";
 
 const BORDER = "#553434";
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -199,7 +201,7 @@ const handleNotificationToggle = () => {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
-  const [editEmail, setEditEmail] = useState("");
+  const [editContact, setEditContact] = useState("");
   const [editDob, setEditDob] = useState("");
 
   const formatDOB = (dobString: string) => {
@@ -248,7 +250,7 @@ const handleNotificationToggle = () => {
       setUser(res);
       // preload fields for editing
       setEditName(res.profile?.name || "");
-      setEditEmail(res.profile?.email || "");
+      setEditContact(res.profile?.contactNumber || "");
       setEditDob(res?.profile?.dob ? formatDOB(res.profile.dob) : "");
     }
   };
@@ -353,9 +355,9 @@ const [editLoading, setEditLoading] = useState(false);
     Keyboard.dismiss();
   try {
     setEditLoading(true);
-    await editProfile({
+    await editCounselorProfile({
       name: editName,
-      email: editEmail,
+      contactNumber: editContact,
       dateOfBirth: editDob,
       imageUri: selectedImage ?? null,
     });
@@ -568,13 +570,12 @@ const Edit = async() =>{
               </View>
 
               <View style={{ marginTop: 12 }}>
-                <Text style={styles.fieldLabelSmall}>Email</Text>
+                <Text style={styles.fieldLabelSmall}>Contact Number</Text>
                 <TextInput
                   style={[styles.inputUnderline]}
-                  value={editEmail}
-                  onChangeText={setEditEmail}
-                  placeholder="you@example.com"
-                  keyboardType="email-address"
+                  value={editContact}
+                  onChangeText={setEditContact}
+                  placeholder="+977 98XXXXXXXX"
                   autoCapitalize="none"
                   placeholderTextColor="#999"
                   returnKeyType="next"
