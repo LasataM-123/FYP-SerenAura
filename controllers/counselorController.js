@@ -1,6 +1,5 @@
 const Counselor = require('../models/counselorModel');
 const asyncHandler = require('express-async-handler');
-const bcrypt = require('bcrypt');
 const cloudinary = require('../config/cloudinaryConfig');
 const mongoose = require('mongoose');
 
@@ -34,51 +33,7 @@ const deleteUploadedFile = async (file) => {
 
 
 
-/**
- * @route  POST /api/counselors/create
- * @desc   Create counselor account
- * @access Private (admin only)
- */
-const createCounselor=asyncHandler(async(req, res) => {
-    try{
-        const { name, email, password, dateOfBirth, experience, speciality } = req.body;
-        if(!name || !email || !password || !dateOfBirth || !experience || !speciality){
-             await deleteUploadedFile(req.file);
-            return res.status(400).json({ error: "Please fill all fields" });
-        }
-        const existingPatient = await Counselor.findOne({ email });
-        if(existingPatient){
-            res.status(400).json({ message: 'Counselor already exists' });
-        }
-        // Regex: min 8 chars, at least 1 uppercase, 1 lowercase, 1 number, 1 special character
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
-        if (!passwordRegex.test(password)) {
-        return res.status(400).json({
-            message: 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character'
-        });
-        }
-         if (!req.file) {
-            return res.status(400).json({ error: "Profile image is required" });
-        }
-
-        const profileUrl = req.file.path;
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const counselor = await Counselor.create({
-            name,
-            email,
-            password: hashedPassword,
-            dateOfBirth,
-            experience,
-            speciality,
-            profileUrl
-        });
-        res.status(201).json({counselor ,message:"Counselor created successfully"});
-    }catch(e){
-        res.status(500).json({ message: e.message });
-    }
-});
 
 /**
  * @route  GET /api/counselors/get
@@ -171,64 +126,84 @@ const deleteCounselorAccount = asyncHandler(async (req, res) => {
 });
 
 /**
- * @route  GET /api/counselors/admin/get-all
- * @desc   Get all counselors (for admin)
- * @access Private (admin only)
+ * @route  PUT /api/counselors/edit-profile
+ * @desc   Edit counselor profile
+ * @access Private (counselor only)
  */
-const getCounselorForAdmin = asyncHandler(async (req, res) => {
-  try {
-    const counselors = await Counselor.find().select(
-      "_id name profileUrl experience speciality"
-    );
+const editCounselorProfile = asyncHandler(async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { name, contactNumber, dateOfBirth, profileUrl } = req.body;
 
-    const data = counselors.map(c => ({
-      id: c._id,            
-      name: c.name,
-      experience: c.experience,
-      speciality: c.speciality,
-      profileUrl: c.profileUrl,
-    }));
+        // Find user in Patient or Counselor
+        const user= await Counselor.findById(userId);
+        if (!user) return res.status(404).json({ message: "User not found" });
 
-    res.set('X-Total-Count', data.length);
-    res.set('Access-Control-Expose-Headers', 'X-Total-Count');
+        // Update name & email
+        if (name) user.name = name;
+        if (contactNumber) user.contactNumber = contactNumber;
+        // Update dateOfBirth with validation
+        if (dateOfBirth) {
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dateRegex.test(dateOfBirth)) {
+                return res.status(400).json({ message: "Date of Birth must be in YYYY-MM-DD format" });
+            }
+            const [yearStr, monthStr, dayStr] = dateOfBirth.split("-");
+            const year = parseInt(yearStr, 10);
+            const month = parseInt(monthStr, 10);
+            const day = parseInt(dayStr, 10);
 
-    return res.status(200).json(data); 
-  } catch (e) {
-    return res.status(500).json({ message: e.message });
-  }
+            if (month < 1 || month > 12) {
+                return res.status(400).json({ message: "Month must be between 01 and 12" });
+            }
+
+            const daysInMonth = [
+                31,
+                (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 29 : 28,
+                31, 30, 31, 30, 31, 31, 30, 31, 30, 31
+            ];
+
+            if (day < 1 || day > daysInMonth[month - 1]) {
+                return res.status(400).json({
+                    message: `Day must be between 01 and ${daysInMonth[month - 1]} for month ${monthStr}`,
+                });
+            }
+
+            user.dateOfBirth = dateOfBirth;
+        }
+
+        // Handle profile picture
+        if (req.file && req.file.path) {
+            // Delete old profile image from Cloudinary
+            if (user.profileUrl) {
+                await deleteUploadedFile(user.profileUrl);
+            }
+            user.profileUrl = req.file.path; // multer + CloudinaryStorage sets secure URL here
+        } else if (profileUrl) {
+            // Update profileUrl via direct URL if provided
+            if (user.profileUrl && user.profileUrl !== profileUrl) {
+                await deleteUploadedFile(user.profileUrl);
+            }
+            user.profileUrl = profileUrl;
+        }
+
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile updated successfully",
+            profile: {
+                name: user.name,
+                contactNumber: user.contactNumber || null,
+    dob: user.dateOfBirth ? user.dateOfBirth.toISOString().split('T')[0] : null,
+                profileUrl: user.profileUrl || null,
+            },
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ message: err.message });
+    }
 });
 
-/**
- * @route  GET /api/counselors/admin/get/:id
- * @desc   Get counselor by Id (for admin)
- * @access Private (admin only)
- */
-const getCounselorByIdForAdmin = asyncHandler(async (req, res) => {
-  try {
-    const { id } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "Invalid counselor ID format." });
-    }
-
-    const c = await Counselor.findById(id).select(
-      "_id name profileUrl experience speciality"
-    );
-
-    if (!c) {
-      return res.status(404).json({ message: "Counselor not found." });
-    }
-
-    return res.status(200).json({
-      id: c._id,                  
-      name: c.name,
-      experience: c.experience,
-      speciality: c.speciality,
-      profileUrl: c.profileUrl,
-    });
-  } catch (e) {
-    return res.status(500).json({ message: e.message });
-  }
-});
-
-module.exports = { createCounselor, getCounselor, getCounselorById, deleteCounselorAccount, getCounselorByIdForAdmin, getCounselorForAdmin };
+module.exports = {getCounselor, getCounselorById, deleteCounselorAccount, editCounselorProfile };

@@ -222,7 +222,7 @@ const getProfile = asyncHandler(async (req, res) => {
 
     // If not patient, try Counselor
     if (!user) {
-      user = await Counselor.findById(userId).select("name email dateOfBirth profileUrl notificationsEnabled");
+      user = await Counselor.findById(userId).select("name email contactNumber dateOfBirth profileUrl notificationsEnabled");
     }
 
     if (!user) {
@@ -235,6 +235,7 @@ const getProfile = asyncHandler(async (req, res) => {
       profile: {
         name: user.name,
         email: user.email,
+        contactNumber: user.contactNumber || null,
         dob: user.dateOfBirth,
         profileUrl: user.profileUrl || null,
         notificationsEnabled: user.notificationsEnabled,

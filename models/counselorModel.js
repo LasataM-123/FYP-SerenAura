@@ -31,6 +31,10 @@ const counselorSchema = new mongoose.Schema({
         type: String,
         required: true
    },
+   contactNumber:{
+        type: String,
+        default: null
+   },
     chat:[{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Chat'
@@ -38,7 +42,16 @@ const counselorSchema = new mongoose.Schema({
    notificationsEnabled: {
         type: Boolean,
         default: false 
+    },
+    isPaid: {
+        type: Boolean,
+        default: false
+    },
+    lastPaidAt: {
+        type: Date,
+        default: null
     }
+
 
 },{
     timestamps: true

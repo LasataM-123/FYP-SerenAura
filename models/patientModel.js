@@ -28,6 +28,11 @@ const patientSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    subscriptionType:{
+        type: String,
+        enum: ['monthly', 'yearly', null],
+        default: null
+    },
     playlists: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Playlist'

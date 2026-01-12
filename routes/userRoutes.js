@@ -27,6 +27,7 @@ router.delete('/delete',tokenHandler, validPatient, deletePatientAccount )
 router.put(
     '/edit-profile',
     tokenHandler,
+    validPatient,
     upload.single('profileUrl'),
     editProfile
 );

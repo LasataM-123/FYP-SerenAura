@@ -73,41 +73,7 @@ const createSupportQuestion = asyncHandler(async (req, res) => {
     }
 });
 
-/**
- * @route  POST /api/faq/answer-question/:questionId
- * @desc   Answer a support question
- * @access Private (admin)
- */
-const answerSupportQuestion = asyncHandler(async (req, res) => {
-    try{
-        const { answer } = req.body;
-        const questionId = req.params.questionId;
 
-        if (!questionId || !answer) {
-            res.status(400);
-            throw new Error("Question ID and answer are required");
-        }
-
-        const question = await SupportQuestion.findById(questionId);
-
-        if (!question) {
-            res.status(404);
-            throw new Error("Question not found");
-        }
-
-        question.answer = answer;
-        question.isAnswered = true;
-
-        await question.save();
-
-        res.json({
-            message: "Answer added successfully",
-            data: question,
-        });
-    }catch(err){
-        return res.status(500).json({ message: err.message });
-    }
-});
 
 /**
  * @route  GET /api/faq/get-questions
@@ -115,42 +81,50 @@ const answerSupportQuestion = asyncHandler(async (req, res) => {
  * @access Public
  */
 const getTopQuestions = asyncHandler(async (req, res) => {
-    try{
-        const faqs = await SupportQuestion.aggregate([
-        {
-        $match: {
-            isAnswered: true,
-            answer: { $ne: null },
-        },
-        },
-        {
+  try {
+    const faqs = await SupportQuestion.aggregate([
+      {
         $group: {
-            _id: { $toLower: "$question" }, // normalize same questions
-            question: { $first: "$question" },
-            answer: { $first: "$answer" },
-            count: { $sum: 1 },
+          _id: { $toLower: "$question" },
+          question: { $first: "$question" },
+
+          // pick an answer if any exists
+          answer: {
+            $max: {
+              $cond: [{ $ifNull: ["$answer", false] }, "$answer", null]
+            }
+          },
+
+          // true if at least one question is answered
+          isAnswered: {
+            $max: {
+              $cond: ["$isAnswered", 1, 0]
+            }
+          },
+
+          count: { $sum: 1 },
         },
-        },
-        {
-        $sort: { count: -1 }, 
-        },
-        {
+      },
+      {
+        $sort: { count: -1 },
+      },
+      {
         $limit: 10,
-        },
+      },
     ]);
 
     res.json({
-        total: faqs.length,
-        data: faqs,
+      total: faqs.length,
+      data: faqs,
     });
-
-    }catch(err){
-        return res.status(500).json({ message: err.message });
-    }
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
 });
+
+
 
 module.exports = {
     createSupportQuestion,
-    answerSupportQuestion,
     getTopQuestions
 };
