@@ -5,6 +5,8 @@ const bcrypt = require('bcrypt');
 const SupportQuestion = require("../models/faqModel");
 const cloudinary = require('../config/cloudinaryConfig');
 const Patient = require('../models/patientModel');
+const jwt = require('jsonwebtoken');
+
 
 const JWT_SECRET = process.env.JWT_SECRET_KEY;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET_KEY;
@@ -80,6 +82,7 @@ const adminLogin = asyncHandler(async (req, res) => {
 
     const adminEmail = process.env.ADMIN_EMAIL;
     const adminPasswordHash = process.env.ADMIN_HASH_PASSWORD;
+    
 
     // Check email
     if (email !== adminEmail) {
@@ -99,7 +102,7 @@ const adminLogin = asyncHandler(async (req, res) => {
             message: "Invalid credentials"
         });
     }
-
+    
     const { accessToken, refreshToken } = generateTokens(
         adminEmail,
         "admin"
@@ -170,7 +173,7 @@ const createCounselor=asyncHandler(async(req, res) => {
 const getCounselorForAdmin = asyncHandler(async (req, res) => {
   try {
     const counselors = await Counselor.find().select(
-      "_id name profileUrl experience speciality"
+      "_id name profileUrl experience speciality contactNumber isPaid lastPaidAt"
     );
 
     const data = counselors.map(c => ({
@@ -179,6 +182,9 @@ const getCounselorForAdmin = asyncHandler(async (req, res) => {
       experience: c.experience,
       speciality: c.speciality,
       profileUrl: c.profileUrl,
+    contactNumber: c.contactNumber,
+    isPaid: c.isPaid,
+    lastPaidAt: c.lastPaidAt,
     }));
 
     res.set('X-Total-Count', data.length);

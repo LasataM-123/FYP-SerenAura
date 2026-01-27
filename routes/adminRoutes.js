@@ -5,7 +5,7 @@ const cloudinary = require('../config/cloudinaryConfig');
 const {CloudinaryStorage} = require('multer-storage-cloudinary');
 const {tokenHandler} = require('../middlewares/tokenHandler');
 const multer = require('multer');
-const { getCounselorByIdForAdmin, getCounselorForAdmin, createCounselor, answerSupportQuestion, getTotalCounselors } = require('../controllers/adminController');
+const { getCounselorByIdForAdmin, getCounselorForAdmin, createCounselor, answerSupportQuestion, getTotalCounselors, adminLogin } = require('../controllers/adminController');
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
     params: {
@@ -22,5 +22,6 @@ router.get('/get/:id',tokenHandler, validAdmin,getCounselorByIdForAdmin);
 router.get('/get-all',tokenHandler, validAdmin,getCounselorForAdmin)
 router.post('/answer-question/:questionId', tokenHandler, validAdmin,answerSupportQuestion);
 router.get('/total-counselors', tokenHandler, validAdmin, getTotalCounselors);
+router.post('/login',adminLogin)
 
 module.exports = router;
