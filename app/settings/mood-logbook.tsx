@@ -293,89 +293,122 @@ const month = currentDate.getMonth() + 1;
 const DonutChart = ({ data, centerMood }: { data: any[], centerMood: any }) => {
   const size = 200;
   const center = size / 2;
-  const radius = 72; 
-  const strokeWidth = 52; 
-  
+  const radius = 72;
+  const strokeWidth = 52;
+
   const innerRadius = radius - strokeWidth / 2;
   const outerRadius = radius + strokeWidth / 2;
   const innerCircleSize = innerRadius * 2;
 
+  // Only moods with actual data
+  const activeMoods = data.filter(d => d.percentage > 0);
+
   let currentPathAngle = -90;
   let currentLineAngle = -90;
-
-  // Filter to get only active moods
-  const activeMoods = data.filter(d => d.percentage > 0);
 
   return (
     <View style={styles.donutShadowWrapper}>
       <Svg width={size} height={size}>
         <G>
-          {/* STEP 1: Draw all color segments first */}
-          {activeMoods.map((item, i) => {
-            const angle = (item.percentage / 100) * 360;
-            const startAngle = currentPathAngle;
-            const x1 = center + radius * Math.cos((Math.PI * startAngle) / 180);
-            const y1 = center + radius * Math.sin((Math.PI * startAngle) / 180);
-            currentPathAngle += angle;
-            const x2 = center + radius * Math.cos((Math.PI * currentPathAngle) / 180);
-            const y2 = center + radius * Math.sin((Math.PI * currentPathAngle) / 180);
-            const largeArcFlag = angle > 180 ? 1 : 0;
-            const d = `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`;
 
-            return (
-              <Path 
-                key={`path-${i}`} 
-                d={d} 
-                fill="none" 
-                stroke={item.color} 
-                strokeWidth={strokeWidth} 
-                strokeLinecap="butt" // Keeps ends flat so lines sit better
-              />
-            );
-          })}
+          {/* ===========================
+              CASE 1: ONLY ONE MOOD
+          ============================ */}
+          {activeMoods.length === 1 && (
+            <Circle
+              cx={center}
+              cy={center}
+              r={radius}
+              fill="none"
+              stroke={activeMoods[0].color}
+              strokeWidth={strokeWidth}
+            />
+          )}
 
-          {/* STEP 2: Draw divider lines ON TOP of the paths */}
-          {activeMoods.length > 1 && activeMoods.map((item, i) => {
-            const angle = (item.percentage / 100) * 360;
-            const lineAngle = currentLineAngle;
-            currentLineAngle += angle;
+          {/* ===========================
+              CASE 2: MULTIPLE MOODS
+          ============================ */}
+          {activeMoods.length > 1 && (
+            <>
+              {/* Mood segments */}
+              {activeMoods.map((item, i) => {
+                const angle = (item.percentage / 100) * 360;
+                const startAngle = currentPathAngle;
 
-            // We subtract/add 1 pixel to overlap the borders slightly 
-            // This prevents "light gaps" and ensures uniform thickness
-            const lx1 = center + (innerRadius - 1) * Math.cos((Math.PI * lineAngle) / 180);
-            const ly1 = center + (innerRadius - 1) * Math.sin((Math.PI * lineAngle) / 180);
-            const lx2 = center + (outerRadius + 1) * Math.cos((Math.PI * lineAngle) / 180);
-            const ly2 = center + (outerRadius + 1) * Math.sin((Math.PI * lineAngle) / 180);
+                const x1 = center + radius * Math.cos((Math.PI * startAngle) / 180);
+                const y1 = center + radius * Math.sin((Math.PI * startAngle) / 180);
 
-            return (
-              <Line
-                key={`line-${i}`}
-                x1={lx1} y1={ly1}
-                x2={lx2} y2={ly2}
-                stroke={COLORS.text}
-                strokeWidth={2.5} // Use a slightly smaller width for a cleaner look
-                strokeLinecap="round" // Smooths out the edges of the divider
-              />
-            );
-          })}
+                currentPathAngle += angle;
+
+                const x2 = center + radius * Math.cos((Math.PI * currentPathAngle) / 180);
+                const y2 = center + radius * Math.sin((Math.PI * currentPathAngle) / 180);
+
+                const largeArcFlag = angle > 180 ? 1 : 0;
+
+                const d = `
+                  M ${x1} ${y1}
+                  A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}
+                `;
+
+                return (
+                  <Path
+                    key={`path-${i}`}
+                    d={d}
+                    fill="none"
+                    stroke={item.color}
+                    strokeWidth={strokeWidth}
+                    strokeLinecap="butt"
+                  />
+                );
+              })}
+
+              {/* Divider lines */}
+              {activeMoods.map((item, i) => {
+                const angle = (item.percentage / 100) * 360;
+                const lineAngle = currentLineAngle;
+                currentLineAngle += angle;
+
+                const lx1 = center + (innerRadius - 1) * Math.cos((Math.PI * lineAngle) / 180);
+                const ly1 = center + (innerRadius - 1) * Math.sin((Math.PI * lineAngle) / 180);
+                const lx2 = center + (outerRadius + 1) * Math.cos((Math.PI * lineAngle) / 180);
+                const ly2 = center + (outerRadius + 1) * Math.sin((Math.PI * lineAngle) / 180);
+
+                return (
+                  <Line
+                    key={`line-${i}`}
+                    x1={lx1}
+                    y1={ly1}
+                    x2={lx2}
+                    y2={ly2}
+                    stroke={COLORS.text}
+                    strokeWidth={2.5}
+                    strokeLinecap="round"
+                  />
+                );
+              })}
+            </>
+          )}
         </G>
       </Svg>
 
-      {/* --- THE INNER CIRCLE VIEW --- */}
-      <View style={[
-        styles.innerCircleShadow, 
-        { 
-          width: innerCircleSize, 
-          height: innerCircleSize, 
-          borderRadius: innerRadius 
-        }
-      ]}>
+      {/* CENTER MOOD */}
+      <View
+        style={[
+          styles.innerCircleShadow,
+          {
+            width: innerCircleSize,
+            height: innerCircleSize,
+            borderRadius: innerRadius,
+          },
+        ]}
+      >
         <Image source={centerMood.image} style={styles.img38} />
         <Text style={styles.centerMoodName}>{centerMood.name}</Text>
       </View>
     </View>
   );
 };
+
 
 const TagItem = ({ label }: { label: string }) => {
   const feelingData = feelings.find(f => f.name.toLowerCase() === label.toLowerCase());
