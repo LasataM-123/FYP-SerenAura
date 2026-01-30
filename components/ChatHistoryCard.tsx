@@ -244,12 +244,12 @@ const styles = StyleSheet.create({
 
   daysAgoContainer: {
     position: "absolute",
-    top: 12,
+    top:20,
     right: 12,
   },
 
   daysAgoText: {
-    fontSize: 12,
+    fontSize: 8,
     color: BORDER_COLOR,
     fontFamily: "KodchasanSemiBold",
   },

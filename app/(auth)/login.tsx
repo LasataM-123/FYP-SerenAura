@@ -35,9 +35,13 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
 
   const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: GOOGLE_CLIENT_ID,
-    webClientId: WEB_CLIENT_ID,
-  });
+  androidClientId: GOOGLE_CLIENT_ID,
+  webClientId: WEB_CLIENT_ID,
+  redirectUri: AuthSession.makeRedirectUri({
+    scheme: 'frontendui', 
+    preferLocalhost: true,    
+  }),
+})
 
   // Fade animation setup
   const fadeAnim = useRef(new Animated.Value(0)).current;
