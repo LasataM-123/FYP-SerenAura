@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const SupportQuestion = require("../models/faqModel");
 const cloudinary = require('../config/cloudinaryConfig');
 const Patient = require('../models/patientModel');
+const Transaction = require('../models/transactionModel');
 const jwt = require('jsonwebtoken');
 
 
@@ -123,10 +124,19 @@ const adminLogin = asyncHandler(async (req, res) => {
 const createCounselor=asyncHandler(async(req, res) => {
     try{
         const { name, email, password, dateOfBirth, experience, speciality, contactNumber } = req.body;
-        if(!name || !email || !password || !dateOfBirth || !experience || !speciality || !contactNumber){
-             await deleteUploadedFile(req.file);
-            return res.status(400).json({ error: "Please fill all fields" });
+        if (
+        !name ||
+        !email ||
+        !password ||
+        !dateOfBirth ||
+        experience === undefined ||
+        !speciality ||
+        !contactNumber
+        ) {
+        if (req.file) await deleteUploadedFile(req.file);
+        return res.status(400).json({ error: "Please fill all fields" });
         }
+
         const existingCounselor = await Counselor.findOne({ email });
         if(existingCounselor){
             await deleteUploadedFile(req.file);
@@ -173,7 +183,7 @@ const createCounselor=asyncHandler(async(req, res) => {
 const getCounselorForAdmin = asyncHandler(async (req, res) => {
   try {
     const counselors = await Counselor.find().select(
-      "_id name profileUrl experience speciality contactNumber isPaid lastPaidAt"
+      "_id name profileUrl experience dateOfBirth speciality contactNumber isPaid lastPaidAt"
     );
 
     const data = counselors.map(c => ({
@@ -183,6 +193,9 @@ const getCounselorForAdmin = asyncHandler(async (req, res) => {
       speciality: c.speciality,
       profileUrl: c.profileUrl,
     contactNumber: c.contactNumber,
+    dateOfBirth: c.dateOfBirth
+        ? c.dateOfBirth.toISOString().split("T")[0]
+        : null,
     isPaid: c.isPaid,
     lastPaidAt: c.lastPaidAt,
     }));
@@ -230,25 +243,29 @@ const getCounselorByIdForAdmin = asyncHandler(async (req, res) => {
 });
 
 /**
- * @route  POST /api/admin/answer-question/:questionId
+ * @route  PUT /api/admin/answer-question/:questionId
  * @desc   Answer a support question
  * @access Private (admin)
  */
 const answerSupportQuestion = asyncHandler(async (req, res) => {
-    try{
+    try {
         const { answer } = req.body;
-        const questionId = req.params.questionId;
+        const { questionId } = req.params;
 
-        if (!questionId || !answer) {
-            res.status(400);
-            throw new Error("Question ID and answer are required");
+        if (!mongoose.Types.ObjectId.isValid(questionId)) {
+            return res.status(400).json({ 
+                message: "Invalid Question ID format. Please provide a valid 24-character ID." 
+            });
+        }
+
+        if (!answer) {
+            return res.status(400).json({ message: "Answer is required" });
         }
 
         const question = await SupportQuestion.findById(questionId);
 
         if (!question) {
-            res.status(404);
-            throw new Error("Question not found");
+            return res.status(404).json({ message: "Question not found" });
         }
 
         question.answer = answer;
@@ -257,22 +274,15 @@ const answerSupportQuestion = asyncHandler(async (req, res) => {
         await question.save();
 
         res.json({
+            success: true,
             message: "Answer added successfully",
             data: question,
         });
-    }catch(err){
+
+    } catch (err) {
+        console.error("Answer Controller Error:", err);
         return res.status(500).json({ message: err.message });
     }
-});
-
-/**
- * @route  GET /api/admin/total-counselors
- * @desc   Get total number of counselors
- * @access Private (admin only)
- */
-const getTotalCounselors = asyncHandler(async (req, res) => {
-    const totalCounselors = await Counselor.countDocuments();
-    res.status(200).json({ totalCounselors });
 });
 
 /**
@@ -281,69 +291,422 @@ const getTotalCounselors = asyncHandler(async (req, res) => {
  * @access Private (admin only)
  */
 const getAdminDashboardStats = asyncHandler(async (req, res) => {
-    // Reset monthly payment eligibility
     await resetMonthlyPayments();
 
-    // =======================
-    // EARNINGS
-    // =======================
-    const subscribedPatients = await Patient.find({ isSubscribed: true });
+    const [stats, recentTransactions, monthlyData, activeSubscribers, unpaidCounselors, totalCounselors] = await Promise.all([
+        // 1. Financial Stats
+        Transaction.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    totalEarnings: { $sum: { $cond: [{ $eq: ["$type", "INCOME"] }, "$amount", 0] } },
+                    totalSpending: { $sum: { $cond: [{ $eq: ["$type", "EXPENSE"] }, "$amount", 0] } }
+                }
+            }
+        ]),
 
-    let earnings = 0;
-    subscribedPatients.forEach(p => {
-        if (p.subscriptionType === "monthly") earnings += 100;
-        if (p.subscriptionType === "yearly") earnings += 1100;
-    });
+        // 2. Recent Transactions
+        Transaction.find()
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .populate('counselorId', 'name')
+            .lean(),
 
-    // =======================
-    // SPENDING (pending payouts)
-    // =======================
-    const unpaidCounselors = await Counselor.find({ isPaid: false });
-    const spending = unpaidCounselors.length * 1000;
+        // 3. Monthly Data
+        Transaction.aggregate([
+            {
+                $group: {
+                    _id: { $month: "$timestamp" },
+                    earnings: { $sum: { $cond: [{ $eq: ["$type", "INCOME"] }, "$amount", 0] } },
+                    spending: { $sum: { $cond: [{ $eq: ["$type", "EXPENSE"] }, "$amount", 0] } }
+                }
+            },
+            { $sort: { "_id": 1 } }
+        ]),
 
-    // =======================
-    // PROFIT
-    // =======================
-    const profit = earnings - spending;
+        // 4. Counts
+        Patient.countDocuments({ isSubscribed: true }),     // Active Subscribers
+        Counselor.countDocuments({ isPaid: false }),        // Pending Payouts
+        Counselor.countDocuments({})                        // TOTAL COUNSELORS (New!)
+    ]);
 
-    // =======================
-    // RESPONSE
-    // =======================
+    const financialData = stats[0] || { totalEarnings: 0, totalSpending: 0 };
+
+    // Format transactions
+    const formattedTransactions = recentTransactions.map(t => ({
+        ...t,
+        id: t._id,
+        date: t.timestamp ? new Date(t.timestamp).toISOString().split('T')[0] : "N/A",
+        counselorName: t.counselorId?.name || "System"
+    }));
+
     res.status(200).json({
-        subscribers: subscribedPatients.length,
-        counselorsPendingPayment: unpaidCounselors.length,
-        earnings,
-        spending,
-        profit
+        summary: {
+            subscribers: activeSubscribers,
+            counselorsPendingPayment: unpaidCounselors,
+            totalCounselors: totalCounselors, 
+            totalEarnings: financialData.totalEarnings,
+            totalSpending: financialData.totalSpending,
+            profit: financialData.totalEarnings - financialData.totalSpending
+        },
+        recentTransactions: formattedTransactions, 
+        chartData: monthlyData 
     });
 });
 
 /**
- * @route  PUT /api/admin/pay-counselors
- * @desc   Pay counselors who are due for payment
- * @access Private (admin only)
+ * @route   PUT /api/admin/pay-counselor/:id
+ * @desc    Pay a specific counselor who is due for payment
+ * @access  Private (admin only)
  */
-const payCounselors = asyncHandler(async (req, res) => {
+const payCounselor = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid counselor ID format" });
+    }
+
     await resetMonthlyPayments();
+    const counselor = await Counselor.findById(id);
 
-    const unpaidCounselors = await Counselor.find({ isPaid: false });
-    const spending = unpaidCounselors.length * 1000;
-    const now = new Date();
+    if (!counselor) {
+        return res.status(404).json({ message: "Counselor not found" });
+    }
+    if (counselor.isPaid) {
+        return res.status(400).json({ message: "Counselor already paid for this month." });
+    }
 
-    await Counselor.updateMany(
-        { isPaid: false },
-        {
-            $set: {
-                isPaid: true,
-                lastPaidAt: now
-            }
-        }
-    );
+    counselor.isPaid = true;
+    counselor.lastPaidAt = new Date();
+    await counselor.save();
+
+    await Transaction.create({
+        type: 'EXPENSE',
+        amount: 1000,
+        category: 'payout',
+        counselorId: counselor._id,
+        description: `Monthly payout to ${counselor.name}`
+    });
 
     res.status(200).json({
-        counselorsPaid: unpaidCounselors.length,
-        spending
+        success: true,
+        message: `Successfully paid Rs. 1000 to ${counselor.name}`,
     });
 });
 
-module.exports = {createCounselor, getCounselorByIdForAdmin, getCounselorForAdmin, answerSupportQuestion,getTotalCounselors, getAdminDashboardStats, payCounselors, adminLogin };
+/**
+ * @route  PUT /api/admin/edit-counselor/:id
+ * @desc   Edit counselor profile
+ * @access Private (admin only)
+ */
+const editCounselor = asyncHandler(async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const { name, contactNumber, dateOfBirth, profileUrl, experience } = req.body;
+
+        // Find user in Patient or Counselor
+        const user= await Counselor.findById(userId);
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        // Update name & email
+        if (name) user.name = name;
+        if (contactNumber) user.contactNumber = contactNumber;
+        if (experience) user.experience = experience;
+        // Update dateOfBirth with validation
+        if (dateOfBirth) {
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dateRegex.test(dateOfBirth)) {
+                return res.status(400).json({ message: "Date of Birth must be in YYYY-MM-DD format" });
+            }
+            const [yearStr, monthStr, dayStr] = dateOfBirth.split("-");
+            const year = parseInt(yearStr, 10);
+            const month = parseInt(monthStr, 10);
+            const day = parseInt(dayStr, 10);
+
+            if (month < 1 || month > 12) {
+                return res.status(400).json({ message: "Month must be between 01 and 12" });
+            }
+
+            const daysInMonth = [
+                31,
+                (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 29 : 28,
+                31, 30, 31, 30, 31, 31, 30, 31, 30, 31
+            ];
+
+            if (day < 1 || day > daysInMonth[month - 1]) {
+                return res.status(400).json({
+                    message: `Day must be between 01 and ${daysInMonth[month - 1]} for month ${monthStr}`,
+                });
+            }
+
+            user.dateOfBirth = dateOfBirth;
+        }
+
+        // Handle profile picture
+        if (req.file && req.file.path) {
+            // Delete old profile image from Cloudinary
+            if (user.profileUrl) {
+                await deleteUploadedFile(user.profileUrl);
+            }
+            user.profileUrl = req.file.path; // multer + CloudinaryStorage sets secure URL here
+        } else if (profileUrl) {
+            // Update profileUrl via direct URL if provided
+            if (user.profileUrl && user.profileUrl !== profileUrl) {
+                await deleteUploadedFile(user.profileUrl);
+            }
+            user.profileUrl = profileUrl;
+        }
+
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile updated successfully",
+            profile: {
+                name: user.name,
+                contactNumber: user.contactNumber || null,
+    dob: user.dateOfBirth ? user.dateOfBirth.toISOString().split('T')[0] : null,
+                profileUrl: user.profileUrl || null,
+            },
+        });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ message: err.message });
+    }
+});
+/**
+ * @route  DELETE /api/admin/delete-counselor/:id
+ * @desc   Delete counselor account
+ * @access Private (admin only)
+ */
+const deleteCounselor = asyncHandler(async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const counselor = await Counselor.findById(userId);
+
+        if (!counselor) {
+            return res.status(404).json({ message: "Counselor not found" });
+        }
+
+        // Delete profile image
+        await deleteUploadedFile(counselor.profileUrl);
+
+        // Delete counselor document
+        await Counselor.findByIdAndDelete(userId);
+
+        return res.status(200).json({
+            success: true,
+            message: "Counselor account deleted successfully"
+        });
+
+    } catch (err) {
+        return res.status(500).json({ message: err.message });
+    }
+});
+
+/**
+ * @route   GET /api/admin/view-question/:id
+ * @desc    Get a specific support question and its answer
+ * @access  Private (admin only)
+ */
+const getAnsweredQuestionById = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid question ID format" });
+    }
+
+    const faq = await SupportQuestion.findById(id);
+
+    if (!faq || !faq.isAnswered) {
+        return res.status(404).json({ 
+            message: "This question is not available or has not been answered yet." 
+        });
+    }
+
+    res.status(200).json({
+        success: true,
+        data: faq
+    });
+});
+
+/**
+ * @route   PUT /api/admin/update-question/:id
+ * @desc    Update an existing (already answered) answer
+ * @access  Private (Admin)
+ */
+const updateSupportQuestion = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { answer } = req.body;
+
+    const faq = await SupportQuestion.findById(id);
+
+    if (!faq) {
+        return res.status(404).json({ message: "Question not found" });
+    }
+
+    if (!faq.isAnswered) {
+        return res.status(403).json({ 
+            message: "This question cannot be updated because it hasn't been answered yet. Use the 'answer' endpoint instead." 
+        });
+    }
+
+    if (answer) faq.answer = answer;
+
+    const updatedFaq = await faq.save();
+
+    res.status(200).json({
+        message: "Question updated successfully",
+        success: true,
+        data: updatedFaq
+    });
+});
+
+/**
+ * @route   GET /api/admin/weekly-revenue
+ * @desc    Get income vs expense for the last 7 days (using 'timestamp' field)
+ * @access  Private (Admin)
+ */
+const getWeeklyStats = asyncHandler(async (req, res) => {
+    // 1. Get date 7 days ago
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    // 2. Aggregate Data using "timestamp"
+    const dailyStats = await Transaction.aggregate([
+        {
+            $match: {
+                timestamp: { $gte: sevenDaysAgo } // CHANGED: used timestamp
+            }
+        },
+        {
+            $group: {
+                _id: { 
+                    // CHANGED: used timestamp for grouping
+                    day: { $dayOfWeek: "$timestamp" }, 
+                    date: { $dateToString: { format: "%Y-%m-%d", date: "$timestamp" } }
+                },
+                income: { 
+                    $sum: { $cond: [{ $eq: ["$type", "INCOME"] }, "$amount", 0] } 
+                },
+                expense: { 
+                    $sum: { $cond: [{ $eq: ["$type", "EXPENSE"] }, "$amount", 0] } 
+                }
+            }
+        },
+        { $sort: { "_id.date": 1 } }
+    ]);
+
+    // 3. Fill in missing days
+    const result = [];
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    
+    for (let i = 0; i < 7; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - (6 - i));
+        const dateString = d.toISOString().split('T')[0];
+        const dayName = days[d.getDay()];
+
+        const found = dailyStats.find(s => s._id.date === dateString);
+
+        result.push({
+            day: dayName,
+            income: found ? found.income : 0,
+            expense: found ? found.expense : 0
+        });
+    }
+
+    res.status(200).json(result);
+});
+
+/**
+ * @route   GET /api/admin/monthly-revenue
+ * @desc    Get monthly income vs expense for the FULL YEAR (Jan-Dec)
+ * @access  Private (Admin)
+ */
+const getMonthlyStats = asyncHandler(async (req, res) => {
+    const currentYear = new Date().getFullYear();
+    const startOfYear = new Date(currentYear, 0, 1);
+
+    const stats = await Transaction.aggregate([
+        {
+            $match: {
+                timestamp: { $gte: startOfYear } 
+            }
+        },
+        {
+            $group: {
+                _id: { $month: "$timestamp" }, 
+                income: { $sum: { $cond: [{ $eq: ["$type", "INCOME"] }, "$amount", 0] } },
+                expense: { $sum: { $cond: [{ $eq: ["$type", "EXPENSE"] }, "$amount", 0] } }
+            }
+        },
+        { $sort: { "_id": 1 } }
+    ]);
+
+    const result = [];
+    const standardMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    for (let i = 1; i <= 12; i++) {
+        const found = stats.find(s => s._id === i);
+        
+        result.push({
+            month: standardMonths[i - 1],
+            income: found ? found.income : 0,
+            expense: found ? found.expense : 0
+        });
+    }
+
+    res.status(200).json(result);
+});
+
+/**
+ * @route   GET /api/admin/pie-stats
+ * @desc    Get Income vs Expense distribution based on time filter
+ * @access  Private (Admin)
+ */
+const getPieStats = asyncHandler(async (req, res) => {
+    const { filter } = req.query; // 'weekly', 'monthly', 'yearly'
+    
+    let startDate = new Date();
+    const now = new Date();
+
+    // Determine Start Date based on filter
+    if (filter === 'weekly') {
+        startDate.setDate(now.getDate() - 7);
+    } else if (filter === 'monthly') {
+        startDate.setMonth(now.getMonth() - 1);
+    } else if (filter === 'yearly') {
+        startDate.setFullYear(now.getFullYear() - 1);
+    } else {
+        // Default to all time if something else is passed
+        startDate = new Date(0); 
+    }
+
+    const stats = await Transaction.aggregate([
+        {
+            $match: {
+                timestamp: { $gte: startDate } // Filter by date
+            }
+        },
+        {
+            $group: {
+                _id: "$type", // Group by "INCOME" or "EXPENSE"
+                totalAmount: { $sum: "$amount" }
+            }
+        }
+    ]);
+
+    // Format the result
+    let income = 0;
+    let expense = 0;
+
+    stats.forEach(stat => {
+        if (stat._id === "INCOME") income = stat.totalAmount;
+        if (stat._id === "EXPENSE") expense = stat.totalAmount;
+    });
+
+    res.status(200).json({ income, expense });
+});
+
+module.exports = {createCounselor, getCounselorByIdForAdmin, getCounselorForAdmin, answerSupportQuestion, getAdminDashboardStats, payCounselor, adminLogin, editCounselor, deleteCounselor, getAnsweredQuestionById, updateSupportQuestion, getWeeklyStats, getMonthlyStats, getPieStats };

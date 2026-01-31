@@ -80,37 +80,25 @@ const createSupportQuestion = asyncHandler(async (req, res) => {
  * @desc   Get top support questions    
  * @access Public
  */
+// backend/controllers/faqController.js
+
 const getTopQuestions = asyncHandler(async (req, res) => {
   try {
     const faqs = await SupportQuestion.aggregate([
       {
         $group: {
-          _id: { $toLower: "$question" },
+          _id: { $toLower: "$question" }, 
           question: { $first: "$question" },
 
-          // pick an answer if any exists
-          answer: {
-            $max: {
-              $cond: [{ $ifNull: ["$answer", false] }, "$answer", null]
-            }
-          },
-
-          // true if at least one question is answered
-          isAnswered: {
-            $max: {
-              $cond: ["$isAnswered", 1, 0]
-            }
-          },
+          questionId: { $first: "$_id" }, 
 
           count: { $sum: 1 },
+          isAnswered: { $max: { $cond: ["$isAnswered", 1, 0] } },
+          answer: { $first: "$answer" },
         },
       },
-      {
-        $sort: { count: -1 },
-      },
-      {
-        $limit: 10,
-      },
+      { $sort: { count: -1 } },
+      { $limit: 10 },
     ]);
 
     res.json({
@@ -118,7 +106,7 @@ const getTopQuestions = asyncHandler(async (req, res) => {
       data: faqs,
     });
   } catch (err) {
-    return res.status(500).json({ message: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
