@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const TransactionSchema = new mongoose.Schema({
   type: { 
     type: String, 
-    enum: ['INCOME', 'EXPENSE'], // INCOME = Patient, EXPENSE = Counselor Payout
+    enum: ['INCOME', 'EXPENSE'],
     required: true 
   },
   amount: { type: Number, required: true },
@@ -14,6 +14,13 @@ const TransactionSchema = new mongoose.Schema({
   },
   counselorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Counselor' },
   patientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Patient' },
+
+  khaltiIdx: { 
+    type: String, 
+    unique: true, 
+    sparse: true 
+  },
+
   description: String,
   timestamp: { type: Date, default: Date.now }
 });

@@ -6,6 +6,7 @@ const moodCategoryMap = require('../utils/moodCategoryMap');
 const axios = require('axios');
 const mm = require('music-metadata'); 
 const Mood = require('../models/moodModel');
+const Patient = require('../models/patientModel');
 const mongoose = require('mongoose');
 
 /**
@@ -24,7 +25,6 @@ const getRecommendations = asyncHandler(async (req, res) => {
     const threeDaysAgo = new Date(today);
     threeDaysAgo.setDate(today.getDate() - 3);
 
-    // ✅ Fetch mood & onboarding IN PARALLEL
     const [recentMood, onboarding] = await Promise.all([
       Mood.findOne({
         patientId: userId,
@@ -34,12 +34,10 @@ const getRecommendations = asyncHandler(async (req, res) => {
       Onboarding.findOne({ userId })
     ]);
 
-    // ✅ Mood-based recommendation
     if (recentMood?.mood && moodCategoryMap[recentMood.mood.toLowerCase()]) {
       source = "mood";
       categories = moodCategoryMap[recentMood.mood.toLowerCase()];
 
-      // ✅ Run all category queries in parallel
       const queries = categories.map(category =>
         Music.aggregate([
           { $match: { moodCategory: new RegExp(`^${category}$`, "i") } },
@@ -60,7 +58,6 @@ const getRecommendations = asyncHandler(async (req, res) => {
       return res.status(200).json({ success: true, source, recommendations });
     }
 
-    // ✅ Onboarding-based
     if (onboarding?.responses) {
       const onboardingCategories = [];
       onboarding.responses.forEach(({ question, answer }) => {
@@ -212,7 +209,17 @@ const getIndividualMedia = asyncHandler(async (req, res) => {
     if (!media) {
       return res.status(404).json({ message: "Media not found" });
     }
+    if (media.isLocked) {
+    const patient = await Patient.findById(req.user.id);
 
+    if (!patient?.isSubscribed) {
+      return res.status(403).json({
+        success: false,
+        message: "This content is locked. Please subscribe to access.",
+        locked: true,
+      });
+    }
+  }
     // Get audio duration if audioUrl exists
     let durationStr = null;
     if (media.audioUrl) {
@@ -298,7 +305,6 @@ const searchContent = asyncHandler(async (req, res) => {
       });
     }
 
-    // ============= CASE 2: TAG === MEDITATION =============
     if (tag === "meditation") {
       const meditationFilter = regex
         ? {
@@ -319,7 +325,6 @@ const searchContent = asyncHandler(async (req, res) => {
       });
     }
 
-    // ============= CASE 3: TAG IS MUSIC MOOD CATEGORY =============
     const musicFilter = {
       moodCategory: tag,
       ...(regex && {

@@ -679,7 +679,6 @@ const getPieStats = asyncHandler(async (req, res) => {
     } else if (filter === 'yearly') {
         startDate.setFullYear(now.getFullYear() - 1);
     } else {
-        // Default to all time if something else is passed
         startDate = new Date(0); 
     }
 
@@ -697,7 +696,6 @@ const getPieStats = asyncHandler(async (req, res) => {
         }
     ]);
 
-    // Format the result
     let income = 0;
     let expense = 0;
 

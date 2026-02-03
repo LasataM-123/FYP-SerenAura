@@ -101,6 +101,7 @@ app.use('/api/chat', require('./routes/chatRoutes'));
 app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/faq', require('./routes/faqRoutes'));
 app.use('/api/admin',require('./routes/adminRoutes'));
+app.use('/api/subscribe', require('./routes/subscriptionRoutes'));
 
 /* ---------------- NOTIFICATION SETTINGS ---------------- */
 
