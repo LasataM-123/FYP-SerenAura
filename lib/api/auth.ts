@@ -24,6 +24,7 @@ export type DeleteResponse = {
 
 export type ResetPasswordResponse = {
   success:string;
+  email:string;
 };
 
 export type ProfileResponse = {

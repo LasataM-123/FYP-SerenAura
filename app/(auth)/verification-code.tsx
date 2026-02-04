@@ -152,7 +152,7 @@ const Verification = () => {
       <SafeAreaView style={styles.container}>
         <Top
           label="Enter your Verification Code"
-          onBack={() => router.push("/forgot-password")}
+          onBack={() => router.back()}
         />
 
         <View style={styles.content}>
