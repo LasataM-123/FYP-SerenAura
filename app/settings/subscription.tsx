@@ -15,20 +15,20 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import Button from "@/components/Button";
 import { images } from "@/constants";
+import { initiatePayment } from "@/lib/api/subscription"; 
+
 const plans = [
   {
-    id: "annual",
-    name: "Annual",
-    price: "Then Rs 5000/year",
-    trial: "First 14 days free",
-    color: "#FFF3B0", 
+    id: "yearly",
+    name: "Yearly",
+    price: "Rs 5000/year", 
+    color: "#FFF3B0",
     badge: "Best Value",
   },
   {
     id: "monthly",
     name: "Monthly",
-    price: "Then Rs 700/month",
-    trial: "First 7 days free",
+    price: "Rs 700/month",
     color: "#E0BBFF",
     badge: null,
   },
@@ -36,6 +36,7 @@ const plans = [
 
 const PremiumScreen = () => {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   
   // Toast State
   const [showToast, setShowToast] = useState(false);
@@ -49,56 +50,59 @@ const PremiumScreen = () => {
     }
   }, []);
 
-  // --- Toast Logic (reused from your code) ---
   const showToastMessage = (message: string) => {
     setToastMessage(message);
     setShowToast(true);
     toastAnim.setValue(0);
-
-    Animated.timing(toastAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-
+    Animated.timing(toastAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
     setTimeout(() => {
-      Animated.timing(toastAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => setShowToast(false));
+      Animated.timing(toastAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => setShowToast(false));
     }, 2000);
   };
 
-  const handlePurchase = () => {
+  const handlePurchase = async () => {
     if (!selectedPlan) {
       showToastMessage("❌ Please select a plan");
       return;
     }
-
+    
+    setLoading(true);
+    try {
+      const response = await initiatePayment(selectedPlan);
+      
+      if (response.success) {
+        router.push({
+          pathname: "/payment/esewa",
+          params: {
+            amount: response.amount,
+            uuid: response.uuid,
+            signature: response.signature,
+            product_code: response.product_code,
+            planType: selectedPlan
+          }
+        });
+      } else {
+        showToastMessage("Failed to initiate");
+      }
+    } catch (error) {
+      console.log(error);
+      showToastMessage("Connection Error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const PlanItem = ({ item, isSelected, anySelected, onSelect }: any) => {
     const scaleAnim = useRef(new Animated.Value(1)).current;
 
     const handlePressIn = () => {
-      Animated.spring(scaleAnim, {
-        toValue: 0.95,
-        friction: 4,
-        useNativeDriver: true,
-      }).start();
+      Animated.spring(scaleAnim, { toValue: 0.95, friction: 4, useNativeDriver: true }).start();
     };
 
     const handlePressOut = () => {
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        friction: 4,
-        tension: 100,
-        useNativeDriver: true,
-      }).start();
+      Animated.spring(scaleAnim, { toValue: 1, friction: 4, tension: 100, useNativeDriver: true }).start();
     };
-   const opacity = anySelected && isSelected ? 0.5 :1;
-
+    const opacity = anySelected ? (isSelected ? 0.5 : 1) : 1;
     const borderWidth = isSelected ? 4 : 4; 
 
     return (
@@ -120,11 +124,13 @@ const PremiumScreen = () => {
           <View style={[styles.planBox, { backgroundColor: item.color, borderWidth }]}>
             <View style={styles.planContent}>
               <Text style={styles.planTitle}>{item.name}</Text>
+              
+              {/* --- UPDATED DETAILS SECTION --- */}
               <View style={styles.planDetails}>
-                <Text style={styles.planTrial}>{item.trial}</Text>
-                <Text style={styles.bullet}> • </Text>
+                {/* Removed Trial Text and Bullet Point */}
                 <Text style={styles.planPrice}>{item.price}</Text>
               </View>
+
             </View>
             
             {/* Best Value Badge */}
@@ -209,7 +215,7 @@ const PremiumScreen = () => {
         {/* --- Footer Button --- */}
         <View style={styles.footer}>
             <Button 
-                label="Purchase"
+                label={loading ? "Processing..." : "Purchase"}
                 onPress={handlePurchase}
             />
             <Text style={styles.legalText}>
@@ -248,221 +254,37 @@ const PremiumScreen = () => {
 export default PremiumScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  scrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
-  
-  // Header
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  closeBtnCircle: {
-      width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: '#553434', justifyContent: 'center', alignItems: 'center'
-  },
-  closeBtnText: {
-      color: '#553434', fontSize: 16, fontWeight: 'bold', marginTop: -2
-  },
-  restoreText: {
-    fontFamily: "KodchasanSemiBold",
-    color: "#553434",
-    fontSize: 14,
-   
-  },
-
-  // Title
-  mainTitle: {
-    fontSize: 24,
-    fontFamily: "KodchasanSemiBold",
-    color: "#553434",
-    textAlign: "center",
-    marginBottom: 24,
-    lineHeight: 30,
-  },
-
-  // Hero Card
-  heroContainer: {
-    height: 180,
-    width: '100%',
-    marginBottom: 30,
-    position: 'relative'
-  },
-  heroShadow: {
-      position: 'absolute',
-      top: 3, left: 3,
-      width: '100%', height: '100%',
-      backgroundColor: '#553434',
-      borderRadius: 20,
-  },
-  heroBox: {
-      flex: 1,
-      backgroundColor: '#D0DEEE',
-      borderRadius: 20,
-      borderWidth: 3,
-      borderColor: '#553434',
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 20,
-      justifyContent: 'space-between'
-  },
-  heroImage: {
-      width: 120,
-      height: 120,
-      resizeMode: 'contain'
-  },
-  heroText: {
-      flex: 1,
-      fontFamily: "KodchasanMedium",
-      color: "#553434",
-      fontSize: 16,
-      marginLeft: 15,
-  },
-
-  // Benefits
-  benefitsSection: {
-      alignItems: 'center',
-      marginBottom: 30,
-  },
-  benefitsHeader: {
-      fontSize: 20,
-      fontFamily: "KodchasanRegular",
-      color: "#553434",
-      marginBottom: 15,
-  },
-  benefitItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 10,
-      width: '100%',
-      paddingLeft: 40, 
-  },
-  checkIcon: {
-      width: 24,
-      height: 24,
-      marginRight: 10,
-      resizeMode: 'contain'
-  },
-  benefitText: {
-      fontFamily: "KodchasanRegular",
-      color: "#553434",
-      fontSize: 16,
-  },
-
-  // Plans
-  plansSection: {
-      gap: 16,
-      marginBottom: 20,
-  },
-  planContainer: {
-      width: '100%',
-      height: 70,
-      position: 'relative',
-  },
-  planShadowLayer: {
-    position: "absolute",
-    width: "100%",
-    height: "100%",
-    borderRadius: 16,
-    borderWidth: 3,
-    borderColor: "#553434",
-    backgroundColor: "#fff",
-    top: 2,
-    left: 2,
-    zIndex: 0,
-  },
-  planBox: {
-      flex: 1,
-      borderRadius: 16,
-      borderWidth: 3,
-      borderColor: "#553434",
-      justifyContent: 'center',
-      paddingHorizontal: 20,
-      zIndex: 1,
-  },
-  planContent: {
-      
-  },
-  planTitle: {
-      fontFamily: "KodchasanMedium",
-      fontSize: 18,
-      color: "#553434",
-  },
-  planDetails: {
-      flexDirection: 'row',
-      alignItems: 'center',
-  },
-  planTrial: {
-      fontFamily: "KodchasanRegular",
-      fontSize: 14,
-      color: "#553434",
-  },
-  bullet: {
-    fontSize: 14,
-    color: "#553434", 
-  },
-  planPrice: {
-      fontFamily: "KodchasanRegular",
-      fontSize: 14,
-      color: "#553434",
-  },
-  badge: {
-      position: 'absolute',
-      right: 15,
-      top: 10, // Adjusted to fit
-      backgroundColor: '#EFD483', 
-      paddingVertical: 2,
-      paddingHorizontal: 8,
-      borderRadius: 20,
-      borderWidth: 1.5,
-      borderColor: '#553434',
-  },
-  badgeText: {
-      fontSize: 10,
-      fontFamily: "KodchasanBold",
-      color: "#553434",
-      textTransform: 'uppercase'
-  },
-  footer: {
-      alignItems: 'center',
-      marginTop: 10,
-  },
-  legalText: {
-      textAlign: 'center',
-      fontFamily: "KodchasanRegular",
-      fontSize: 12,
-      color: "#553434",
-      marginTop: 30,
-      lineHeight: 18,
-  },
-
-  // Toast
-  toast: {
-    position: "absolute",
-    bottom: 60,
-    left: "10%",
-    right: "10%",
-    backgroundColor: "rgba(255,255,255,0.95)",
-    borderWidth: 3,
-    borderColor: "#553434",
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 9999,
-    elevation: 9999,
-  },
-  toastText: {
-    fontFamily: "KodchasanMedium",
-    color: "#553434",
-    fontSize: 16,
-  },
+  container: { flex: 1, backgroundColor: "#fff" },
+  scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 10, marginBottom: 20 },
+  closeBtnCircle: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: '#553434', justifyContent: 'center', alignItems: 'center' },
+  closeBtnText: { color: '#553434', fontSize: 16, fontWeight: 'bold', marginTop: -2 },
+  restoreText: { fontFamily: "KodchasanSemiBold", color: "#553434", fontSize: 14 },
+  mainTitle: { fontSize: 24, fontFamily: "KodchasanSemiBold", color: "#553434", textAlign: "center", marginBottom: 24, lineHeight: 30 },
+  heroContainer: { height: 180, width: '100%', marginBottom: 30, position: 'relative' },
+  heroShadow: { position: 'absolute', top: 3, left: 3, width: '100%', height: '100%', backgroundColor: '#553434', borderRadius: 20 },
+  heroBox: { flex: 1, backgroundColor: '#D0DEEE', borderRadius: 20, borderWidth: 3, borderColor: '#553434', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, justifyContent: 'space-between' },
+  heroImage: { width: 120, height: 120, resizeMode: 'contain' },
+  heroText: { flex: 1, fontFamily: "KodchasanMedium", color: "#553434", fontSize: 16, marginLeft: 15 },
+  benefitsSection: { alignItems: 'center', marginBottom: 30 },
+  benefitsHeader: { fontSize: 20, fontFamily: "KodchasanRegular", color: "#553434", marginBottom: 15 },
+  benefitItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, width: '100%', paddingLeft: 40 },
+  checkIcon: { width: 24, height: 24, marginRight: 10, resizeMode: 'contain' },
+  benefitText: { fontFamily: "KodchasanRegular", color: "#553434", fontSize: 16 },
+  plansSection: { gap: 16, marginBottom: 20 },
+  planContainer: { width: '100%', height: 70, position: 'relative' },
+  planShadowLayer: { position: "absolute", width: "100%", height: "100%", borderRadius: 16, borderWidth: 3, borderColor: "#553434", backgroundColor: "#fff", top: 2, left: 2, zIndex: 0 },
+  planBox: { flex: 1, borderRadius: 16, borderWidth: 3, borderColor: "#553434", justifyContent: 'center', paddingHorizontal: 20, zIndex: 1 },
+  planContent: {},
+  planTitle: { fontFamily: "KodchasanMedium", fontSize: 18, color: "#553434" },
+  planDetails: { flexDirection: 'row', alignItems: 'center' },
+  planTrial: { fontFamily: "KodchasanRegular", fontSize: 14, color: "#553434" },
+  bullet: { fontSize: 14, color: "#553434" },
+  planPrice: { fontFamily: "KodchasanRegular", fontSize: 14, color: "#553434" },
+  badge: { position: 'absolute', right: 15, top: 10, backgroundColor: '#EFD483', paddingVertical: 2, paddingHorizontal: 8, borderRadius: 20, borderWidth: 1.5, borderColor: '#553434' },
+  badgeText: { fontSize: 10, fontFamily: "KodchasanBold", color: "#553434", textTransform: 'uppercase' },
+  footer: { alignItems: 'center', marginTop: 10 },
+  legalText: { textAlign: 'center', fontFamily: "KodchasanRegular", fontSize: 12, color: "#553434", marginTop: 30, lineHeight: 18 },
+  toast: { position: "absolute", bottom: 60, left: "10%", right: "10%", backgroundColor: "rgba(255,255,255,0.95)", borderWidth: 3, borderColor: "#553434", borderRadius: 12, paddingVertical: 10, paddingHorizontal: 16, alignItems: "center", justifyContent: "center", zIndex: 9999, elevation: 9999 },
+  toastText: { fontFamily: "KodchasanMedium", color: "#553434", fontSize: 16 },
 });

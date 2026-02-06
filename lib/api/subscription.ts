@@ -1,6 +1,7 @@
 import { API_URL } from "@/config";
 import { useAuthStore } from "@/store/authStore";
 
+// 1. Keep the strict type for safety
 export type SubscriptionType = "monthly" | "yearly";
 
 export type Subscription = {
@@ -10,24 +11,56 @@ export type Subscription = {
   startDate: string;
   endDate: string;
   status: "active" | "cancelled" | "expired";
-}
+};
 
 export type SubscriptionResponse = {
-    success: boolean;
-    subscription: Subscription;
-}
+  success: boolean;
+  message?: string;
+  subscription?: Subscription;
+};
 
-export type SubscriptionPayload = {
-    pidx: string;
-    subscriptionType: SubscriptionType;
+export type InitPaymentResponse = {
+  success: boolean;
+  amount: number;
+  product_code: string;
+  signature: string;
+  uuid: string;
+  payment_url?: string;
+};
+
+export type SubscribePayload = {
+  pid: string;
+  subscriptionType: string; 
+};
+
+export async function initiatePayment(
+  subscriptionType: string
+): Promise<InitPaymentResponse> {
+  const accessToken = useAuthStore.getState().accessToken;
+
+  const res = await fetch(`${API_URL}/subscription/initiate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ subscriptionType }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || "Payment initiation failed");
+  }
+
+  return res.json();
 }
 
 export async function subscribePatient(
-  payload: SubscriptionPayload
+  payload: SubscribePayload
 ): Promise<SubscriptionResponse> {
   const accessToken = useAuthStore.getState().accessToken;
 
-  const res = await fetch(`${API_URL}/subscribe`, {
+  const res = await fetch(`${API_URL}/subscription/subscribe`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -37,19 +70,19 @@ export async function subscribePatient(
   });
 
   if (!res.ok) {
-    const errBody = await res.json();
-    throw new Error(errBody.message || "Subscription failed");
+    const err = await res.json();
+    throw new Error(err.message || "Subscription verification failed");
   }
 
   return res.json();
 }
 
 export async function renewSubscription(
-  payload: SubscriptionPayload
+  payload: SubscribePayload
 ): Promise<SubscriptionResponse> {
   const accessToken = useAuthStore.getState().accessToken;
 
-  const res = await fetch(`${API_URL}/subscribe/renew`, {
+  const res = await fetch(`${API_URL}/subscription/renew`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -59,8 +92,8 @@ export async function renewSubscription(
   });
 
   if (!res.ok) {
-    const errBody = await res.json();
-    throw new Error(errBody.message || "Subscription renewal failed");
+    const err = await res.json();
+    throw new Error(err.message || "Subscription renewal failed");
   }
 
   return res.json();
@@ -69,7 +102,7 @@ export async function renewSubscription(
 export async function cancelSubscription(): Promise<SubscriptionResponse> {
   const accessToken = useAuthStore.getState().accessToken;
 
-  const res = await fetch(`${API_URL}/subscribe/cancel`, {
+  const res = await fetch(`${API_URL}/subscription/cancel`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -78,8 +111,8 @@ export async function cancelSubscription(): Promise<SubscriptionResponse> {
   });
 
   if (!res.ok) {
-    const errBody = await res.json();
-    throw new Error(errBody.message || "Subscription cancellation failed");
+    const err = await res.json();
+    throw new Error(err.message || "Subscription cancellation failed");
   }
 
   return res.json();

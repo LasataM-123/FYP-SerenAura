@@ -10,7 +10,7 @@ const COLORS = [
   "#FFD6A5",
   "#E0BBFF",
   "#FFF3B0",
-  "#CFDAED",
+  "#F5EFFF",
 ];
 
 const { width } = Dimensions.get("window");
