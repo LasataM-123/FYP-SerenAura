@@ -1,51 +1,84 @@
 const Subscription = require("../models/subscriptionModel");
 const Patient = require("../models/patientModel");
 const Transaction = require("../models/transactionModel");
-const { verifyKhaltiPidx } = require("../service/khaltiService");
+const { getEsewaConfig, verifyPaymentStatus } = require("../service/esewaService");
+const { sendInvoiceEmail } = require("../service/emailService");
 
 /**
- * @route  POST /api/subscribe
- * @desc   Subscribe a patient
- * @access Private (patient only)
+ * @route  POST /api/subscription/initiate
+ * @desc   Initiate Payment (Get Signature)
+ * @access Private (Patient Only)
+ */
+const initiatePayment = async (req, res) => {
+  try {
+    const { subscriptionType } = req.body;
+    const patientId = req.user.id;
+
+    let amount = 0;
+    if (subscriptionType === "monthly") amount = 700;
+    else if (subscriptionType === "yearly") amount = 5000; 
+    else return res.status(400).json({ message: "Invalid subscription type" });
+
+    // Generate unique Transaction UUID
+    const pid = `${patientId}_${subscriptionType}_${Date.now()}`;
+
+    // Get V2 Config
+    const config = getEsewaConfig(amount, pid);
+
+    res.status(200).json({
+      success: true,
+      ...config, // returns amount, uuid, signature, product_code
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Could not initiate payment" });
+  }
+};
+
+/**
+ * @route  POST /api/subscription/subscribe
+ * @desc   Verify & Activate Subscription
+ * @access Private (Patient Only)
  */
 const subscribePatient = async (req, res) => {
   try {
-    const { pidx, subscriptionType } = req.body;
+    const { pid, subscriptionType } = req.body;
     const patientId = req.user.id;
 
-    const payment = await verifyKhaltiPidx(pidx);
+    let amount = 0;
+    if (subscriptionType === "monthly") amount = 700;
+    else if (subscriptionType === "yearly") amount = 5000;
+    else return res.status(400).json({ message: "Invalid subscription type" });
 
-    if (payment.status !== "Completed") {
-      return res.status(400).json({ message: "Payment not completed" });
+    const isValid = await verifyPaymentStatus(pid, amount);
+    if (!isValid) {
+      return res.status(400).json({ message: "Payment verification failed or pending" });
     }
 
-    const used = await Transaction.findOne({ khaltiIdx: payment.idx });
-    if (used) {
-      return res.status(400).json({ message: "Payment already used" });
+    // Using your 'esewaId' field from TransactionSchema
+    const usedTxn = await Transaction.findOne({ esewaId: pid });
+    if (usedTxn) {
+      return res.status(400).json({ message: "Payment already processed" });
     }
 
     const activeSub = await Subscription.findOne({
       patientId,
       status: "active",
     });
+
     if (activeSub) {
-      return res.status(400).json({ message: "Already subscribed" });
+      return res.status(400).json({ message: "User already has an active subscription" });
     }
 
     const startDate = new Date();
     const endDate = new Date(startDate);
 
-    if (subscriptionType === "monthly") {
-      endDate.setMonth(endDate.getMonth() + 1);
-    } else if (subscriptionType === "yearly") {
-      endDate.setFullYear(endDate.getFullYear() + 1);
-    } else {
-      return res.status(400).json({ message: "Invalid subscription type" });
-    }
+    if (subscriptionType === "monthly") endDate.setMonth(endDate.getMonth() + 1);
+    else endDate.setFullYear(endDate.getFullYear() + 1);
 
     const subscription = await Subscription.create({
       patientId,
-      subscriptionType,
+      subscriptionType, // 'monthly' or 'yearly'
       startDate,
       endDate,
       status: "active",
@@ -58,64 +91,64 @@ const subscribePatient = async (req, res) => {
 
     await Transaction.create({
       type: "INCOME",
-      amount: payment.amount / 100,
+      amount,
       category: "subscription",
       patientId,
-      khaltiIdx: payment.idx,
-      description: `${subscriptionType} subscription`,
+      esewaId: pid, 
+      description: `${subscriptionType} subscription activation`,
+      timestamp: new Date()
     });
+    const patient = await Patient.findById(patientId);
+    
+    if (patient && patient.email) {
+       sendInvoiceEmail(patient.email, subscriptionType, amount, pid)
+         .catch(err => console.log("Failed to send email in background", err));
+    }
 
     res.status(200).json({
       message: "Subscription activated successfully",
       subscription,
     });
   } catch (err) {
-    console.error(err.response?.data || err);
-    res.status(500).json({ message: "Subscription failed" });
+    console.error(err);
+    res.status(500).json({ message: "Subscription activation failed" });
   }
 };
 
 /**
- * @route  POST /api/subscribe/renew
- * @desc   Renew a patient's subscription
- * @access Private (patient only)
+ * @route  POST /api/subscription/renew
+ * @desc   Renew Subscription
+ * @access Private (Patient Only)
  */
 const renewSubscription = async (req, res) => {
   try {
-    const { pidx, subscriptionType } = req.body;
+    const { pid, subscriptionType } = req.body;
     const patientId = req.user.id;
 
-    const payment = await verifyKhaltiPidx(pidx);
+    let amount = 0;
+    if (subscriptionType === "monthly") amount = 700;
+    else if (subscriptionType === "yearly") amount = 5000;
+    else return res.status(400).json({ message: "Invalid subscription type" });
 
-    if (payment.status !== "Completed") {
-      return res.status(400).json({ message: "Payment not completed" });
-    }
+    // Verify Payment
+    const isValid = await verifyPaymentStatus(pid, amount);
+    if (!isValid) return res.status(400).json({ message: "Payment invalid" });
 
-    const usedTxn = await Transaction.findOne({ khaltiIdx: payment.idx });
-    if (usedTxn) {
-      return res.status(400).json({ message: "Payment already used" });
-    }
+    // Check Duplicate Transaction
+    const usedTxn = await Transaction.findOne({ esewaId: pid });
+    if (usedTxn) return res.status(400).json({ message: "Payment already used" });
 
-    const lastSub = await Subscription.findOne({ patientId })
-      .sort({ endDate: -1 });
-
-    if (!lastSub) {
-      return res.status(400).json({ message: "No previous subscription found" });
-    }
-
-    const startDate =
-      lastSub.endDate > new Date() ? lastSub.endDate : new Date();
-
+    // Get previous subscription
+    const lastSub = await Subscription.findOne({ patientId }).sort({ endDate: -1 });
+    
+    // Calculate dates
+    const startDate = (lastSub && lastSub.endDate > new Date()) ? lastSub.endDate : new Date();
     const endDate = new Date(startDate);
+    
+    if (subscriptionType === "monthly") endDate.setMonth(endDate.getMonth() + 1);
+    else endDate.setFullYear(endDate.getFullYear() + 1);
 
-    if (subscriptionType === "monthly") {
-      endDate.setMonth(endDate.getMonth() + 1);
-    } else if (subscriptionType === "yearly") {
-      endDate.setFullYear(endDate.getFullYear() + 1);
-    } else {
-      return res.status(400).json({ message: "Invalid subscription type" });
-    }
-
+    // Create new subscription record
     const subscription = await Subscription.create({
       patientId,
       subscriptionType,
@@ -124,17 +157,19 @@ const renewSubscription = async (req, res) => {
       status: "active",
     });
 
+    // Update Patient
     await Patient.findByIdAndUpdate(patientId, {
       isSubscribed: true,
-      subscriptionType,
+      subscriptionType
     });
 
+    // Record Transaction
     await Transaction.create({
       type: "INCOME",
-      amount: payment.amount / 100,
+      amount,
       category: "subscription",
       patientId,
-      khaltiIdx: payment.idx,
+      esewaId: pid,
       description: `Renewed ${subscriptionType} subscription`,
     });
 
@@ -143,15 +178,15 @@ const renewSubscription = async (req, res) => {
       subscription,
     });
   } catch (err) {
-    console.error(err.response?.data || err);
-    res.status(500).json({ message: "Subscription renewal failed" });
+    console.error(err);
+    res.status(500).json({ message: "Renewal failed" });
   }
 };
 
 /**
- * @route  PUT /api/subscribe/cancel
- * @desc   Cancel a patient's subscription
- * @access Private (patient only)
+ * @route  PUT /api/subscription/cancel
+ * @desc   Cancel Subscription
+ * @access Private (Patient Only)
  */
 const cancelSubscription = async (req, res) => {
   try {
@@ -169,8 +204,10 @@ const cancelSubscription = async (req, res) => {
     activeSub.status = "cancelled";
     await activeSub.save();
 
+    await Patient.findByIdAndUpdate(patientId, { isSubscribed: false });
+
     res.status(200).json({
-      message: "Subscription cancelled. Access remains until expiry date.",
+      message: "Subscription cancelled.",
       subscription: activeSub,
     });
   } catch (err) {
@@ -179,4 +216,9 @@ const cancelSubscription = async (req, res) => {
   }
 };
 
-module.exports = { subscribePatient, renewSubscription, cancelSubscription };
+module.exports = {
+  initiatePayment,
+  subscribePatient,
+  renewSubscription,
+  cancelSubscription,
+};

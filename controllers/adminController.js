@@ -333,12 +333,17 @@ const getAdminDashboardStats = asyncHandler(async (req, res) => {
     const financialData = stats[0] || { totalEarnings: 0, totalSpending: 0 };
 
     // Format transactions
-    const formattedTransactions = recentTransactions.map(t => ({
+    const formattedTransactions = await Promise.all(recentTransactions.map(async (t) => {
+        const patient = t.patientId ? await Patient.findById(t.patientId) : null;
+
+    return {
         ...t,
         id: t._id,
         date: t.timestamp ? new Date(t.timestamp).toISOString().split('T')[0] : "N/A",
-        counselorName: t.counselorId?.name || "System"
-    }));
+        counselorName: t.counselorId?.name || "N/A",
+        patientName: patient ? patient.name : "N/A",        
+        date: t.timestamp ? new Date(t.timestamp).toISOString().split('T')[0] : "N/A",   };
+}));
 
     res.status(200).json({
         summary: {

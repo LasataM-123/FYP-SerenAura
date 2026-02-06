@@ -14,6 +14,7 @@ const Patient = require('./models/patientModel');
 const Mood = require('./models/moodModel');
 const Counselor = require('./models/counselorModel');
 const { sendNotification } = require('./service/notificationService');
+const expireSubscriptions = require('./jobs/subscriptionJob');
 
 const app = express();
 const server = http.createServer(app);
@@ -101,7 +102,7 @@ app.use('/api/chat', require('./routes/chatRoutes'));
 app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/faq', require('./routes/faqRoutes'));
 app.use('/api/admin',require('./routes/adminRoutes'));
-app.use('/api/subscribe', require('./routes/subscriptionRoutes'));
+app.use('/api/subscription', require('./routes/subscriptionRoutes'));
 
 /* ---------------- NOTIFICATION SETTINGS ---------------- */
 
@@ -151,8 +152,9 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 
 (async () => {
-  await connection();          // ✅ WAIT FOR MONGO
-  initMoodCron(io);            // ✅ SAFE
+  await connection();          
+  initMoodCron(io);     
+  expireSubscriptions();       
   server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });

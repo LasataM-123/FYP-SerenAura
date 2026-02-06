@@ -15,7 +15,7 @@ const TransactionSchema = new mongoose.Schema({
   counselorId: { type: mongoose.Schema.Types.ObjectId, ref: 'Counselor' },
   patientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Patient' },
 
-  khaltiIdx: { 
+  esewaId: { 
     type: String, 
     unique: true, 
     sparse: true 

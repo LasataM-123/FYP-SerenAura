@@ -130,29 +130,30 @@ const register = asyncHandler(async (req, res) => {
   try {
     const { name, dateOfBirth, email, password } = req.body;
 
-    // Check all fields are provided
+    /* ---------------- REQUIRED FIELDS ---------------- */
     if (!name || !dateOfBirth || !email || !password) {
       return res.status(400).json({ message: "Please fill all fields" });
     }
 
-    // Validate date format YYYY-MM-DD
+    /* ---------------- DATE OF BIRTH VALIDATION ---------------- */
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!dateRegex.test(dateOfBirth)) {
-      return res.status(400).json({ message: "Date of Birth must be in YYYY-MM-DD format" });
+      return res
+        .status(400)
+        .json({ message: "Date of Birth must be in YYYY-MM-DD format" });
     }
 
-    // Split into parts
     const [yearStr, monthStr, dayStr] = dateOfBirth.split("-");
     const year = parseInt(yearStr, 10);
     const month = parseInt(monthStr, 10);
     const day = parseInt(dayStr, 10);
 
-    // Check month
     if (month < 1 || month > 12) {
-      return res.status(400).json({ message: "Month must be between 01 and 12" });
+      return res
+        .status(400)
+        .json({ message: "Month must be between 01 and 12" });
     }
 
-    // Days per month (handle leap year for February)
     const daysInMonth = [
       31,
       (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 29 : 28,
@@ -167,54 +168,81 @@ const register = asyncHandler(async (req, res) => {
       30,
       31,
     ];
+
     if (day < 1 || day > daysInMonth[month - 1]) {
       return res.status(400).json({
         message: `Day must be between 01 and ${daysInMonth[month - 1]} for month ${monthStr}`,
       });
     }
 
-    // Check if user already exists
-    const existing = await Patient.findOne({ email });
-    if (existing) {
-      return res.status(400).json({ message: "User already exists" });
-    }
 
-    // Validate email
+    // Basic email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ message: "Invalid email format" });
     }
 
-    // Validate password
-    const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
-    if (!passwordRegex.test(password)) {
+    // Must be Gmail
+    const gmailRegex = /^[a-zA-Z0-9](\.?[a-zA-Z0-9]){4,}@gmail\.com$/;
+    if (!gmailRegex.test(email)) {
       return res.status(400).json({
-        message:
-          "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character",
+        message: "Only valid Gmail addresses are allowed",
       });
     }
 
-    // Hash password
+    // Prevent + aliasing (optional but strong)
+    if (email.includes("+")) {
+      return res.status(400).json({
+        message: "Gmail aliases using '+' are not allowed",
+      });
+    }
+
+    /* ---------------- EXISTING USER CHECK ---------------- */
+    const existing = await Patient.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    /* ---------------- PASSWORD VALIDATION ---------------- */
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        message:
+          "Password must be at least 8 characters long and include uppercase, lowercase, number, and special character",
+      });
+    }
+
+    /* ---------------- HASH PASSWORD ---------------- */
     const passwordHash = await bcrypt.hash(password, 10);
 
-    //  Generate OTP
+    /* ---------------- GENERATE OTP ---------------- */
     const otp = generateOTP();
 
-    //  Create OTP token (user info not saved yet)
     const otpToken = jwt.sign(
-      { email, otp, name, dateOfBirth, passwordHash },
+      {
+        email,
+        otp,
+        name,
+        dateOfBirth,
+        passwordHash,
+      },
       JWT_SECRET,
       { expiresIn: `${OTP_EXPIRY}s` }
     );
 
-    // Send OTP email
+    /* ---------------- SEND OTP EMAIL ---------------- */
     await sendOTPEmail(email, otp);
 
-    //  Respond with OTP token
-    res.json({ otpToken, message: "OTP sent to email. Please verify." });
-  } catch (e) {
-    res.status(500).json({ message: e.message });
+    /* ---------------- RESPONSE ---------------- */
+    res.status(200).json({
+      message: "OTP sent to your Gmail. Please verify.",
+      otpToken,
+    });
+  } catch (error) {
+    console.error("Register error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 

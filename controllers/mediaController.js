@@ -195,12 +195,13 @@ const getIndividualMedia = asyncHandler(async (req, res) => {
       return res.status(400).json({ message: "Id is required" });
     }
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({message: "Invalid media ID format." });
+      return res.status(400).json({ message: "Invalid media ID format." });
     }
 
     // Fetch from Meditation first, then Music
     let media = await Meditation.findById(id);
     let type = 'Meditation';
+    
     if (!media) {
       media = await Music.findById(id);
       type = 'Music';
@@ -209,18 +210,15 @@ const getIndividualMedia = asyncHandler(async (req, res) => {
     if (!media) {
       return res.status(404).json({ message: "Media not found" });
     }
-    if (media.isLocked) {
-    const patient = await Patient.findById(req.user.id);
+    let isLockedForUser = false;
 
-    if (!patient?.isSubscribed) {
-      return res.status(403).json({
-        success: false,
-        message: "This content is locked. Please subscribe to access.",
-        locked: true,
-      });
+    if (media.isLocked) {
+      const patient = await Patient.findById(req.user.id);
+      
+      if (!patient?.isSubscribed) {
+        isLockedForUser = true; 
+      }
     }
-  }
-    // Get audio duration if audioUrl exists
     let durationStr = null;
     if (media.audioUrl) {
       try {
@@ -228,7 +226,6 @@ const getIndividualMedia = asyncHandler(async (req, res) => {
         const metadata = await mm.parseBuffer(response.data);
         const durationSec = metadata.format.duration || 0;
 
-        // Convert to minutes only, round up
         const minutes = Math.ceil(durationSec / 60);
         durationStr = `${minutes} min`;
       } catch (err) {
@@ -241,7 +238,8 @@ const getIndividualMedia = asyncHandler(async (req, res) => {
       media: {
         ...media.toObject(),
         duration: durationStr, 
-        mediaType: type
+        mediaType: type,
+        isLockedForUser: isLockedForUser
       },
     });
   } catch (err) {
