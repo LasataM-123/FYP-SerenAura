@@ -10,6 +10,6 @@ router.get('/get/:id',tokenHandler, validPatient, getPlaylistById);
 router.post('/add/:playlistId',tokenHandler, validPatient, addMediaToPlaylist);
 router.delete('/remove/:playlistId/:junctionId',tokenHandler,validPatient, removeMediaFromPlaylist);
 router.delete('/delete/:id', tokenHandler,validPatient, deletePlaylist);
-router.post('/check/:mediaId',tokenHandler, validPatient, checkMediaInPlaylist);
+router.get('/check/:mediaId',tokenHandler, validPatient, checkMediaInPlaylist);
 
 module.exports = router;

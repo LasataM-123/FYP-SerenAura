@@ -2,7 +2,7 @@ const Subscription = require("../models/subscriptionModel");
 const Patient = require("../models/patientModel");
 const Transaction = require("../models/transactionModel");
 const { getEsewaConfig, verifyPaymentStatus } = require("../service/esewaService");
-const { sendInvoiceEmail } = require("../service/emailService");
+const { sendInvoiceEmail, sendCancelSubscriptionEmail } = require("../service/emailService");
 
 /**
  * @route  POST /api/subscription/initiate
@@ -201,18 +201,58 @@ const cancelSubscription = async (req, res) => {
       return res.status(400).json({ message: "No active subscription found" });
     }
 
+    const user = await Patient.findById(patientId);
+    if (!user) {
+        return res.status(404).json({ message: "Patient not found" });
+    }
+
+    // 3. Update subscription status
     activeSub.status = "cancelled";
     await activeSub.save();
 
-    await Patient.findByIdAndUpdate(patientId, { isSubscribed: false });
+    const formattedEndDate = new Date(activeSub.endDate).toDateString(); 
+ 
+    await sendCancelSubscriptionEmail(
+        user.email, 
+        activeSub.subscriptionType, 
+        formattedEndDate
+    );
 
     res.status(200).json({
-      message: "Subscription cancelled.",
+      message: "Subscription cancelled. Confirmation email sent.",
       subscription: activeSub,
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Cancellation failed" });
+  }
+};
+
+/**
+ * @route GET /api/subscription/status
+ * @desc Get current subscription status
+ * @access Private (Patient Only)
+ */
+const getSubscriptionStatus = async (req, res) => {
+  try {
+    const patientId = req.user.id;
+    const activeSub = await Subscription.findOne({
+      patientId,
+      status: "active",
+    });
+    if (!activeSub) {
+      return res.status(200).json({ isSubscribed: false, subscriptionType: null, endDate: null });
+    }
+
+    res.status(200).json({
+      isSubscribed: true,
+      subscriptionType: activeSub.subscriptionType,
+      endDate: activeSub.endDate,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Could not fetch subscription status" });
   }
 };
 
@@ -221,4 +261,5 @@ module.exports = {
   subscribePatient,
   renewSubscription,
   cancelSubscription,
+  getSubscriptionStatus
 };

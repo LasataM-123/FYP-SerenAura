@@ -1,6 +1,7 @@
 const cron = require("node-cron");
 const Subscription = require("../models/subscriptionModel");
 const Patient = require("../models/patientModel");
+const { sendSubscriptionExpiredEmail } = require("../service/emailService");
 
 /**
  * Expire subscriptions whose endDate has passed
@@ -20,22 +21,28 @@ const expireSubscriptions = async () => {
     }
 
     for (const sub of expiredSubs) {
-      // Mark subscription as expired
       sub.status = "expired";
       await sub.save();
 
-      // Check if patient has any other active subscription
-      const stillActive = await Subscription.findOne({
-        patientId: sub.patientId,
-        status: "active",
-        endDate: { $gte: now },
-      });
+      const patient = await Patient.findById(sub.patientId);
 
-      if (!stillActive) {
-        await Patient.findByIdAndUpdate(sub.patientId, {
-          isSubscribed: false,
-          subscriptionType: null,
+      if (patient) {
+        await sendSubscriptionExpiredEmail(patient.email, sub.planType);
+        
+        console.log(`Expired email sent to ${patient.email}`);
+
+        const stillActive = await Subscription.findOne({
+          patientId: sub.patientId,
+          status: "active",
+          endDate: { $gte: now },
         });
+
+        if (!stillActive) {
+          await Patient.findByIdAndUpdate(sub.patientId, {
+            isSubscribed: false,
+            subscriptionType: null,
+          });
+        }
       }
     }
 

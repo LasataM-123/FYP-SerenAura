@@ -279,7 +279,7 @@ const deletePlaylist = asyncHandler(async (req, res) => {
 });
 
 /**
- * @route  POST /api/playlist/check/:mediaId
+ * @route  GET /api/playlist/check/:mediaId
  * @desc   Check if the media exists in the playlist
  * @access Private (patient only)
  */

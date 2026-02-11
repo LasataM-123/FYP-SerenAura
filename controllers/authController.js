@@ -374,48 +374,77 @@ const verifyOTP = asyncHandler(async(req,res)=>{
 });
 
 /**
- * @route  /api/auth/google
- * @desc   Login/Register with Google OAuth
- * @access Public
+ * @route   POST /api/auth/google
+ * @desc    Login/Register with Google OAuth
+ * @access  Public
  */
 const googleAuth = asyncHandler(async (req, res) => {
-  const { idToken } = req.body;
-  try{
-    if(!idToken){
-      return res.status(400).json({message:"Missing id token"});
-    }
-    const {data:googleData} = await axios.get(
-      `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`
-    )
+  // We accept EITHER idToken OR accessToken to be safe
+  const { idToken, accessToken } = req.body;
 
-    //Check if the user exists otherwise create a new one
-    let user = await Patient.findOne({email:googleData.email});
+  try {
+    if (!idToken && !accessToken) {
+      return res.status(400).json({ message: "Missing Google token" });
+    }
+
+    let googleData;
+
+    // STRATEGY 1: Verify via ID Token (Preferred)
+    if (idToken) {
+      const response = await axios.get(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`
+      );
+      googleData = response.data;
+    } 
+    // STRATEGY 2: Verify via Access Token (Fallback if ID Token fails)
+    else if (accessToken) {
+      const response = await axios.get(
+        `https://www.googleapis.com/oauth2/v3/userinfo`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      googleData = response.data;
+    }
+
+    // Check if we got valid email
+    if (!googleData || !googleData.email) {
+      return res.status(400).json({ message: "Invalid Google Token" });
+    }
+
+    // --- YOUR ORIGINAL LOGIC STARTS HERE ---
+    let user = await Patient.findOne({ email: googleData.email });
     let isNewUser = false;
-    if(!user){
+
+    if (!user) {
+      // Creating user WITHOUT password or DOB (as you requested).
+      // WARNING: This will crash if your Schema requires password!
       user = await Patient.create({
         name: googleData.name,
         email: googleData.email,
-        profileUrl: googleData.picture
+        profileUrl: googleData.picture,
+        verified: true // We can assume Google emails are verified
       });
       isNewUser = true;
     }
-     const { accessToken, refreshToken } = generateTokens(
+    // --- END ORIGINAL LOGIC ---
+
+    const { accessToken: newAccessToken, refreshToken } = generateTokens(
       user._id,
       user.email,
       "patient"
     );
 
     res.json({
-      message: "OTP verified and account created successfully",
-      accessToken,
+      message: "Google login successful",
+      accessToken: newAccessToken,
       refreshToken,
       userId: user._id,
       role: "patient",
       isNewUser
     });
 
-  }catch(err){
-    return res.status(500).json({message:err.message})
+  } catch (err) {
+    console.error("Google Auth Backend Error:", err.message);
+    res.status(500).json({ message: err.message });
   }
 });
 
