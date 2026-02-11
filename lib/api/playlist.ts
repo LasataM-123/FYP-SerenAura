@@ -149,7 +149,7 @@ export async function getPlaylistById(params?:{playlistId: string}): Promise<Get
 export async function checkPlaylists(params?:{mediaId: string}): Promise<CheckResponse> {
     const accessToken = useAuthStore.getState().accessToken;
     const res = await fetch(`${API_URL}/playlist/check/${params?.mediaId}`, {
-      method: "POST",
+      method: "GET",
       headers: { 
         "Content-Type": "application/json",
         "Authorization": `Bearer ${accessToken}`

@@ -252,6 +252,9 @@ const handleNotificationToggle = () => {
       setEditName(res.profile?.name || "");
       setEditContact(res.profile?.contactNumber || "");
       setEditDob(res?.profile?.dob ? formatDOB(res.profile.dob) : "");
+      if (res.profile?.notificationsEnabled !== undefined) {
+      setNotificationsEnabled(res.profile.notificationsEnabled);
+    }
     }
   };
 

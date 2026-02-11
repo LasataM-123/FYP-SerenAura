@@ -8,9 +8,13 @@ import {
   Animated,
   StatusBar,
   TouchableOpacity,
+  Platform,
 } from "react-native";
 import { Link, router } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// --- IMPORTS ---
 import Top from "@/components/top";
 import CustomInput from "@/components/CustomInput";
 import Button from "@/components/Button";
@@ -18,15 +22,15 @@ import { images } from "@/constants";
 import { useBackend } from "@/lib/useBackend";
 import { login } from "@/lib/api/auth";
 import { useAuthStore } from "@/store/authStore";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { API_URL, WEB_CLIENT_ID } from "@/config";
+
+// --- AUTH IMPORTS ---
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
-import { API_URL, GOOGLE_CLIENT_ID, WEB_CLIENT_ID } from "@/config";
-import * as AuthSession from "expo-auth-session";
-import {jwtDecode} from 'jwt-decode'
 
-
+// 1. Initialize Browser
 WebBrowser.maybeCompleteAuthSession();
+
 const Login = () => {
   const { setAuth, loggedIn } = useAuthStore();
   const [isGoogleLoading, setGoogleLoading] = useState(false);
@@ -34,59 +38,69 @@ const Login = () => {
   const { refetch, loading, error } = useBackend({ fn: login });
   const [rememberMe, setRememberMe] = useState(false);
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-  androidClientId: GOOGLE_CLIENT_ID,
-  webClientId: WEB_CLIENT_ID,
-  redirectUri: AuthSession.makeRedirectUri({
-    scheme: 'frontendui', 
-    preferLocalhost: true,    
-  }),
-})
-
   // Fade animation setup
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    const isVisible = loading || isGoogleLoading;
+  const EXPO_REDIRECT_URI = "https://auth.expo.io/@lasatam/frontendui";
 
-    Animated.timing(fadeAnim, {
-      toValue: isVisible ? 1 : 0,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-  }, [loading, isGoogleLoading]);
+  // --- 3. GOOGLE HOOK ---
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    clientId: WEB_CLIENT_ID,
+    redirectUri: EXPO_REDIRECT_URI,
+    scopes: ["openid", "profile", "email"],
+  });
 
+  // --- 4. CHECK FOR SAVED EMAIL ON LOAD ---
   useEffect(() => {
-    if (response) {
-      if (response.type === "success") {
-        const { id_token } = response.params;
-        handleGoogleLogin(id_token);
-      } else {
-        console.log("Google Auth Response Error:", response);
+    const loadRememberedEmail = async () => {
+      try {
+        const savedEmail = await AsyncStorage.getItem("remembered_email");
+        if (savedEmail) {
+          setForm((prev) => ({ ...prev, email: savedEmail }));
+          setRememberMe(true);
+        }
+      } catch (e) {
+        console.log("Failed to load email", e);
       }
+    };
+    loadRememberedEmail();
+  }, []);
+
+  // --- 5. HANDLE GOOGLE RESPONSE ---
+  useEffect(() => {
+    if (response?.type === "success") {
+      const { authentication } = response;
+      const idToken = authentication?.idToken || response.params?.id_token;
+      const accessToken = authentication?.accessToken || response.params?.access_token;
+
+      if (idToken || accessToken) {
+        handleGoogleLogin(idToken, accessToken);
+      } else {
+        alert("Login Failed: No token received");
+        setGoogleLoading(false);
+      }
+    } else if (response?.type === "error") {
+      alert("Google Auth Error: " + response.error?.message);
+      setGoogleLoading(false);
     }
   }, [response]);
 
-  useEffect(() => {
-    if (loading || isGoogleLoading) {
-          StatusBar.setBarStyle("light-content");
-      Keyboard.dismiss();
-    }
-  }, [loading, isGoogleLoading]);
-
-  const handleGoogleLogin = async (idToken: string) => {
+  // --- BACKEND HANDLER ---
+  const handleGoogleLogin = async (idToken: string | undefined, accessToken: string | undefined) => {
     setGoogleLoading(true);
+
     try {
       const res = await fetch(`${API_URL}/auth/google`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ idToken }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken, accessToken }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to sign in with Google");
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to sign in with Google");
+      }
 
       setAuth({
         accessToken: data.accessToken,
@@ -96,18 +110,36 @@ const Login = () => {
         name: data.name,
       });
 
-      if (data?.isNewUser) router.push("/dob");
+      if (data?.isNewUser) {
+        router.push("/dob");
+      } else {
+        if (data.role === "counselor") {
+          router.replace("/requests");
+        } else {
+          router.replace("/home");
+        }
+      }
     } catch (err: any) {
-      console.error("Error logging in:", err.message);
+      alert(err.message || "Google Login Failed");
     } finally {
       setGoogleLoading(false);
     }
   };
 
+  // --- NORMAL LOGIN HANDLER ---
   const handleLogin = async () => {
+    Keyboard.dismiss(); // <--- ADDED THIS LINE
+
     try {
+      // Handle Remember Me Logic BEFORE logging in
+      if (rememberMe) {
+        await AsyncStorage.setItem("remembered_email", form.email);
+      } else {
+        await AsyncStorage.removeItem("remembered_email");
+      }
+
       const res = await refetch(form);
-      if (res?.accessToken && res?.refreshToken && res?.userId && res?.role) {
+      if (res?.accessToken) {
         setAuth({
           accessToken: res.accessToken,
           refreshToken: res.refreshToken,
@@ -122,16 +154,25 @@ const Login = () => {
           router.replace("/home");
         }
       }
-    } catch (err: any) {
-      alert(err.message || "Failed to login. Please try again.");
+    } catch (err) {
+      console.log("Login execution error", err);
     }
   };
-  
+
+  // UI Helpers
+  useEffect(() => {
+    const isVisible = loading || isGoogleLoading;
+    Animated.timing(fadeAnim, {
+      toValue: isVisible ? 1 : 0,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, [loading, isGoogleLoading]);
+
   return (
     <SafeAreaView style={styles.container}>
       <Top label="Welcome Back" onBack={() => router.push("/welcome")} />
 
-      {/* Form Section */}
       <View style={styles.formSection}>
         <View style={styles.inputsContainer}>
           <CustomInput
@@ -150,32 +191,27 @@ const Login = () => {
 
         {error && <Text style={styles.errorText}>{error}</Text>}
 
-      <View style={styles.forgotRow}>
-  {/* Remember Me */}
-        <TouchableOpacity
-          style={styles.checkboxContainer}
-          onPress={() => setRememberMe(!rememberMe)}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.checkbox, rememberMe && styles.checkedBox]}>
-            {rememberMe && <Text style={styles.checkmark}>✓</Text>}
-          </View>
+        <View style={styles.forgotRow}>
+          <TouchableOpacity
+            style={styles.checkboxContainer}
+            onPress={() => setRememberMe(!rememberMe)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.checkbox, rememberMe && styles.checkedBox]}>
+              {rememberMe && <Text style={styles.checkmark}>✓</Text>}
+            </View>
+            <Text style={styles.smallDarkText}>Remember Me</Text>
+          </TouchableOpacity>
 
-          <Text style={styles.smallDarkText}>Remember Me</Text>
-        </TouchableOpacity>
-
-        {/* Forgot Password */}
-        <Text
-          style={styles.smallDarkText}
-          onPress={() => router.push("./forgot-password")}
-        >
-          Forgot Password?
-        </Text>
+          <Text
+            style={styles.smallDarkText}
+            onPress={() => router.push("./forgot-password")}
+          >
+            Forgot Password?
+          </Text>
+        </View>
       </View>
 
-      </View>
-
-      {/* Buttons Section */}
       <View style={styles.buttonSection}>
         <Button label="Login" onPress={handleLogin} variant="solid" />
 
@@ -194,19 +230,15 @@ const Login = () => {
 
         <Button
           label="Sign In with Google"
-          onPress={() => promptAsync()}
+          onPress={() => request && promptAsync()}
           variant="outline"
           imageSource={images.google}
         />
       </View>
 
-      {/* Animated Overlay */}
       <Animated.View
         pointerEvents={loading || isGoogleLoading ? "auto" : "none"}
-        style={[
-          styles.overlay,
-          { opacity: fadeAnim },
-        ]}
+        style={[styles.overlay, { opacity: fadeAnim }]}
       >
         <View style={styles.cardWrapper}>
           <View style={styles.cardShadowLayer} />
@@ -291,7 +323,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.5)", // 0.5 opacity
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
     zIndex: 100,
@@ -333,34 +365,28 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   checkboxContainer: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 6,
-},
-
-checkbox: {
-  width: 20,
-  height: 20,
-  borderWidth:2,
-  borderColor: "#555",
-  borderRadius: 4,
-  alignItems: "center",
-  justifyContent: "center",
-      boxShadow: '1px 1px 0px rgb(85, 52, 52)',
-
-},
-
-checkedBox: {
-  backgroundColor: "#553434",  
-  borderColor: "#553434",
-  boxShadow: '1px 1px 0px rgb(85, 52, 52)',
-
-},
-
-checkmark: {
-  color: "#fff",
-  fontSize: 14,
-  fontWeight: "bold",
-},
-
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: "#555",
+    borderRadius: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "1px 1px 0px rgb(85, 52, 52)",
+  },
+  checkedBox: {
+    backgroundColor: "#553434",
+    borderColor: "#553434",
+    boxShadow: "1px 1px 0px rgb(85, 52, 52)",
+  },
+  checkmark: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
 });

@@ -41,7 +41,7 @@ const MediumCard = ({ item }: { item: any }) => {
                 resizeMode='cover'
               />
 
-              {item.isLocked && (
+              {item.isLockedForUser && (
                 <View style={styles.lockContainer}>
                   <LockKeyhole color="#fff" size={scaleHeight(16)} />
                 </View>

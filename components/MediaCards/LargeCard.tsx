@@ -66,7 +66,7 @@ const LargeCard = ({
                   resizeMode="cover"
                 />
 
-                {item.isLocked && (
+                {item.isLockedForUser && (
                   <View style={styles.lockContainer}>
                     <LockKeyhole color="#fff" size={scaleHeight(16)} />
                   </View>

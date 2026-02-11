@@ -33,6 +33,12 @@ export type SubscribePayload = {
   subscriptionType: string; 
 };
 
+export type status = {
+  isSubscribed: boolean;
+  subscriptionType: SubscriptionType | null;
+  endDate: string | null;
+}
+
 export async function initiatePayment(
   subscriptionType: string
 ): Promise<InitPaymentResponse> {
@@ -113,6 +119,24 @@ export async function cancelSubscription(): Promise<SubscriptionResponse> {
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.message || "Subscription cancellation failed");
+  }
+
+  return res.json();
+}
+
+export async function getSubscriptionStatus(): Promise<status> {
+  const accessToken = useAuthStore.getState().accessToken;
+  const res = await fetch(`${API_URL}/subscription/status`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || "Subscription status fetch failed");
   }
 
   return res.json();

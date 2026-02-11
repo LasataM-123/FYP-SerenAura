@@ -52,7 +52,7 @@ const SmallCard = ({ item }: { item: any }) => {
                 style={[styles.image, { borderRadius: scaleHeight(12) }]}
                 resizeMode="cover"
               />
-              {item.isLocked && (
+              {item.isLockedForUser && (
                 <View style={[styles.lockContainer, { width: scaleHeight(24), height: scaleHeight(24), borderRadius: scaleHeight(12), bottom: scaleHeight(6), left: scaleHeight(6) }]}>
                   <LockKeyhole color="#fff" size={scaleHeight(14)} />
                 </View>

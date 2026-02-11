@@ -9,19 +9,25 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
+  ActivityIndicator, // Added import
 } from "react-native";
 import React, { useRef, useState, useEffect } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router"; 
 import Button from "@/components/Button";
 import { images } from "@/constants";
-import { initiatePayment } from "@/lib/api/subscription"; 
+import { 
+  initiatePayment, 
+  getSubscriptionStatus, 
+  cancelSubscription 
+} from "@/lib/api/subscription";
+import CancelSubscriptionOverlay from "@/components/CancelSubscriptionOverlay"; 
 
 const plans = [
   {
     id: "yearly",
     name: "Yearly",
-    price: "Rs 5000/year", 
+    price: "Rs 5000/year",
     color: "#FFF3B0",
     badge: "Best Value",
   },
@@ -36,18 +42,40 @@ const plans = [
 
 const PremiumScreen = () => {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  
-  // Toast State
+  const [loading, setLoading] = useState(false); // For purchase button
+  const [statusLoading, setStatusLoading] = useState(true); // For initial screen load
+
+  // Subscription State
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [currentSubscriptionType, setCurrentSubscriptionType] = useState<string | null>(null);
+  const [showCancelOverlay, setShowCancelOverlay] = useState(false);
+
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const toastAnim = useRef(new Animated.Value(0)).current;
+
+  const fetchStatus = async () => {
+    try {
+      const status = await getSubscriptionStatus();
+      setIsSubscribed(status.isSubscribed);
+      setCurrentSubscriptionType(status.subscriptionType);
+      
+      if (status.isSubscribed && status.subscriptionType) {
+        setSelectedPlan(status.subscriptionType);
+      }
+    } catch (error) {
+      console.log("Error fetching status:", error);
+    } finally {
+        setStatusLoading(false);
+    }
+  };
 
   useEffect(() => {
     StatusBar.setBarStyle("dark-content");
     if (Platform.OS === "android") {
       StatusBar.setBackgroundColor("#fff");
     }
+    fetchStatus();
   }, []);
 
   const showToastMessage = (message: string) => {
@@ -65,11 +93,11 @@ const PremiumScreen = () => {
       showToastMessage("❌ Please select a plan");
       return;
     }
-    
+
     setLoading(true);
     try {
       const response = await initiatePayment(selectedPlan);
-      
+
       if (response.success) {
         router.push({
           pathname: "/payment/esewa",
@@ -92,24 +120,44 @@ const PremiumScreen = () => {
     }
   };
 
-  const PlanItem = ({ item, isSelected, anySelected, onSelect }: any) => {
+  // Called by the Overlay when user types "cancel" and confirms
+  const handleCancelConfirm = async () => {
+    try {
+      const res = await cancelSubscription();
+      if (res.success) {
+         showToastMessage("Subscription Cancelled");
+         // Refresh status to update UI
+         setStatusLoading(true); // Show loader while refreshing
+         await fetchStatus(); 
+      }
+    } catch (error: any) {
+      console.log(error);
+      showToastMessage(error.message || "Cancellation failed");
+    }
+  };
+
+  const PlanItem = ({ item, isSelected, anySelected, onSelect, disabled }: any) => {
     const scaleAnim = useRef(new Animated.Value(1)).current;
 
     const handlePressIn = () => {
+      if (disabled) return;
       Animated.spring(scaleAnim, { toValue: 0.95, friction: 4, useNativeDriver: true }).start();
     };
 
     const handlePressOut = () => {
+      if (disabled) return;
       Animated.spring(scaleAnim, { toValue: 1, friction: 4, tension: 100, useNativeDriver: true }).start();
     };
-    const opacity = anySelected ? (isSelected ? 0.5 : 1) : 1;
-    const borderWidth = isSelected ? 4 : 4; 
+    
+    // If disabled (subscribed view), always show full opacity
+    const opacity = (anySelected && !disabled) ? (isSelected ? 0.5 : 1) : 1;
+    const borderWidth = isSelected ? 4 : 4;
 
     return (
       <TouchableWithoutFeedback
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        onPress={() => onSelect(item.id)}
+        onPress={() => !disabled && onSelect(item.id)}
       >
         <Animated.View
           style={[
@@ -125,15 +173,12 @@ const PremiumScreen = () => {
             <View style={styles.planContent}>
               <Text style={styles.planTitle}>{item.name}</Text>
               
-              {/* --- UPDATED DETAILS SECTION --- */}
               <View style={styles.planDetails}>
-                {/* Removed Trial Text and Bullet Point */}
                 <Text style={styles.planPrice}>{item.price}</Text>
               </View>
 
             </View>
             
-            {/* Best Value Badge */}
             {item.badge && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{item.badge}</Text>
@@ -145,10 +190,19 @@ const PremiumScreen = () => {
     );
   };
 
+  // --- Loading State ---
+  if (statusLoading) {
+    return (
+      <SafeAreaView style={[styles.container, styles.centerContent]}>
+         <ActivityIndicator size="large" color="#553434" />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent} 
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* --- Header --- */}
@@ -167,23 +221,27 @@ const PremiumScreen = () => {
 
         {/* --- Title --- */}
         <Text style={styles.mainTitle}>
-          Unlock Your Best Relaxation Experience
+          {isSubscribed ? "Your Active Plan" : "Unlock Your Best Relaxation Experience"}
         </Text>
 
         {/* --- Hero Image Card --- */}
         <View style={styles.heroContainer}>
-            <View style={styles.heroShadow} />
-            <View style={styles.heroBox}>
-                <Image source={images.Gift} style={styles.heroImage} />
-                <Text style={styles.heroText}>
-                    Get the most of our app with a premium account.
-                </Text>
-            </View>
+          <View style={styles.heroShadow} />
+          <View style={styles.heroBox}>
+            <Image source={images.Gift} style={styles.heroImage} />
+            <Text style={styles.heroText}>
+              {isSubscribed 
+                ? "You are currently enjoying Premium benefits." 
+                : "Get the most of our app with a premium account."}
+            </Text>
+          </View>
         </View>
 
         {/* --- Benefits List --- */}
         <View style={styles.benefitsSection}>
-            <Text style={styles.benefitsHeader}>Try <Text style={{fontFamily: 'Pacifico', fontSize:20}}>SerenAura</Text> Premium</Text>
+            <Text style={styles.benefitsHeader}>
+                {isSubscribed ? "Your" : "Try"} <Text style={{fontFamily: 'Pacifico', fontSize:20}}>SerenAura</Text> Premium
+            </Text>
             
             <View style={styles.benefitItem}>
                 <Image source={images.SimpleTick} style={styles.checkIcon} />
@@ -201,30 +259,60 @@ const PremiumScreen = () => {
 
         {/* --- Plans Selection --- */}
         <View style={styles.plansSection}>
-            {plans.map((plan) => (
-                <PlanItem 
-                    key={plan.id}
-                    item={plan}
-                    isSelected={selectedPlan === plan.id}
-                    anySelected={!!selectedPlan}
-                    onSelect={setSelectedPlan}
-                />
-            ))}
+            {isSubscribed ? (
+                // Show ONLY the active plan, non-touchable
+                plans
+                  .filter(plan => plan.id === currentSubscriptionType)
+                  .map(plan => (
+                    <PlanItem 
+                      key={plan.id}
+                      item={plan}
+                      isSelected={true} // Force selected style
+                      anySelected={true}
+                      onSelect={() => {}} 
+                      disabled={true} // Make non-touchable
+                    />
+                  ))
+            ) : (
+                // Show ALL plans, selectable
+                plans.map((plan) => (
+                    <PlanItem 
+                      key={plan.id}
+                      item={plan}
+                      isSelected={selectedPlan === plan.id}
+                      anySelected={!!selectedPlan}
+                      onSelect={setSelectedPlan}
+                      disabled={false}
+                    />
+                ))
+            )}
         </View>
 
         {/* --- Footer Button --- */}
         <View style={styles.footer}>
             <Button 
-                label={loading ? "Processing..." : "Purchase"}
-                onPress={handlePurchase}
+                label={isSubscribed ? "Cancel Subscription" : (loading ? "Processing..." : "Purchase")}
+                onPress={isSubscribed ? () => setShowCancelOverlay(true) : handlePurchase}
+                // Optional: Change variant if subscribed to indicate destructive action or keep solid
+                variant="solid" 
             />
+            
             <Text style={styles.legalText}>
-                By tapping "Purchase",{"\n"}
-                you agree to our Terms of Service and Privacy Policy
+                {isSubscribed 
+                  ? "Cancellations will take effect at the end of the current billing cycle."
+                  : 'By tapping "Purchase",\nyou agree to our Terms of Service and Privacy Policy'}
             </Text>
         </View>
 
       </ScrollView>
+
+      {/* --- Overlay --- */}
+      {showCancelOverlay && (
+        <CancelSubscriptionOverlay 
+            onClose={() => setShowCancelOverlay(false)}
+            onConfirm={handleCancelConfirm}
+        />
+      )}
 
       {/* --- Toast Component --- */}
       {showToast && (
@@ -254,7 +342,11 @@ const PremiumScreen = () => {
 export default PremiumScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
+  container: { 
+    flex: 1, 
+    backgroundColor: "#fff" 
+  },
+  centerContent: { justifyContent: 'center', alignItems: 'center' }, // Added for loader
   scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 10, marginBottom: 20 },
   closeBtnCircle: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: '#553434', justifyContent: 'center', alignItems: 'center' },
