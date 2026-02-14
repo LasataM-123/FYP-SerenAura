@@ -379,7 +379,6 @@ const verifyOTP = asyncHandler(async(req,res)=>{
  * @access  Public
  */
 const googleAuth = asyncHandler(async (req, res) => {
-  // We accept EITHER idToken OR accessToken to be safe
   const { idToken, accessToken } = req.body;
 
   try {
@@ -389,14 +388,12 @@ const googleAuth = asyncHandler(async (req, res) => {
 
     let googleData;
 
-    // STRATEGY 1: Verify via ID Token (Preferred)
     if (idToken) {
       const response = await axios.get(
         `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`
       );
       googleData = response.data;
     } 
-    // STRATEGY 2: Verify via Access Token (Fallback if ID Token fails)
     else if (accessToken) {
       const response = await axios.get(
         `https://www.googleapis.com/oauth2/v3/userinfo`,
@@ -410,22 +407,19 @@ const googleAuth = asyncHandler(async (req, res) => {
       return res.status(400).json({ message: "Invalid Google Token" });
     }
 
-    // --- YOUR ORIGINAL LOGIC STARTS HERE ---
     let user = await Patient.findOne({ email: googleData.email });
     let isNewUser = false;
 
     if (!user) {
       // Creating user WITHOUT password or DOB (as you requested).
-      // WARNING: This will crash if your Schema requires password!
       user = await Patient.create({
         name: googleData.name,
         email: googleData.email,
         profileUrl: googleData.picture,
-        verified: true // We can assume Google emails are verified
+        verified: true 
       });
       isNewUser = true;
     }
-    // --- END ORIGINAL LOGIC ---
 
     const { accessToken: newAccessToken, refreshToken } = generateTokens(
       user._id,
