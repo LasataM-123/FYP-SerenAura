@@ -1,10 +1,10 @@
-import { router, SplashScreen, Stack, useSegments } from "expo-router";
-import { useFonts } from "expo-font";
-import { useEffect, useRef } from "react";
-import { useAuthStore } from "@/store/authStore";
-import { Platform, View } from "react-native";
-import { io } from "socket.io-client";
 import { SOCKET_URL } from "@/config";
+import { useAuthStore } from "@/store/authStore";
+import { useFonts } from "expo-font";
+import { router, SplashScreen, Stack, useSegments } from "expo-router";
+import { useEffect, useRef } from "react";
+import { View } from "react-native";
+import { io } from "socket.io-client";
 
 // Import Flash Message components
 import FlashMessage, { showMessage } from "react-native-flash-message";
@@ -12,11 +12,11 @@ import FlashMessage, { showMessage } from "react-native-flash-message";
 export default function RootLayout() {
   const { role, isLoggedIn, hasCompletedOnboarding, userId } = useAuthStore();
   const segments = useSegments();
-  
+
   const socketRef = useRef<any>(null);
 
   const ready = isLoggedIn !== undefined && hasCompletedOnboarding !== undefined;
-  
+
   const [fontsLoaded] = useFonts({
     KodchasanBold: require("../assets/fonts/Kodchasan-Bold.ttf"),
     KodchasanLight: require("../assets/fonts/Kodchasan-Light.ttf"),
@@ -35,7 +35,7 @@ export default function RootLayout() {
       transports: ['websocket'],
       autoConnect: true,
     });
-    
+
     socketRef.current = socket;
 
     const register = () => {
@@ -50,19 +50,19 @@ export default function RootLayout() {
 
     socket.on("new_notification", (data: any) => {
       console.log("🎁 Notification Received:", data.title);
-      
+
       showMessage({
         message: data.title,
         description: data.message,
-        backgroundColor: "#FFFFFF", 
-        floating: true,              
+        backgroundColor: "#FFFFFF",
+        floating: true,
         duration: 4000,             // Auto-hide
         hideOnPress: true,
-        
+
         // Main Container Style (Border)
         style: {
-          width: "88%",         
-        alignSelf: "center", 
+          width: "88%",
+          alignSelf: "center",
           borderWidth: 4,
           borderColor: "#553434",
           borderRadius: 15,
@@ -89,22 +89,22 @@ export default function RootLayout() {
           fontSize: 14,
         },
         onPress: () => {
-          if(role==="patient"){
-            if (data.type === "REQUEST_ACCEPTED" || data.type==="REQUEST_CANCELLED" || data.type==="REQUEST_EXPIRED") {
-                router.push("/chat");
+          if (role === "patient") {
+            if (data.type === "REQUEST_ACCEPTED" || data.type === "REQUEST_CANCELLED" || data.type === "REQUEST_EXPIRED") {
+              router.push("/(tabs)/chat");
             }
-            if(data.type === "MOOD_REMINDER"){
-                router.push("/media/moodTracker");
+            if (data.type === "MOOD_REMINDER") {
+              router.push("/media/moodTracker");
             }
-            if(data.type ==="NEW_CHAT_MESSAGE"){
-                router.push("/chat");
+            if (data.type === "NEW_CHAT_MESSAGE") {
+              router.push("/(tabs)/chat");
             }
           } else {
-            if(data.type ==="NEW_CHAT_MESSAGE"){
-                router.push("/user-chat");
+            if (data.type === "NEW_CHAT_MESSAGE") {
+              router.push("/user-chat");
             }
-            if (data.type === "REQUEST_ACCEPTED" || data.type==="REQUEST_CANCELLED" || data.type==="REQUEST_EXPIRED") {
-                router.push("/requests");
+            if (data.type === "REQUEST_ACCEPTED" || data.type === "REQUEST_CANCELLED" || data.type === "REQUEST_EXPIRED") {
+              router.push("/(counselor)/requests");
             }
           }
         }
@@ -121,25 +121,25 @@ export default function RootLayout() {
         socket.disconnect();
       }
     };
-  }, [isLoggedIn, userId]); 
+  }, [isLoggedIn, userId]);
 
   // ---------------- NAVIGATION LOGIC ----------------
   useEffect(() => {
-    if (!ready) return; 
+    if (!ready) return;
     const currentSegment = segments[0];
 
     const inAuthGroup = segments[0] === "(auth)";
     const inOnboarding = segments[0] === "(onboarding)";
-    const inWelcome = currentSegment === "welcome"; 
+    const inWelcome = currentSegment === "welcome";
 
     if (
       (isLoggedIn || hasCompletedOnboarding) &&
       (inAuthGroup || inOnboarding || inWelcome)
     ) {
-      if(role === "patient"){
-        router.replace("/home");
+      if (role === "patient") {
+        router.replace("/(tabs)/home");
       } else {
-        router.replace("/requests");
+        router.replace("/(counselor)/requests");
       }
     }
   }, [segments, isLoggedIn, hasCompletedOnboarding, ready, role]);
@@ -166,7 +166,7 @@ export default function RootLayout() {
     <View style={{ flex: 1 }}>
       {/* Native Stack */}
       <Stack screenOptions={{ headerShown: false, statusBarStyle: "dark" }} />
-      
+
       {/* Floating Notification Component */}
       <FlashMessage position="top" statusBarHeight={40} />
     </View>

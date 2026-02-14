@@ -1,28 +1,28 @@
-import React, { useEffect, useState, useRef } from "react";
-import {
-  View,
-  Text,
-  ActivityIndicator,
-  StyleSheet,
-  Keyboard,
-  Animated,
-  StatusBar,
-  TouchableOpacity,
-  Platform,
-} from "react-native";
-import { Link, router } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as AuthSession from "expo-auth-session";
+import Constants from "expo-constants";
+import { Link, router } from "expo-router";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Animated,
+  Keyboard,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 // --- IMPORTS ---
-import Top from "@/components/top";
-import CustomInput from "@/components/CustomInput";
 import Button from "@/components/Button";
+import CustomInput from "@/components/CustomInput";
+import Top from "@/components/top";
+import { API_URL, GOOGLE_CLIENT_ID, WEB_CLIENT_ID } from "@/config";
 import { images } from "@/constants";
-import { useBackend } from "@/lib/useBackend";
 import { login } from "@/lib/api/auth";
+import { useBackend } from "@/lib/useBackend";
 import { useAuthStore } from "@/store/authStore";
-import { API_URL, WEB_CLIENT_ID } from "@/config";
 
 // --- AUTH IMPORTS ---
 import * as Google from "expo-auth-session/providers/google";
@@ -40,13 +40,26 @@ const Login = () => {
 
   // Fade animation setup
   const fadeAnim = useRef(new Animated.Value(0)).current;
-
-  const EXPO_REDIRECT_URI = "https://auth.expo.io/@lasatam/frontendui";
+  const isExpoGo = Constants.appOwnership === "expo";
+  const expoProxyRedirectUri = "https://auth.expo.io/@lasatam/frontendui";
 
   // --- 3. GOOGLE HOOK ---
   const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: WEB_CLIENT_ID,
-    redirectUri: EXPO_REDIRECT_URI,
+    ...(isExpoGo
+      ? {
+        clientId: WEB_CLIENT_ID,
+        webClientId: WEB_CLIENT_ID,
+        androidClientId: WEB_CLIENT_ID,
+        iosClientId: WEB_CLIENT_ID,
+        redirectUri: expoProxyRedirectUri,
+        responseType: "token",
+        shouldAutoExchangeCode: false,
+      }
+      : {
+        webClientId: WEB_CLIENT_ID,
+        androidClientId: GOOGLE_CLIENT_ID || WEB_CLIENT_ID,
+        iosClientId: GOOGLE_CLIENT_ID || WEB_CLIENT_ID,
+      }),
     scopes: ["openid", "profile", "email"],
   });
 
@@ -68,6 +81,8 @@ const Login = () => {
 
   // --- 5. HANDLE GOOGLE RESPONSE ---
   useEffect(() => {
+    if (isExpoGo) return;
+
     if (response?.type === "success") {
       const { authentication } = response;
       const idToken = authentication?.idToken || response.params?.id_token;
@@ -82,8 +97,10 @@ const Login = () => {
     } else if (response?.type === "error") {
       alert("Google Auth Error: " + response.error?.message);
       setGoogleLoading(false);
+    } else if (response) {
+      setGoogleLoading(false);
     }
-  }, [response]);
+  }, [response, isExpoGo]);
 
   // --- BACKEND HANDLER ---
   const handleGoogleLogin = async (idToken: string | undefined, accessToken: string | undefined) => {
@@ -109,14 +126,15 @@ const Login = () => {
         role: data.role,
         name: data.name,
       });
+      loggedIn();
 
       if (data?.isNewUser) {
         router.push("/dob");
       } else {
         if (data.role === "counselor") {
-          router.replace("/requests");
+          router.replace("/(counselor)/requests");
         } else {
-          router.replace("/home");
+          router.replace("/(tabs)/home");
         }
       }
     } catch (err: any) {
@@ -149,9 +167,9 @@ const Login = () => {
         });
         loggedIn();
         if (res.role === "counselor") {
-          router.replace("/requests");
+          router.replace("/(counselor)/requests");
         } else {
-          router.replace("/home");
+          router.replace("/(tabs)/home");
         }
       }
     } catch (err) {
@@ -230,7 +248,64 @@ const Login = () => {
 
         <Button
           label="Sign In with Google"
-          onPress={() => request && promptAsync()}
+          onPress={async () => {
+            if (!request) return;
+            setGoogleLoading(true);
+            try {
+              if (isExpoGo) {
+                if (!request.url) {
+                  throw new Error("Google request URL is not ready. Please try again.");
+                }
+
+                const appReturnUrl = AuthSession.makeRedirectUri({
+                  path: "auth-callback",
+                });
+
+                const proxyStartUrl = `${expoProxyRedirectUri}/start?${new URLSearchParams({
+                  authUrl: request.url,
+                  returnUrl: appReturnUrl,
+                }).toString()}`;
+
+                const rawResult = await WebBrowser.openAuthSessionAsync(
+                  proxyStartUrl,
+                  appReturnUrl
+                );
+
+                if (rawResult.type === "success") {
+                  const parsed = request.parseReturnUrl(rawResult.url);
+
+                  if (parsed.type === "success") {
+                    const idToken = parsed.authentication?.idToken || parsed.params?.id_token;
+                    const accessToken =
+                      parsed.authentication?.accessToken || parsed.params?.access_token;
+
+                    if (idToken || accessToken) {
+                      await handleGoogleLogin(idToken, accessToken);
+                    } else {
+                      alert("Login Failed: No token received");
+                      setGoogleLoading(false);
+                    }
+                  } else if (parsed.type === "error") {
+                    alert(parsed.error?.message || "Google Auth Error");
+                    setGoogleLoading(false);
+                  } else {
+                    setGoogleLoading(false);
+                    alert("Google Auth Error");
+                  }
+                } else if (rawResult.type === "cancel" || rawResult.type === "dismiss") {
+                  setGoogleLoading(false);
+                } else {
+                  setGoogleLoading(false);
+                  alert("Google sign-in was interrupted");
+                }
+              } else {
+                await promptAsync();
+              }
+            } catch (err: any) {
+              alert(err?.message || "Google sign-in failed");
+              setGoogleLoading(false);
+            }
+          }}
           variant="outline"
           imageSource={images.google}
         />

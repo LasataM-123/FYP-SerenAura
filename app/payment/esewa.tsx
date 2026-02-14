@@ -1,21 +1,21 @@
-import React, { useState, useEffect, useRef } from "react";
+import * as Print from "expo-print";
+import { router, useLocalSearchParams } from "expo-router";
+import * as Sharing from "expo-sharing";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  StyleSheet,
-  View,
   ActivityIndicator,
   Alert,
-  Text,
   ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
-import { WebView } from "react-native-webview";
-import { useLocalSearchParams, router } from "expo-router";
-import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { WebView } from "react-native-webview";
 
 // API Imports
-import { subscribePatient } from "@/lib/api/subscription";
 import { getProfile } from "@/lib/api/auth";
+import { subscribePatient } from "@/lib/api/subscription";
 
 // UI Imports
 import Button from "@/components/Button";
@@ -112,7 +112,7 @@ export default function PaymentGatewayScreen() {
         "Notice",
         error?.message || "Payment processed, but activation failed."
       );
-      router.replace("/home");
+      router.replace("/(tabs)/home");
     } finally {
       setIsProcessing(false);
     }
