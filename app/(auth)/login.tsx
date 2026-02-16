@@ -40,6 +40,7 @@ const Login = () => {
 
   // Fade animation setup
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
   const isExpoGo = Constants.appOwnership === "expo";
   const expoProxyRedirectUri = "https://auth.expo.io/@lasatam/frontendui";
 
@@ -127,16 +128,12 @@ const Login = () => {
         name: data.name,
       });
       loggedIn();
-
-      if (data?.isNewUser) {
-        router.push("/dob");
-      } else {
+  
         if (data.role === "counselor") {
           router.replace("/(counselor)/requests");
         } else {
           router.replace("/(tabs)/home");
         }
-      }
     } catch (err: any) {
       alert(err.message || "Google Login Failed");
     } finally {

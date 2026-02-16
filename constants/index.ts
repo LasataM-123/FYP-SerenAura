@@ -52,6 +52,7 @@ import Edit from '@/assets/icons/Edit.png';
 import Pin from '@/assets/icons/Pin.png';
 import Gift from '@/assets/images/Gift.png';
 import BlankTick from '@/assets/icons/BlankTick.png';
+import Crown from '@/assets/icons/crown.png';
 export const images={
     welcomeImage,
     ribbon,
@@ -106,5 +107,6 @@ export const images={
     Edit,
     Pin,
     Gift,
-    BlankTick
+    BlankTick,
+    Crown
 }

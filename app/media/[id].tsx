@@ -99,7 +99,7 @@ const Media = () => {
                 <Button 
                     label='Go Premium' 
                     onPress={handleGoPremium} 
-                    // Add a lock icon if your Button component supports it
+                    imageSource={images.Crown}
                 />
               ) : (
                 <Button 

@@ -300,7 +300,8 @@ const styles = StyleSheet.create({
   mainWelcomeText: { 
     fontSize: 22, 
     fontFamily: 'KodchasanSemiBold', 
-    color: '#553434' 
+    color: '#553434',
+    textAlign:'center'
   },
   timeText: { 
     fontFamily: "KodchasanMedium", 

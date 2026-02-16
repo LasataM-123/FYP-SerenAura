@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     marginBottom: 10,
     color: '#553434',
     fontFamily: 'KodchasanSemiBold',
@@ -109,6 +109,7 @@ const styles = StyleSheet.create({
     fontFamily: 'KodchasanMedium',
     color: '#553434',
     fontSize: 14,
+    marginBottom:10
   },
   dotsContainer: {
     flexDirection: 'row',

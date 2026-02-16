@@ -20,6 +20,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useBackend } from "@/lib/useBackend";
 import { deleteCounselorAccount } from "@/lib/api/counselor";
 import { deletePatientAccount } from "@/lib/api/auth";
+import { router } from "expo-router";
 
 const BORDER = "#553434";
 
@@ -29,6 +30,7 @@ interface Props {
 }
 
 const DeleteAccountOverlay: React.FC<Props> = ({ onClose, onDeleteStart }) => {
+  const {logout} = useAuthStore();
   const role = useAuthStore((state)=>state.role);
   const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -74,12 +76,15 @@ const DeleteAccountOverlay: React.FC<Props> = ({ onClose, onDeleteStart }) => {
  const handleDelete = () => {
   if (!isMatch) return;
   if(role==="counselor"){
-    console.log("Delete counselor account logic here");
+    deleteCounselor();
   }  else if(role==="patient"){
-    console.log("Delete patient account logic here");
+    deletePatient();
   }
   onDeleteStart?.();   
   closeOverlay();
+  logout();
+  router.replace('/login')
+
 };
 
 
