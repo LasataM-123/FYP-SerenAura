@@ -432,6 +432,7 @@ const googleAuth = asyncHandler(async (req, res) => {
       accessToken: newAccessToken,
       refreshToken,
       userId: user._id,
+      name: user.name,
       role: "patient",
       isNewUser
     });
