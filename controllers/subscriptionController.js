@@ -2,7 +2,7 @@ const Subscription = require("../models/subscriptionModel");
 const Patient = require("../models/patientModel");
 const Transaction = require("../models/transactionModel");
 const { getEsewaConfig, verifyPaymentStatus } = require("../service/esewaService");
-const { sendInvoiceEmail, sendCancelSubscriptionEmail } = require("../service/emailService");
+const { sendInvoiceEmail, sendCancelSubscriptionEmail, sendResubscribeEmail } = require("../service/emailService");
 
 /**
  * @route  POST /api/subscription/initiate
@@ -239,8 +239,9 @@ const getSubscriptionStatus = async (req, res) => {
     const patientId = req.user.id;
     const activeSub = await Subscription.findOne({
       patientId,
-      status: "active",
-    });
+      status: { $in: ["active", "cancelled"] },
+      endDate: { $gt: new Date() }
+    }).sort({ endDate: -1 });
     if (!activeSub) {
       return res.status(200).json({ isSubscribed: false, subscriptionType: null, endDate: null });
     }
@@ -249,10 +250,74 @@ const getSubscriptionStatus = async (req, res) => {
       isSubscribed: true,
       subscriptionType: activeSub.subscriptionType,
       endDate: activeSub.endDate,
+      status: activeSub.status,
     });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Could not fetch subscription status" });
+  }
+};
+
+/**
+ * @route  PUT /api/subscription/resubscribe
+ * @desc   Reactivate a cancelled subscription if it hasn't reached its end date
+ * @access Private (Patient Only)
+ */
+const resubscribePatient = async (req, res) => {
+  try {
+    const patientId = req.user.id;
+    const cancelledSub = await Subscription.findOne({
+      patientId,
+      status: "cancelled",
+      endDate: { $gt: new Date() } 
+    }).sort({ endDate: -1 });
+
+    if (!cancelledSub) {
+      return res.status(400).json({ 
+        message: "No eligible cancelled subscription found. Your previous subscription may have already expired." 
+      });
+    }
+
+    const activeSub = await Subscription.findOne({
+      patientId,
+      status: "active",
+      endDate: { $gt: new Date() }
+    });
+
+    if (activeSub) {
+      return res.status(400).json({ message: "You already have an active subscription." });
+    }
+
+    cancelledSub.status = "active";
+    await cancelledSub.save();
+
+    const user = await Patient.findByIdAndUpdate(
+      patientId, 
+      {
+        isSubscribed: true,
+        subscriptionType: cancelledSub.subscriptionType,
+      },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    if (user.email) {
+      const formattedEndDate = new Date(cancelledSub.endDate).toDateString();
+      sendResubscribeEmail(user.email, cancelledSub.subscriptionType, formattedEndDate)
+        .catch(err => console.log("Failed to send resubscribe email in background", err));
+    }
+
+    res.status(200).json({
+      message: "Successfully resubscribed. Your subscription is active again.",
+      subscription: cancelledSub,
+    });
+
+  } catch (err) {
+    console.error("Resubscription error:", err);
+    res.status(500).json({ message: "Resubscription failed due to a server error." });
   }
 };
 
@@ -261,5 +326,6 @@ module.exports = {
   subscribePatient,
   renewSubscription,
   cancelSubscription,
-  getSubscriptionStatus
+  getSubscriptionStatus,
+  resubscribePatient
 };
