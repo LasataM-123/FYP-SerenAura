@@ -1,7 +1,6 @@
 import { API_URL } from "@/config";
 import { useAuthStore } from "@/store/authStore";
 
-// 1. Keep the strict type for safety
 export type SubscriptionType = "monthly" | "yearly";
 
 export type Subscription = {
@@ -37,6 +36,7 @@ export type status = {
   isSubscribed: boolean;
   subscriptionType: SubscriptionType | null;
   endDate: string | null;
+  status?: "active" | "cancelled" | "expired" | null; 
 }
 
 export async function initiatePayment(
@@ -137,6 +137,25 @@ export async function getSubscriptionStatus(): Promise<status> {
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.message || "Subscription status fetch failed");
+  }
+
+  return res.json();
+}
+
+export async function resubscribeSubscription(): Promise<SubscriptionResponse> {
+  const accessToken = useAuthStore.getState().accessToken;
+
+  const res = await fetch(`${API_URL}/subscription/resubscribe`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || "Resubscription failed");
   }
 
   return res.json();

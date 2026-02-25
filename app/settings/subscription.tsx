@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
-  ActivityIndicator, // Added import
+  ActivityIndicator,
 } from "react-native";
 import React, { useRef, useState, useEffect } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,9 +19,11 @@ import { images } from "@/constants";
 import { 
   initiatePayment, 
   getSubscriptionStatus, 
-  cancelSubscription 
+  cancelSubscription,
+  resubscribeSubscription
 } from "@/lib/api/subscription";
 import CancelSubscriptionOverlay from "@/components/CancelSubscriptionOverlay"; 
+import Overlay from "@/components/Overlay";
 
 const plans = [
   {
@@ -42,13 +44,23 @@ const plans = [
 
 const PremiumScreen = () => {
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  
+  // Base Loading States
   const [loading, setLoading] = useState(false); // For purchase button
-  const [statusLoading, setStatusLoading] = useState(true); // For initial screen load
+  const [statusLoading, setStatusLoading] = useState(true); // For main screen reload
+
+  // Specific Action Loading States for Overlays
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [resubscribeLoading, setResubscribeLoading] = useState(false);
 
   // Subscription State
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [currentSubscriptionType, setCurrentSubscriptionType] = useState<string | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null); 
+  
+  // Overlay States
   const [showCancelOverlay, setShowCancelOverlay] = useState(false);
+  const [showResubscribeOverlay, setShowResubscribeOverlay] = useState(false);
 
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -59,6 +71,7 @@ const PremiumScreen = () => {
       const status = await getSubscriptionStatus();
       setIsSubscribed(status.isSubscribed);
       setCurrentSubscriptionType(status.subscriptionType);
+      setSubscriptionStatus(status.status || "active"); 
       
       if (status.isSubscribed && status.subscriptionType) {
         setSelectedPlan(status.subscriptionType);
@@ -75,8 +88,14 @@ const PremiumScreen = () => {
     if (Platform.OS === "android") {
       StatusBar.setBackgroundColor("#fff");
     }
-    fetchStatus();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      setStatusLoading(true);
+      fetchStatus();
+    }, [])
+  );
 
   const showToastMessage = (message: string) => {
     setToastMessage(message);
@@ -120,19 +139,41 @@ const PremiumScreen = () => {
     }
   };
 
-  // Called by the Overlay when user types "cancel" and confirms
   const handleCancelConfirm = async () => {
+    setCancelLoading(true); // Start Cancel Loader
     try {
       const res = await cancelSubscription();
-      if (res.success) {
+      if (res.success || res.message) {
          showToastMessage("Subscription Cancelled");
-         // Refresh status to update UI
-         setStatusLoading(true); // Show loader while refreshing
+         setShowCancelOverlay(false); // Close overlay after success
+         setStatusLoading(true); // Trigger whole screen reload
          await fetchStatus(); 
       }
     } catch (error: any) {
       console.log(error);
       showToastMessage(error.message || "Cancellation failed");
+      setShowCancelOverlay(false);
+    } finally {
+      setCancelLoading(false); // End Cancel Loader
+    }
+  };
+
+  const handleResubscribe = async () => {
+    setResubscribeLoading(true); // Start Resubscribe Loader
+    try {
+      const res = await resubscribeSubscription();
+      if (res.success || res.message) {
+        showToastMessage("Successfully Resubscribed!");
+        setShowResubscribeOverlay(false); // Close overlay after success
+        setStatusLoading(true); // Trigger whole screen reload
+        await fetchStatus(); 
+      }
+    } catch (error: any) {
+      console.log(error);
+      showToastMessage(error.message || "Resubscription failed");
+      setShowResubscribeOverlay(false);
+    } finally {
+      setResubscribeLoading(false); // End Resubscribe Loader
     }
   };
 
@@ -149,7 +190,6 @@ const PremiumScreen = () => {
       Animated.spring(scaleAnim, { toValue: 1, friction: 4, tension: 100, useNativeDriver: true }).start();
     };
     
-    // If disabled (subscribed view), always show full opacity
     const opacity = (anySelected && !disabled) ? (isSelected ? 0.5 : 1) : 1;
     const borderWidth = isSelected ? 4 : 4;
 
@@ -157,7 +197,9 @@ const PremiumScreen = () => {
       <TouchableWithoutFeedback
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        onPress={() => !disabled && onSelect(item.id)}
+        onPress={() => {
+          if (!disabled) onSelect(item.id);
+        }}
       >
         <Animated.View
           style={[
@@ -165,20 +207,14 @@ const PremiumScreen = () => {
             { transform: [{ scale: scaleAnim }], opacity },
           ]}
         >
-          {/* Shadow Layer */}
           <View style={styles.planShadowLayer} pointerEvents="none" />
-
-          {/* Main Card */}
           <View style={[styles.planBox, { backgroundColor: item.color, borderWidth }]}>
             <View style={styles.planContent}>
               <Text style={styles.planTitle}>{item.name}</Text>
-              
               <View style={styles.planDetails}>
                 <Text style={styles.planPrice}>{item.price}</Text>
               </View>
-
             </View>
-            
             {item.badge && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{item.badge}</Text>
@@ -190,7 +226,27 @@ const PremiumScreen = () => {
     );
   };
 
-  // --- Loading State ---
+  let buttonLabel = "Purchase";
+  let buttonAction = () => { handlePurchase(); };
+  let legalMessage = 'By tapping "Purchase",\nyou agree to our Terms of Service and Privacy Policy';
+  let heroText = "Get the most of our app with a premium account.";
+
+  if (isSubscribed) {
+    if (subscriptionStatus === "cancelled") {
+      buttonLabel = loading ? "Processing..." : "Resubscribe";
+      buttonAction = () => { setShowResubscribeOverlay(true); };
+      legalMessage = "Resubscribe to continue auto-renewing your benefits without interruption.";
+      heroText = "Your premium benefits will end soon. Resubscribe to keep them!";
+    } else {
+      buttonLabel = "Cancel Subscription";
+      buttonAction = () => { setShowCancelOverlay(true); };
+      legalMessage = "Cancellations will take effect at the end of the current billing cycle.";
+      heroText = "You are currently enjoying Premium benefits.";
+    }
+  } else if (loading) {
+    buttonLabel = "Processing...";
+  }
+
   if (statusLoading) {
     return (
       <SafeAreaView style={[styles.container, styles.centerContent]}>
@@ -205,39 +261,28 @@ const PremiumScreen = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* --- Header --- */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={() => { router.back(); }}>
              {images.cross ? (
                  <Image source={images.cross} style={{width: 30, height: 30}} />
              ) : (
                 <View style={styles.closeBtnCircle}><Text style={styles.closeBtnText}>✕</Text></View>
              )}
           </TouchableOpacity>
-          <TouchableOpacity>
-            <Text style={styles.restoreText}>Restore Purchase</Text>
-          </TouchableOpacity>
         </View>
 
-        {/* --- Title --- */}
         <Text style={styles.mainTitle}>
           {isSubscribed ? "Your Active Plan" : "Unlock Your Best Relaxation Experience"}
         </Text>
 
-        {/* --- Hero Image Card --- */}
         <View style={styles.heroContainer}>
           <View style={styles.heroShadow} />
           <View style={styles.heroBox}>
             <Image source={images.Gift} style={styles.heroImage} />
-            <Text style={styles.heroText}>
-              {isSubscribed 
-                ? "You are currently enjoying Premium benefits." 
-                : "Get the most of our app with a premium account."}
-            </Text>
+            <Text style={styles.heroText}>{heroText}</Text>
           </View>
         </View>
 
-        {/* --- Benefits List --- */}
         <View style={styles.benefitsSection}>
             <Text style={styles.benefitsHeader}>
                 {isSubscribed ? "Your" : "Try"} <Text style={{fontFamily: 'Pacifico', fontSize:20}}>SerenAura</Text> Premium
@@ -257,24 +302,21 @@ const PremiumScreen = () => {
             </View>
         </View>
 
-        {/* --- Plans Selection --- */}
         <View style={styles.plansSection}>
             {isSubscribed ? (
-                // Show ONLY the active plan, non-touchable
                 plans
                   .filter(plan => plan.id === currentSubscriptionType)
                   .map(plan => (
                     <PlanItem 
                       key={plan.id}
                       item={plan}
-                      isSelected={true} // Force selected style
+                      isSelected={true} 
                       anySelected={true}
                       onSelect={() => {}} 
-                      disabled={true} // Make non-touchable
+                      disabled={true} 
                     />
                   ))
             ) : (
-                // Show ALL plans, selectable
                 plans.map((plan) => (
                     <PlanItem 
                       key={plan.id}
@@ -288,29 +330,40 @@ const PremiumScreen = () => {
             )}
         </View>
 
-        {/* --- Footer Button --- */}
         <View style={styles.footer}>
             <Button 
-                label={isSubscribed ? "Cancel Subscription" : (loading ? "Processing..." : "Purchase")}
-                onPress={isSubscribed ? () => setShowCancelOverlay(true) : handlePurchase}
-                // Optional: Change variant if subscribed to indicate destructive action or keep solid
+                label={buttonLabel}
+                onPress={buttonAction}
                 variant="solid" 
             />
-            
             <Text style={styles.legalText}>
-                {isSubscribed 
-                  ? "Cancellations will take effect at the end of the current billing cycle."
-                  : 'By tapping "Purchase",\nyou agree to our Terms of Service and Privacy Policy'}
+                {legalMessage}
             </Text>
         </View>
 
       </ScrollView>
 
-      {/* --- Overlay --- */}
+      {/* --- Cancel Overlay --- */}
       {showCancelOverlay && (
         <CancelSubscriptionOverlay 
-            onClose={() => setShowCancelOverlay(false)}
+            onClose={() => { if(!cancelLoading) setShowCancelOverlay(false) }}
             onConfirm={handleCancelConfirm}
+        />
+      )}
+
+      {/* --- Resubscribe Overlay using your generic component --- */}
+      {showResubscribeOverlay && (
+        <Overlay 
+            title="Reactivate Premium?"
+            description="Are you sure you want to resubscribe and keep enjoying your premium benefits?"
+            label={resubscribeLoading ? "Resubscribing..." : "Yes, Resubscribe"}
+            imageSource={images.tick}
+            includeOutlinedButton={true}
+            outlineLabel="Cancel"
+            onPress={() => { if (!resubscribeLoading) handleResubscribe(); }} 
+            onOutline={() => { if (!resubscribeLoading) setShowResubscribeOverlay(false); }} 
+            onClose={() => { if (!resubscribeLoading) setShowResubscribeOverlay(false); }}
+            crossIcon={false}
         />
       )}
 
@@ -342,11 +395,8 @@ const PremiumScreen = () => {
 export default PremiumScreen;
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: "#fff" 
-  },
-  centerContent: { justifyContent: 'center', alignItems: 'center' }, // Added for loader
+  container: { flex: 1, backgroundColor: "#fff" },
+  centerContent: { justifyContent: 'center', alignItems: 'center' },
   scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 10, marginBottom: 20 },
   closeBtnCircle: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: '#553434', justifyContent: 'center', alignItems: 'center' },
