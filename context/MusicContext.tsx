@@ -99,8 +99,6 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
           }
         }
       } catch (error: any) {
-        // Safe to ignore: means the auth token wasn't fully ready on app boot, 
-        // but local settings already loaded perfectly!
         console.log("Music DB Sync deferred: Auth token not ready yet.");
       }
     }

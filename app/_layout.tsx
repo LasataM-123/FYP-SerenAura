@@ -9,11 +9,9 @@ import { io } from "socket.io-client";
 // Import Flash Message components
 import FlashMessage, { showMessage } from "react-native-flash-message";
 
-// IMPORT YOUR MUSIC CONTEXT HERE (Adjust the path if needed)
 import { MusicProvider, useMusic } from "@/context/MusicContext";
 
 // ---------------- MUSIC LOGIC ----------------
-// We use a small helper component so we can use the useMusic hook safely inside the Provider
 function MusicController() {
   const { playMusic, pauseMusic } = useMusic();
   const { role, isLoggedIn } = useAuthStore();
@@ -23,12 +21,11 @@ function MusicController() {
     if (isLoggedIn && role === "patient") {
       playMusic();
     } else {
-      // Otherwise, make sure it is paused (counselors, logged out users, etc.)
       pauseMusic();
     }
   }, [isLoggedIn, role, playMusic, pauseMusic]);
 
-  return null; // This component is invisible
+  return null; 
 }
 
 export default function RootLayout() {
@@ -187,7 +184,6 @@ export default function RootLayout() {
   return (
     <MusicProvider>
       <View style={{ flex: 1 }}>
-        {/* Invisible controller to handle play/pause logic safely inside the provider */}
         <MusicController />
         
         {/* Native Stack */}

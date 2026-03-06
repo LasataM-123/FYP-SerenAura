@@ -104,7 +104,6 @@ const Profile = () => {
   const [overlayVisible, setOverlayVisible] = useState(false);
   const toggleAnim = useRef(new Animated.Value(0)).current;
 
-  // ✅ Get music state and toggle function from context
   const { isMusicEnabled, toggleMusic } = useMusic();
   const musicToggleAnim = useRef(new Animated.Value(isMusicEnabled ? 1 : 0)).current;
 
@@ -481,7 +480,7 @@ const Profile = () => {
             {/* Background Music Toggle */}
             <TouchableOpacity
               style={styles.settingRow}
-              onPress={toggleMusic} // ✅ CLEANED UP: Just calling toggleMusic here
+              onPress={toggleMusic} 
               activeOpacity={0.8}
             >
               <Music size={22} color={BORDER} />
