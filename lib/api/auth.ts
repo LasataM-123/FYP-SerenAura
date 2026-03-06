@@ -37,6 +37,7 @@ export type ProfileResponse = {
     dob:string;
     profileUrl: string | null;
     notificationsEnabled: boolean;
+    isMusicEnabled?: boolean; 
   };
 }
 

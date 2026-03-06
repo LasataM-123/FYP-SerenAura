@@ -37,6 +37,7 @@ import {
   ChevronRight,
   Camera,
   Pencil,
+  Music,
 } from "lucide-react-native";
 import { useBackend } from "@/lib/useBackend";
 import { editProfile, getProfile, ProfileResponse } from "@/lib/api/auth";
@@ -44,9 +45,10 @@ import { images } from "@/constants";
 import DeleteAccountOverlay from "@/components/DeleteAccountOverlay";
 import DeletingAccountOverlay from "@/components/DeletingAccountOverlay";
 import { useAuthStore } from "@/store/authStore";
-import Button from "@/components/Button"; // your button component
+import Button from "@/components/Button";
 import Overlay from "@/components/Overlay";
-import {API_URL} from "@/config";
+import { API_URL } from "@/config";
+import { useMusic } from "@/context/MusicContext";
 
 const BORDER = "#553434";
 const SCREEN_HEIGHT = Dimensions.get("window").height;
@@ -99,14 +101,18 @@ const SettingItem: React.FC<SettingItemProps> = ({
 };
 
 const Profile = () => {
-    const [overlayVisible, setOverlayVisible] = useState(false);
-    const toggleAnim = useRef(new Animated.Value(0)).current;
+  const [overlayVisible, setOverlayVisible] = useState(false);
+  const toggleAnim = useRef(new Animated.Value(0)).current;
+
+  // ✅ Get music state and toggle function from context
+  const { isMusicEnabled, toggleMusic } = useMusic();
+  const musicToggleAnim = useRef(new Animated.Value(isMusicEnabled ? 1 : 0)).current;
 
   // initial StatusBar and closing overlay on blur using useFocusEffect
   useFocusEffect(
     useCallback(() => {
-          StatusBar.setBarStyle("dark-content");
-    StatusBar.setBackgroundColor("#ffffff");
+      StatusBar.setBarStyle("dark-content");
+      StatusBar.setBackgroundColor("#ffffff");
       return () => {
         setOverlayVisible(false);
         setSheetVisible(false);
@@ -118,18 +124,29 @@ const Profile = () => {
   );
 
   const { refetch, loading } = useBackend({ fn: getProfile });
-  const { logout,role,userId } = useAuthStore();
+  const { logout, role, userId } = useAuthStore();
 
   const [user, setUser] = useState<ProfileResponse | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+
   useEffect(() => {
-  Animated.timing(toggleAnim, {
-    toValue: notificationsEnabled ? 1 : 0,
-    duration: 180,
-    useNativeDriver: false,
-  }).start();
-}, [notificationsEnabled]);
-const handleNotificationToggle = () => {
+    Animated.timing(toggleAnim, {
+      toValue: notificationsEnabled ? 1 : 0,
+      duration: 180,
+      useNativeDriver: false,
+    }).start();
+  }, [notificationsEnabled]);
+
+  // ✅ Animate the music toggle switch whenever it changes
+  useEffect(() => {
+    Animated.timing(musicToggleAnim, {
+      toValue: isMusicEnabled ? 1 : 0,
+      duration: 180,
+      useNativeDriver: false,
+    }).start();
+  }, [isMusicEnabled]);
+
+  const handleNotificationToggle = () => {
     const isTurningOn = !notificationsEnabled;
     const userRoleLabel = role === 'counselor' ? 'Counselor' : 'Patient';
 
@@ -190,12 +207,9 @@ const handleNotificationToggle = () => {
   const [showLogoutOverlay, setShowLogoutOverlay] = useState(false);
 
   const sheetY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
-  // small offset when keyboard appears (we'll cap this to a small value so whole screen doesn't jump)
   const keyboardOffset = useRef(new Animated.Value(0)).current;
   const [sheetVisible, setSheetVisible] = useState(false);
 
-
-  // track keyboardHeight for padding inside ScrollView
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -211,16 +225,16 @@ const handleNotificationToggle = () => {
     const day = String(date.getUTCDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   };
-  useEffect(() => {
-  if (sheetVisible) {
-    StatusBar.setBarStyle("light-content");
-    StatusBar.setBackgroundColor("rgba(0,0,0,0.5)");
-  } else {
-    StatusBar.setBarStyle("dark-content");
-    StatusBar.setBackgroundColor("#ffffff");
-  }
-}, [sheetVisible]);
 
+  useEffect(() => {
+    if (sheetVisible) {
+      StatusBar.setBarStyle("light-content");
+      StatusBar.setBackgroundColor("rgba(0,0,0,0.5)");
+    } else {
+      StatusBar.setBarStyle("dark-content");
+      StatusBar.setBackgroundColor("#ffffff");
+    }
+  }, [sheetVisible]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -241,34 +255,27 @@ const handleNotificationToggle = () => {
     })
   ).current;
 
-  // --------------------- FUNCTIONS ---------------------
   const fetchProfile = async () => {
     const res = await refetch();
     if (res?.success) {
       setUser(res);
-      // preload fields for editing
       setEditName(res.profile?.name || "");
       setEditEmail(res.profile?.email || "");
       setEditDob(res?.profile?.dob ? formatDOB(res.profile.dob) : "");
       if (res.profile?.notificationsEnabled !== undefined) {
-      setNotificationsEnabled(res.profile.notificationsEnabled);
+        setNotificationsEnabled(res.profile.notificationsEnabled);
+      }
     }
-    }
-    
   };
 
   useEffect(() => {
     fetchProfile();
 
-    // keyboard listeners
     const showSub = Keyboard.addListener(
       Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
       (e: any) => {
         const height = e.endCoordinates ? e.endCoordinates.height : 300;
         setKeyboardHeight(height);
-
-        // Only nudge the sheet a little; do NOT lift the whole screen.
-        // Cap to a small value (80-100px depending on available height).
         const liftAmount = Math.min(30, Math.max(40, height - 60));
         Animated.timing(keyboardOffset, {
           toValue: -liftAmount,
@@ -304,11 +311,9 @@ const handleNotificationToggle = () => {
     return `${maskedName}@${domain}`;
   };
 
-  // open/close sheet (mirrors favourites)
   const openSheet = () => {
     setOverlayVisible(true);
     setSheetVisible(true);
-    // animate sheet translateY to 0 (visible)
     Animated.timing(sheetY, {
       toValue: 0,
       duration: 220,
@@ -317,7 +322,6 @@ const handleNotificationToggle = () => {
   };
 
   const closeSheet = () => {
-    // dismiss keyboard first
     Keyboard.dismiss();
     Animated.timing(sheetY, {
       toValue: SCREEN_HEIGHT,
@@ -326,58 +330,56 @@ const handleNotificationToggle = () => {
     }).start(() => {
       setSheetVisible(false);
       setOverlayVisible(false);
-      // reset sheetY so next open animates from bottom
       sheetY.setValue(SCREEN_HEIGHT);
       keyboardOffset.setValue(0);
       setKeyboardHeight(0);
     });
   };
+
   const pickImage = async () => {
-  // Ask for permission
-  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (status !== "granted") {
-    return Alert.alert("Permission required", "Please allow gallery access.");
-  }
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      return Alert.alert("Permission required", "Please allow gallery access.");
+    }
 
-  // Open gallery
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    quality: 0.7,
-  });
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+    });
 
-  if (!result.canceled) {
-    setSelectedImage(result.assets[0].uri); // show instantly
-  }
-};
+    if (!result.canceled) {
+      setSelectedImage(result.assets[0].uri); 
+    }
+  };
 
-const [showEditOverlay, setShowEditOverlay] = useState(false);
-const [editLoading, setEditLoading] = useState(false);
-  // simple local "save" — you can replace with actual API call later
+  const [showEditOverlay, setShowEditOverlay] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+
   const handleSave = async () => {
     Keyboard.dismiss();
-  try {
-    setEditLoading(true);
-    await editProfile({
-      name: editName,
-      email: editEmail,
-      dateOfBirth: editDob,
-      imageUri: selectedImage ?? null,
-    });
-    setEditLoading(false);
+    try {
+      setEditLoading(true);
+      await editProfile({
+        name: editName,
+        email: editEmail,
+        dateOfBirth: editDob,
+        imageUri: selectedImage ?? null,
+      });
+      setEditLoading(false);
       closeSheet();
-    setShowEditOverlay(true);
-  } catch (err: any) {
-    Alert.alert("Error", err.message);
-  } finally {
-    setEditLoading(false);
-  }
-};
-const Edit = async() =>{
-  setShowEditOverlay(false);
-  const updated = await refetch();
-  setUser(updated);
-}
+      setShowEditOverlay(true);
+    } catch (err: any) {
+      Alert.alert("Error", err.message);
+    } finally {
+      setEditLoading(false);
+    }
+  };
 
+  const Edit = async() =>{
+    setShowEditOverlay(false);
+    const updated = await refetch();
+    setUser(updated);
+  }
 
   if (loading || !user) {
     return (
@@ -402,7 +404,6 @@ const Edit = async() =>{
               <Text style={styles.name}>{user?.profile.name || "---"}</Text>
               <Text style={styles.email}>{user?.profile?.email ? maskEmail(user.profile.email) : "---"}</Text>
             </View>
-            {/* EDIT opens bottom sheet */}
             <TouchableOpacity style={styles.editBtn} onPress={() => openSheet()}>
               <PenLine size={22} color={BORDER} />
             </TouchableOpacity>
@@ -443,6 +444,8 @@ const Edit = async() =>{
                 router.push("../settings/change-password");
               }}
             />
+            
+            {/* Notifications Toggle */}
             <TouchableOpacity
               style={styles.settingRow}
               onPress={handleNotificationToggle}
@@ -473,8 +476,41 @@ const Edit = async() =>{
                   ]}
                 />
               </View>
-
             </TouchableOpacity>
+
+            {/* Background Music Toggle */}
+            <TouchableOpacity
+              style={styles.settingRow}
+              onPress={toggleMusic} // ✅ CLEANED UP: Just calling toggleMusic here
+              activeOpacity={0.8}
+            >
+              <Music size={22} color={BORDER} />
+              <Text style={styles.settingText}>Background Music</Text>
+              <View
+                style={[
+                  styles.toggleOuter,
+                  { backgroundColor: isMusicEnabled ? BORDER : "#fff" },
+                ]}
+              >
+                <Animated.View
+                  style={[
+                    styles.toggleCircle,
+                    {
+                      backgroundColor: isMusicEnabled ? "#fff" : BORDER,
+                      transform: [
+                        {
+                          translateX: musicToggleAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, 18],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                />
+              </View>
+            </TouchableOpacity>
+
           </View>
 
           <Text style={[styles.sectionTitle, { marginTop: 26 }]}>Support</Text>
@@ -538,7 +574,6 @@ const Edit = async() =>{
 
       {/* bottom sheet - Animated + custom keyboard handling */}
       {sheetVisible && (
-        // We do NOT use KeyboardAvoidingView here to prevent whole-screen jumping.
         <Animated.View
           style={[
             styles.editSheet,
@@ -547,7 +582,6 @@ const Edit = async() =>{
             },
           ]}
         >
-          {/* drag handle */}
           <View {...panResponder.panHandlers} style={styles.sheetDragHandle} />
 
            <ScrollView
@@ -561,7 +595,6 @@ const Edit = async() =>{
             <View style={styles.sheetContent}>
               <Text style={styles.sheetTitle}>Edit Profile</Text>
 
-              {/* Avatar centered */}
              <View style={styles.avatarWrapper}>
               <TouchableOpacity onPress={pickImage}>
                 <Image
@@ -575,9 +608,8 @@ const Edit = async() =>{
                   style={styles.centeredAvatar}
                 />
 
-                {/* Edit icon only if profile exists */}
                 <View style={styles.editIcon}>
-                  <Pencil size={20} color="#553434"/>               
+                  <Pencil size={20} color="#553434"/>              
                  </View>
               </TouchableOpacity>
             </View>
@@ -592,9 +624,7 @@ const Edit = async() =>{
                   placeholder="Your name"
                   placeholderTextColor="#999"
                   returnKeyType="next"
-                  onSubmitEditing={() => {
-                    // keep sheet steady; user can manually scroll to next input
-                  }}
+                  onSubmitEditing={() => {}}
                 />
               </View>
 
@@ -625,7 +655,6 @@ const Edit = async() =>{
               </View>
 
               <View style={{ marginTop: 18, marginBottom: 40 }}>
-                {/* When pressed: keyboard dismissed then sheet closed (handled inside handleSave) */}
                 <Button label={editLoading?"Saving Changes...":"Save Changes"} onPress={handleSave} />
               </View>
             </View>

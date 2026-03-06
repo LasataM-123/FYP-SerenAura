@@ -21,6 +21,7 @@ import Button from "@/components/Button";
 import { useBackend } from "@/lib/useBackend";
 import { createOrUpdateMood } from "@/lib/api/mood";
 import Overlay from "@/components/Overlay";
+import { useMusic } from "../../context/MusicContext";
 
 const moods = [
   { id: "1", name: "Happy", image: images.Happy, color: "#FFE37A" },
@@ -49,6 +50,7 @@ const MoodTracker = () => {
   const [showOverlay, setShowOverlay] = useState(false);
   const [journal, setJournal] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const { updateMusicMood } = useMusic();
 
   const { refetch } = useBackend({
     fn: createOrUpdateMood,
@@ -109,8 +111,12 @@ const isFromBreathe = from === "breathe";
     });
 
     if (res?.success) {
+      if(moodName){
+        updateMusicMood(moodName);
+      }
       setSuccessMessage(res?.successMessage || "Mood Added Successfully!");
       setShowOverlay(true);
+      
     }
   };
 

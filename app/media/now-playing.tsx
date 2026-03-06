@@ -46,6 +46,7 @@ import {
 import { useSearchParams } from "expo-router/build/hooks";
 import Button from "@/components/Button";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useMusic } from "../../context/MusicContext";
 
 type MediaType = "Music" | "Meditation";
 
@@ -117,6 +118,18 @@ const NowPlayingScreen: React.FC = () => {
   const { refetch: addMediaRefetch } = useBackend({ fn: addMediaToPlaylist });
   const { refetch: checkPlaylistsRefetch } = useBackend({ fn: checkPlaylists });
 
+  const { setIsOtherMediaPlaying } = useMusic();
+
+  useEffect(() => {
+    // 1. Mute background music the second this screen opens
+    setIsOtherMediaPlaying(true);
+
+    return () => {
+      // 2. Resume background music ONLY when they completely leave the screen
+      setIsOtherMediaPlaying(false);
+    };
+  }, []);
+  
   // initial fetch: favourite, playlist membership, user playlists
   useEffect(() => {
     
