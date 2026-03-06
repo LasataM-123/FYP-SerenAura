@@ -52,7 +52,11 @@ const patientSchema = new mongoose.Schema({
     notificationsEnabled: {
         type: Boolean,
         default: false 
-    }
+    },
+    isMusicEnabled: {
+    type: Boolean,
+    default: true, 
+  },
 
 },{
     timestamps: true

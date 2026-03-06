@@ -2,6 +2,7 @@ const asyncHandler = require('express-async-handler');
 const Music = require('../models/musicModel');
 const cloudinary = require('../config/cloudinaryConfig');
 const mongoose = require('mongoose');
+const Patient = require('../models/patientModel')
 
 
 const extractPublicId = (fileUrl) => {
@@ -145,5 +146,34 @@ const updateMusic = asyncHandler(async(req,res)=>{
     }
 })
 
+const updateMusicPreference = async (req, res) => {
+  try {
+    const { userId, userType, musicEnabled } = req.body;
 
-module.exports = { createMusic, updateMusic};
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "User ID is required" });
+    }
+    const updatedUser = await Patient.findByIdAndUpdate(
+      userId,
+      { isMusicEnabled: musicEnabled },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Music preference updated successfully",
+      isMusicEnabled: updatedUser.isMusicEnabled
+    });
+
+  } catch (error) {
+    console.error("Error updating music preference:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+
+module.exports = { createMusic, updateMusic, updateMusicPreference};

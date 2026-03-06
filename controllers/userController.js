@@ -218,11 +218,18 @@ const getProfile = asyncHandler(async (req, res) => {
     }
 
     // Try Patient
-    let user = await Patient.findById(userId).select("name email dateOfBirth profileUrl notificationsEnabled");
+    let user = await Patient.findById(userId).select(
+      "name email dateOfBirth profileUrl notificationsEnabled isMusicEnabled"
+    );
+
+    let role = "patient";
 
     // If not patient, try Counselor
     if (!user) {
-      user = await Counselor.findById(userId).select("name email contactNumber dateOfBirth profileUrl notificationsEnabled");
+      user = await Counselor.findById(userId).select(
+        "name email contactNumber dateOfBirth profileUrl notificationsEnabled"
+      );
+      role = "counselor";
     }
 
     if (!user) {
@@ -230,7 +237,7 @@ const getProfile = asyncHandler(async (req, res) => {
     }
 
     return res.status(200).json({
-      success:true,
+      success: true,
       message: "Profile fetched successfully",
       profile: {
         name: user.name,
@@ -239,6 +246,7 @@ const getProfile = asyncHandler(async (req, res) => {
         dob: user.dateOfBirth,
         profileUrl: user.profileUrl || null,
         notificationsEnabled: user.notificationsEnabled,
+        isMusicEnabled: role === "patient" ? user.isMusicEnabled : null,
       },
     });
   } catch (e) {

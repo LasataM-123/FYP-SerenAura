@@ -3,7 +3,7 @@ const router = express.Router();
 const cloudinary = require('../config/cloudinaryConfig');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
-const { createMusic, updateMusic} = require('../controllers/musicController');
+const { createMusic, updateMusic, updateMusicPreference} = require('../controllers/musicController');
 
 
 // Separate storages
@@ -57,5 +57,7 @@ router.put(
   ]),
   updateMusic
 );
+
+router.patch('/music-preference', updateMusicPreference);
 
 module.exports = router;
