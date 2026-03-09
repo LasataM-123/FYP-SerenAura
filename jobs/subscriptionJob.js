@@ -27,7 +27,7 @@ const expireSubscriptions = async () => {
       const patient = await Patient.findById(sub.patientId);
 
       if (patient) {
-        await sendSubscriptionExpiredEmail(patient.email, sub.planType);
+        await sendSubscriptionExpiredEmail(patient.email, sub.subscriptionType);
         
         console.log(`Expired email sent to ${patient.email}`);
 
