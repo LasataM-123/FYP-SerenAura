@@ -37,6 +37,7 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
   
   const [isForcedPaused, setIsForcedPaused] = useState(false);
   const [hasFetchedMood, setHasFetchedMood] = useState(false); 
+  const [isSoundLoaded, setIsSoundLoaded] = useState(false); // Track when audio is fully ready
   
   const soundRef = useRef<Audio.Sound | null>(null);
 
@@ -111,6 +112,7 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
         await soundRef.current.unloadAsync();
       } catch (e) { /* ignore */ }
       soundRef.current = null;
+      setIsSoundLoaded(false); // Reset loaded state
     }
   };
 
@@ -119,6 +121,7 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
     if (!isLoggedIn || role !== 'patient' || !hasFetchedMood) return;
 
     let isMounted = true;
+    setIsSoundLoaded(false); // Reset when loading a new track
 
     const loadSound = async () => {
       if (soundRef.current) {
@@ -134,7 +137,7 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
         const { sound } = await Audio.Sound.createAsync(
           trackSource,
           { 
-            shouldPlay: isMusicEnabled && !isOtherMediaPlaying && !isForcedPaused, 
+            shouldPlay: false, // Always false initially. Let syncPlayback handle playing!
             isLooping: true, 
             volume: 1.0 
           }
@@ -142,6 +145,7 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
 
         if (isMounted) {
           soundRef.current = sound;
+          setIsSoundLoaded(true); // Signal that the audio is ready for playback evaluation
         } else {
           await sound.unloadAsync();
         }
@@ -158,17 +162,22 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
   // --- 4. Play/Pause Sync ---
   useEffect(() => {
     const syncPlayback = async () => {
-      if (!soundRef.current || !hasFetchedMood) return;
+      // Ensure the sound is fully loaded before trying to play or pause
+      if (!soundRef.current || !hasFetchedMood || !isSoundLoaded) return; 
+      
       try {
         if (isMusicEnabled && !isOtherMediaPlaying && isLoggedIn && role === 'patient' && !isForcedPaused) {
           await soundRef.current.playAsync();
         } else {
           await soundRef.current.pauseAsync();
         }
-      } catch (e) { /* ignore */ }
+      } catch (e) { 
+        console.error("MusicContext: Play/Pause Sync Error", e); 
+      }
     };
+    
     syncPlayback();
-  }, [isMusicEnabled, isOtherMediaPlaying, isLoggedIn, role, hasFetchedMood, isForcedPaused]);
+  }, [isMusicEnabled, isOtherMediaPlaying, isLoggedIn, role, hasFetchedMood, isForcedPaused, isSoundLoaded]);
 
   // --- 5. Context Actions ---
   const updateMusicMood = async (newMood: string) => {
