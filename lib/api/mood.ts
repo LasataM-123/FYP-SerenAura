@@ -153,17 +153,24 @@ export async function getMoodInsights(params?: { month?: number; year?: number }
 }
 
 export async function getTodayMood(): Promise<TodayMoodResponse> {
-      const accessToken = useAuthStore.getState().accessToken;
-    const res = await fetch(`${API_URL}/mood/today`, {
-      method: "GET",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${accessToken}`
-     },
-    });
-        if (!res.ok) {
-        const errBody = await res.json();
-        throw new Error(errBody.message || "Get request failed")
-        }
-    return res.json();
+  const accessToken = useAuthStore.getState().accessToken;
+
+  if (!accessToken) {
+    throw new Error("No access token yet");
+  }
+
+  const res = await fetch(`${API_URL}/mood/today`, {
+    method: "GET",
+    headers: { 
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json();
+    throw new Error(errBody.message || "Get request failed");
+  }
+
+  return res.json();
 }

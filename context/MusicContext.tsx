@@ -43,7 +43,9 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
 
   // --- 1. Fetch Mood on Login ---
   const fetchInitialMood = async () => {
-    if (!isLoggedIn || role !== 'patient') return;
+    const token = useAuthStore.getState().accessToken;
+
+  if (!isLoggedIn || role !== 'patient' || !token) return;
     
     setHasFetchedMood(false); 
     
