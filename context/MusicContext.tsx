@@ -64,17 +64,20 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  useEffect(() => {
-    if (isLoggedIn && role === 'patient') {
-      fetchInitialMood();
-      loadSettings();
-    } else {
-      setMoodState('Okay');
-      setHasFetchedMood(false); 
-      stopAndUnload();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoggedIn, role]);
+ useEffect(() => {
+  const token = useAuthStore.getState().accessToken;
+
+  if (!token) return;
+
+  if (isLoggedIn && role === 'patient') {
+    fetchInitialMood();
+    loadSettings();
+  } else {
+    setMoodState('Okay');
+    setHasFetchedMood(false);
+    stopAndUnload();
+  }
+}, [isLoggedIn, role]);
 
   // --- 2. Load Settings (Local First, then DB Sync) ---
   const loadSettings = async () => {
@@ -86,13 +89,13 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
       setIsMusicEnabled(true); // Default if brand new install
     }
 
-    // THEN: Silently check the database in the background to ensure we are synced
+    const token = useAuthStore.getState().accessToken;
+  if (!token) return;
     if (isLoggedIn && role === 'patient') {
       try {
         const res = await getProfile();
         
-        // Safely check both just in case your backend uses `musicEnabled` instead of `isMusicEnabled`
-        const dbMusicSetting = res.profile?.isMusicEnabled ?? res.profile?.isMusicEnabled;
+       const dbMusicSetting = res.profile?.isMusicEnabled;
         
         if (res.success && typeof dbMusicSetting === 'boolean') {
           // Only update state and storage if the database has a different value
