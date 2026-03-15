@@ -28,7 +28,7 @@ const MOOD_TRACKS: Record<string, any> = {
 };
 
 export const MusicProvider = ({ children }: { children: ReactNode }) => {
-  const { isLoggedIn, role, userId } = useAuthStore();
+  const { isLoggedIn, role, userId, isTokenReady } = useAuthStore();
   const [isMusicEnabled, setIsMusicEnabled] = useState(true);
   const [isOtherMediaPlaying, setIsOtherMediaPlaying] = useState(false);
   
@@ -43,9 +43,9 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
 
   // --- 1. Fetch Mood on Login ---
   const fetchInitialMood = async () => {
-    const token = useAuthStore.getState().accessToken;
+   
 
-  if (!isLoggedIn || role !== 'patient' || !token) return;
+  if (!isLoggedIn || role !== 'patient' || !isTokenReady) return;
     
     setHasFetchedMood(false); 
     
@@ -65,9 +65,7 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
   };
 
  useEffect(() => {
-  const token = useAuthStore.getState().accessToken;
-
-  if (!token) return;
+  if (!isTokenReady) return;
 
   if (isLoggedIn && role === 'patient') {
     fetchInitialMood();
@@ -77,7 +75,7 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
     setHasFetchedMood(false);
     stopAndUnload();
   }
-}, [isLoggedIn, role]);
+}, [isLoggedIn, role, isTokenReady]);
 
   // --- 2. Load Settings (Local First, then DB Sync) ---
   const loadSettings = async () => {
@@ -89,8 +87,7 @@ export const MusicProvider = ({ children }: { children: ReactNode }) => {
       setIsMusicEnabled(true); // Default if brand new install
     }
 
-    const token = useAuthStore.getState().accessToken;
-  if (!token) return;
+   if (!isTokenReady) return;
     if (isLoggedIn && role === 'patient') {
       try {
         const res = await getProfile();

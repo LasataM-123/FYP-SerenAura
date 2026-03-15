@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import {jwtDecode} from "jwt-decode";
+import { jwtDecode } from "jwt-decode";
 import { API_URL } from "@/config";
 
 interface DecodedToken {
@@ -30,6 +30,7 @@ interface AuthState {
   otpExpiry: number | null;
   hasCompletedOnboarding: boolean;
   refreshInterval?: NodeJS.Timeout;
+  isTokenReady: boolean;
 
   setAuth: (data: {
     accessToken: string;
@@ -48,7 +49,9 @@ interface AuthState {
   completeOnboarding: () => void;
   loggedIn: () => void;
 
+  setTokenReady: (state: boolean) => void;
   startAutoRefresh: () => void;
+  initAuth: () => Promise<void>; // New async initializer
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -64,9 +67,17 @@ export const useAuthStore = create<AuthState>()(
       otpExpiry: null,
       hasCompletedOnboarding: false,
       refreshInterval: undefined,
+      isTokenReady: false,
 
       setAuth: ({ accessToken, refreshToken, name, userId, role }) => {
-        set({ accessToken, refreshToken, name, userId, role });
+        set({ 
+          accessToken, 
+          refreshToken, 
+          name, 
+          userId, 
+          role,
+          isTokenReady: true 
+        });
         get().startAutoRefresh();
       },
 
@@ -85,6 +96,8 @@ export const useAuthStore = create<AuthState>()(
 
       updateToken: (accessToken) => set({ accessToken }),
 
+      setTokenReady: (state: boolean) => set({ isTokenReady: state }),
+
       logout: () => {
         const { refreshInterval } = get();
         if (refreshInterval) clearInterval(refreshInterval);
@@ -100,11 +113,56 @@ export const useAuthStore = create<AuthState>()(
           otpExpiry: null,
           hasCompletedOnboarding: false,
           refreshInterval: undefined,
+          isTokenReady: true // Prevent app from hanging if logged out
         });
       },
 
       completeOnboarding: () => set({ hasCompletedOnboarding: true }),
       loggedIn: () => set({ isLoggedIn: true }),
+
+      // --- NEW INITIALIZATION LOGIC ---
+      initAuth: async () => {
+        const { accessToken, refreshToken, logout, updateToken, startAutoRefresh } = get();
+        const now = Date.now();
+
+        // 1. If refresh token is missing or dead, logout immediately
+        if (!refreshToken || !getTokenExpiry(refreshToken) || now > getTokenExpiry(refreshToken)!) {
+          logout();
+          set({ isTokenReady: true });
+          return;
+        }
+
+        // 2. If access token is missing or expired, we MUST wait to refresh it BEFORE letting the app load
+        if (!accessToken || !getTokenExpiry(accessToken) || now > getTokenExpiry(accessToken)!) {
+          try {
+            const res = await fetch(`${API_URL}/auth/refresh`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ refreshToken }),
+            });
+
+            if (res.ok) {
+              const data = await res.json();
+              updateToken(data.accessToken); // Save the fresh token!
+            } else {
+              logout();
+              set({ isTokenReady: true });
+              return;
+            }
+          } catch (error) {
+            console.error("Initial refresh failed", error);
+            logout();
+            set({ isTokenReady: true });
+            return;
+          }
+        }
+
+        // 3. We have a valid access token. Start the background timer for future refreshes.
+        startAutoRefresh();
+
+        // 4. FINALLY, unlock the app! The music provider and API calls are now safe to run.
+        set({ isTokenReady: true });
+      },
 
       startAutoRefresh: () => {
         const { refreshInterval } = get();
@@ -129,7 +187,7 @@ export const useAuthStore = create<AuthState>()(
             return;
           }
 
-          // Access token expired or about to expire → refresh it
+          // Access token expired or about to expire (within 2 mins) → refresh it
           if (!accessExpiry || accessExpiry - now < 2 * 60 * 1000) {
             try {
               const res = await fetch(`${API_URL}/auth/refresh`, {
@@ -160,22 +218,9 @@ export const useAuthStore = create<AuthState>()(
 
       onRehydrateStorage: () => (state) => {
         if (!state) return;
-
-        const { accessToken, refreshToken, startAutoRefresh, logout } = state;
-        const now = Date.now();
-
-        // Refresh token missing or expired → logout
-        if (!refreshToken || !getTokenExpiry(refreshToken) || now > getTokenExpiry(refreshToken)!) {
-          logout();
-          return;
-        }
-
-        if (!accessToken || !getTokenExpiry(accessToken) || now > getTokenExpiry(accessToken)!) {
-          startAutoRefresh();
-          return;
-        }
-
-        startAutoRefresh();
+        
+        // Pass the startup logic off to our new async function
+        state.initAuth(); 
       },
     }
   )

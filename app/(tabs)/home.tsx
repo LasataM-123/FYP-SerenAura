@@ -99,7 +99,7 @@ const Home = () => {
   const [isTokenReady, setIsTokenReady] = useState(false);
 
 
-  const { accessToken, refreshToken, updateToken, logout } = useAuthStore();
+  const { accessToken, refreshToken, updateToken, logout, setTokenReady } = useAuthStore();
   const name = useAuthStore((state) => state.name);
 
   const features = [
@@ -156,6 +156,8 @@ const Home = () => {
           const data = await res.json();
           updateToken(data.accessToken);
           setIsTokenReady(true);
+          setTokenReady(true);
+        
         } else {
           console.error("Token refresh failed, logging out");
           logout();
