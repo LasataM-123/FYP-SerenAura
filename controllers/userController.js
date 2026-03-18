@@ -219,7 +219,7 @@ const getProfile = asyncHandler(async (req, res) => {
 
     // Try Patient
     let user = await Patient.findById(userId).select(
-      "name email dateOfBirth profileUrl notificationsEnabled isMusicEnabled"
+      "name email dateOfBirth profileUrl notificationsEnabled isMusicEnabled isSubscribed"
     );
 
     let role = "patient";
@@ -247,6 +247,7 @@ const getProfile = asyncHandler(async (req, res) => {
         profileUrl: user.profileUrl || null,
         notificationsEnabled: user.notificationsEnabled,
         isMusicEnabled: role === "patient" ? user.isMusicEnabled : null,
+        isSubscribed: role === "patient" ? user.isSubscribed : null,
       },
     });
   } catch (e) {
