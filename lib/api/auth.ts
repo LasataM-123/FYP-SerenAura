@@ -38,6 +38,7 @@ export type ProfileResponse = {
     profileUrl: string | null;
     notificationsEnabled: boolean;
     isMusicEnabled?: boolean; 
+    isSubscribed?: boolean;
   };
 }
 

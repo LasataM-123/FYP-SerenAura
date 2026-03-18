@@ -7,6 +7,7 @@ import {
   View,
   TouchableWithoutFeedback,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,6 +20,8 @@ import Button from '@/components/Button';
 import { sendChatRequest } from '@/lib/api/chat';
 import { useAuthStore } from '@/store/authStore';
 import { useSessionStore } from '@/store/sessionStore';
+import { getProfile } from '@/lib/api/auth';
+import { images } from '@/constants';
 
 const BORDER_COLOR = '#553434';
 const DATE_SLOT_COLOR = '#CFDAED';
@@ -39,6 +42,10 @@ const IndividualCounselor = () => {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const toastAnim = useRef(new Animated.Value(0)).current;
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  
+  // Start loading as true so it shows immediately on mount
+  const [isLoading, setIsLoading] = useState(true);
 
   const times = [
     '9:00 AM',
@@ -53,11 +60,40 @@ const IndividualCounselor = () => {
     '6:00 PM',
   ];
 
+  const fetchStatus = async () => {
+    const res = await getProfile();
+    if (res.success) {
+      setIsSubscribed(res.profile.isSubscribed ?? false);
+    }
+  };
+
   useEffect(() => {
     StatusBar.setBarStyle('dark-content');
-    refetch({ id: counselorId });
     generateDates();
+
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        // Run fetches + a small 500ms delay to ensure the spinner renders 
+        // and the screen doesn't just flash empty if the network is too fast
+        await Promise.all([
+          fetchStatus(),
+          refetch({ id: counselorId }),
+          new Promise(resolve => setTimeout(resolve, 500)) 
+        ]);
+      } catch (error) {
+        console.error("Failed to fetch data:", error);
+      } finally {
+        setIsLoading(false); 
+      }
+    };
+
+    loadData();
   }, []);
+
+  const handleGoPremium = () => {
+    router.push("/settings/subscription");
+  };
 
   const generateDates = () => {
     const now = new Date();
@@ -184,7 +220,7 @@ const IndividualCounselor = () => {
         tension: 100,
         useNativeDriver: true,
       }).start();
-
+    
     return (
       <TouchableWithoutFeedback
         onPressIn={handlePressIn}
@@ -257,6 +293,15 @@ const IndividualCounselor = () => {
       </TouchableWithoutFeedback>
     );
   };
+
+  // 1. Loader is triggered here if state is true
+  if (isLoading) {
+    return (
+      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={BORDER_COLOR} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -343,7 +388,19 @@ const IndividualCounselor = () => {
         </View>
 
         <View style={{ marginTop: 30, marginBottom: 30 }}>
-          <Button label="Book Session" onPress={handleBook} />
+        {/* 2. Logic flipped correctly here */}
+        {isSubscribed ? (
+            <Button 
+                label='Book Session' 
+                onPress={handleBook} 
+            />
+          ) : (
+            <Button 
+                label='Go Premium' 
+                onPress={handleGoPremium} 
+                imageSource={images.Crown}
+            />
+        )}
         </View>
       </ScrollView>
 
