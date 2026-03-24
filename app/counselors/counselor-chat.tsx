@@ -96,14 +96,21 @@ const ChatScreen = () => {
   // ---------------- Send Message ----------------
   const handleSend = async () => {
     if (!input.trim() || !chatId) return;
+
+    // Save the current input value to send
+    const messageToSend = input;
+    
+    // Clear the input field immediately for a snappy UI
+    setInput(""); 
+
     try {
-      await sendMessage(input);
-      setInput("");
+      await sendMessage(messageToSend);
     } catch (err) {
       console.log("Send failed:", err);
+      // Optional: If it fails, you could put the text back into the input box
+      // setInput(messageToSend);
     }
   };
-
   const handleEndChat = async () => {
     try {
       const response = await endChat();
