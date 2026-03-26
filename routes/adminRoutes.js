@@ -5,7 +5,7 @@ const cloudinary = require('../config/cloudinaryConfig');
 const {CloudinaryStorage} = require('multer-storage-cloudinary');
 const {tokenHandler} = require('../middlewares/tokenHandler');
 const multer = require('multer');
-const { getCounselorByIdForAdmin, getCounselorForAdmin, createCounselor, answerSupportQuestion, adminLogin, editCounselor, deleteCounselor, payCounselor, getAnsweredQuestionById, updateSupportQuestion, getAdminDashboardStats, getWeeklyStats, getMonthlyStats, getPieStats } = require('../controllers/adminController');
+const { getCounselorByIdForAdmin, getCounselorForAdmin, createCounselor, answerSupportQuestion, adminLogin, editCounselor, deleteCounselor, payCounselor, getAnsweredQuestionById, updateSupportQuestion, getAdminDashboardStats, getWeeklyStats, getMonthlyStats, getPieStats, confirmPayout } = require('../controllers/adminController');
 
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
@@ -50,5 +50,7 @@ router.get('/weekly-revenue', tokenHandler, validAdmin, getWeeklyStats);
 router.get('/monthly-revenue', tokenHandler, validAdmin, getMonthlyStats)
 
 router.get('/pie-stats', tokenHandler, validAdmin, getPieStats);
+
+router.post('/confirm-payout',tokenHandler,validAdmin,confirmPayout)
 
 module.exports = router;

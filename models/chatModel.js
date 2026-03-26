@@ -27,12 +27,18 @@ const chatSchema = new mongoose.Schema({
     endTime:{
         type:Date,
     },
+    isPaid:{
+        type:Boolean,
+        default:false,
+    },
     messages:[
         {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Message'
         }
     ],
+    
+
 },{
     timestamps: true
 });
