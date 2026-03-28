@@ -1,28 +1,36 @@
 const asyncHandler = require('express-async-handler');
 const Mood = require('../models/moodModel');
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const Music = require("../models/musicModel");
+const Meditation = require("../models/meditationModel");
+const moodCategoryMap = require('../utils/moodCategoryMap');
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 /**
  * @route  POST /api/mood/add-update
  * @desc   Add or update existing mood
  * @access Private (patient only)
  */
-const createOrUpdateMood = asyncHandler(async(req,res)=>{
-    try{
+const createOrUpdateMood = asyncHandler(async (req, res) => {
+    try {
         const patientId = req.user.id;
-        const {mood, feeling, journal} = req.body;
-        if(!mood){
-            return res.status(400).json({message: "Mood is required"});
+        const { mood, feeling, journal } = req.body;
+
+        if (!mood) {
+            return res.status(400).json({ message: "Mood is required" });
         }
         if (journal && journal.length > 100) {
             return res.status(400).json({ message: "Journal cannot exceed 100 characters." });
         }
+
         // Define today's start and end (00:00 → 23:59)
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const tomorrow = new Date(today);
         tomorrow.setDate(today.getDate() + 1);
 
-         // Delete entries older than a year
+        // Delete entries older than a year
         const oneYearAgo = new Date();
         oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
 
@@ -31,44 +39,129 @@ const createOrUpdateMood = asyncHandler(async(req,res)=>{
             entryDate: { $lt: oneYearAgo },
         });
 
-         // Check if today's mood already exists
+        // 1. --- SAVE TO DATABASE ---
+        let savedMoodEntry;
+        let statusCode;
+        let finalSuccessMessage;
+
         const existingMood = await Mood.findOne({
             patientId,
             entryDate: { $gte: today, $lt: tomorrow },
         });
+
         if (existingMood) {
-             // Update today's mood entry
+            // Update today's mood entry
             existingMood.mood = mood;
             existingMood.journal = journal || existingMood.journal;
             existingMood.feeling = feeling || existingMood.feeling;
             existingMood.entryDate = new Date(); // update timestamp
-            const moodEntry = await existingMood.save();
-            return res.status(200).json({
-            success: true,
-            successMessage: "Mood updated successfully!",
-            data: moodEntry,
-        });
-
+            
+            savedMoodEntry = await existingMood.save();
+            statusCode = 200;
+            finalSuccessMessage = "Mood updated successfully!";
         } else {
             // Create a new mood entry for today
-            const moodEntry = await Mood.create({
+            savedMoodEntry = await Mood.create({
                 patientId,
                 entryDate: new Date(),
                 mood,
                 journal,
                 feeling,
             });
-            return res.status(201).json({
-            success: true,
-            successMessage: "Mood added successfully!",
-            data: moodEntry,
-            });
+            
+            statusCode = 201;
+            finalSuccessMessage = "Mood added successfully!";
         }
+
+        // 2. --- FETCH REAL MEDIA FROM DB ---
+        let dbMusicSuggestion = null;
+        let dbMeditationSuggestion = null;
+
+        // Convert incoming mood to lowercase to match your map keys (e.g., "Okay" -> "okay")
+        const normalizedMood = mood.toLowerCase();
         
-    }catch(e){
-        return res.status(500).json({message: e.message});
+        // Get the matching categories array, or fallback to the raw mood
+        // Example: "okay" becomes ["Focus", "Calm"]
+        const mappedCategories = moodCategoryMap[normalizedMood] || [mood];
+
+        // Create a case-insensitive regex to match ANY of the mapped categories
+        // Example output: /^(Focus|Calm)$/i
+        const categoryRegex = new RegExp(`^(${mappedCategories.join('|')})$`, 'i');
+
+        // Find Music matching ANY of the mapped categories
+        const matchingMusic = await Music.aggregate([
+            { $match: { moodCategory: { $regex: categoryRegex } } },
+            { $sample: { size: 1 } }
+        ]);
+        
+        // Fallback to a random song if no match is found
+        dbMusicSuggestion = matchingMusic.length > 0 
+            ? matchingMusic[0] 
+            : (await Music.aggregate([{ $sample: { size: 1 } }]))[0];
+
+        // Find Meditation matching ANY of the mapped categories
+        const matchingMeditation = await Meditation.aggregate([
+            { $match: { moodCategory: { $regex: categoryRegex } } },
+            { $sample: { size: 1 } }
+        ]);
+        
+        // Fallback to a random meditation if no match is found
+        dbMeditationSuggestion = matchingMeditation.length > 0 
+            ? matchingMeditation[0] 
+            : (await Meditation.aggregate([{ $sample: { size: 1 } }]))[0];
+
+        // 3. --- ASK FREE GEMINI AI ONLY FOR TEXT & BREATHING ---
+        let aiData = null;
+        try {
+            // Assuming genAI is initialized at the top of your file
+            const model = genAI.getGenerativeModel({ 
+                model: "gemini-2.5-flash", 
+                generationConfig: { responseMimeType: "application/json" }
+            });
+            
+            const prompt = `
+                You are an empathetic mindfulness assistant. 
+                The user just logged their mental state.
+                Mood: ${mood}
+                Feeling: ${feeling || "Not specified"}
+                Journal: "${journal || "None"}"
+
+                Generate exactly this JSON structure based on their mood:
+                {
+                  "empathyMessage": "A short, 1-2 sentence validating message.",
+                  "breathingExercise": {
+                    "name": "Name of technique (e.g. Box Breathing)",
+                    "description": "1-sentence explanation of why it helps.",
+                    "steps": ["Step 1", "Step 2"]
+                  }
+                }
+            `;
+
+            const result = await model.generateContent(prompt);
+            aiData = JSON.parse(result.response.text());
+        } catch (aiError) {
+            console.error("Gemini AI Generation failed (but saving still succeeded):", aiError);
+        }
+
+        // 4. --- SEND COMBINED RESPONSE TO FRONTEND ---
+        return res.status(statusCode).json({
+            success: true,
+            successMessage: finalSuccessMessage,
+            data: savedMoodEntry, 
+            suggestions: aiData ? {
+                empathyMessage: aiData.empathyMessage,
+                breathingExercise: aiData.breathingExercise,
+                musicSuggestion: dbMusicSuggestion,
+                meditationSuggestion: dbMeditationSuggestion
+            } : null
+        });
+
+    } catch (e) {
+        console.error("Controller Error:", e);
+        return res.status(500).json({ message: e.message });
     }
-})
+});
+
 
 /**
  * @route   GET /api/mood/calendar
