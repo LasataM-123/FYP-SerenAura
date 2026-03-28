@@ -106,7 +106,7 @@ export default function BreathingScreen(): JSX.Element {
   function getPhaseMs(p: Phase) {
     if (!exercise) return 1000;
     if (p === "inhale") return (exercise.inhaleTime ?? 4) * 1000;
-    if (p === "hold") return (exercise.holdTime ?? 2) * 1000;
+    if (p === "hold") return (exercise.holdTime ?? 0) * 1000; // default 0
     return (exercise.exhaleTime ?? 6) * 1000;
   }
 
@@ -123,11 +123,11 @@ export default function BreathingScreen(): JSX.Element {
     phaseRemainingMsRef.current = null;
 
     const secondsForDots =
-      p === "inhale"
+      (p === "inhale"
         ? exercise.inhaleTime
         : p === "hold"
         ? exercise.holdTime
-        : exercise.exhaleTime;
+        : exercise.exhaleTime) || 0; // safe fallback
 
     if (perSecondIntervalRef.current)
       clearInterval(perSecondIntervalRef.current);
@@ -173,8 +173,15 @@ export default function BreathingScreen(): JSX.Element {
       }
 
       if (p === "inhale") {
-        setPhase("hold");
-        beginPhase("hold");
+        // FIXED: Check if holdTime exists and is greater than 0
+        if (exercise.holdTime && exercise.holdTime > 0) {
+          setPhase("hold");
+          beginPhase("hold");
+        } else {
+          // Skip hold entirely, go straight to exhale
+          setPhase("exhale");
+          beginPhase("exhale");
+        }
       } else if (p === "hold") {
         setPhase("exhale");
         beginPhase("exhale");
@@ -241,11 +248,11 @@ export default function BreathingScreen(): JSX.Element {
   }
 
   const currentPhaseTime =
-    phase === "inhale"
+    (phase === "inhale"
       ? exercise.inhaleTime
       : phase === "hold"
       ? exercise.holdTime
-      : exercise.exhaleTime;
+      : exercise.exhaleTime) || 0;
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -273,11 +280,7 @@ export default function BreathingScreen(): JSX.Element {
           />
         </View>
 
-        <View
-          style={
-            styles.descriptionContainer
-            }
-        >
+        <View style={styles.descriptionContainer}>
           <Text style={styles.descriptionText}>
             {phase === "inhale"
               ? exercise.inhaleDescription

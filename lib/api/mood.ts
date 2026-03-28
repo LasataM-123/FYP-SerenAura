@@ -1,6 +1,30 @@
 import { API_URL } from "@/config";
 import { useAuthStore } from "@/store/authStore";
 
+// === ADDED AI & MEDIA TYPES ===
+export type MediaSuggestion = {
+  _id: string;
+  title: string;
+  description: string;
+  by: string;
+  imageUrl: string;
+  audioUrl: string;
+  moodCategory: string;
+  isLocked: boolean;
+};
+
+export type Suggestions = {
+  empathyMessage: string;
+  breathingExercise: {
+    name: string;
+    description: string;
+    steps: string[];
+  };
+  musicSuggestion?: MediaSuggestion;
+  meditationSuggestion?: MediaSuggestion;
+};
+// ==============================
+
 export type MoodEntry = {
   _id: string;
   patientId: string;
@@ -12,11 +36,15 @@ export type MoodEntry = {
   updatedAt?: string;
 }
 
+// === UPDATED RESPONSE TYPE ===
 export type CreateOrUpdateMoodResponse = {
   success: boolean;
   successMessage: string;
   data: MoodEntry;
+  suggestions?: Suggestions; 
 }
+// ==============================
+
 export type TopFeeling = {
   feeling: string;
   count: number;
@@ -30,8 +58,6 @@ export type CommonMood = {
   mood: string;
   count: number;
 };
-
-
 
 export type MonthlyInsightsSuccessResponse = {
   success: true;
@@ -91,8 +117,8 @@ export async function createOrUpdateMood(params?:{mood: string | null, feeling: 
       headers: { 
         "Content-Type": "application/json",
         "Authorization": `Bearer ${accessToken}`
-     },
-     body: JSON.stringify(params)
+      },
+      body: JSON.stringify(params)
     });
         if (!res.ok) {
         const errBody = await res.json();

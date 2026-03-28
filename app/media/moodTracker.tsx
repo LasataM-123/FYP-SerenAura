@@ -15,13 +15,19 @@ import {
 import React, { useEffect, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Top from "@/components/top";
-import { router, useLocalSearchParams, useSegments } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { images } from "@/constants";
 import Button from "@/components/Button";
 import { useBackend } from "@/lib/useBackend";
-import { createOrUpdateMood } from "@/lib/api/mood";
 import Overlay from "@/components/Overlay";
 import { useMusic } from "../../context/MusicContext";
+
+// Adjust path if your api file is somewhere else!
+import { 
+  createOrUpdateMood, 
+  CreateOrUpdateMoodResponse, 
+  Suggestions 
+} from "@/lib/api/mood"; 
 
 const moods = [
   { id: "1", name: "Happy", image: images.Happy, color: "#FFE37A" },
@@ -50,15 +56,18 @@ const MoodTracker = () => {
   const [showOverlay, setShowOverlay] = useState(false);
   const [journal, setJournal] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  
+  // State to hold the AI & Media suggestions from the backend
+  const [suggestions, setSuggestions] = useState<Suggestions | null>(null);
+  
   const { updateMusicMood } = useMusic();
 
-  const { refetch } = useBackend({
+  const { refetch, loading } = useBackend({
     fn: createOrUpdateMood,
   });
 
   const { from } = useLocalSearchParams();
-const isFromBreathe = from === "breathe";
-
+  const isFromBreathe = from === "breathe";
 
   useEffect(() => {
     StatusBar.setBarStyle("dark-content");
@@ -104,19 +113,25 @@ const isFromBreathe = from === "breathe";
     const moodName = selectedMoodObj ? selectedMoodObj.name : null;
     const feelingName = selectedFeelingObj ? selectedFeelingObj.name : null;
 
-    const res = await refetch({
+    const res = (await refetch({
       mood: moodName,
       feeling: feelingName,
       journal,
-    });
+    })) as CreateOrUpdateMoodResponse | undefined;
 
     if (res?.success) {
-      if(moodName){
+      if (moodName) {
         updateMusicMood(moodName);
       }
-      setSuccessMessage(res?.successMessage || "Mood Added Successfully!");
-      setShowOverlay(true);
       
+      if (res.suggestions) {
+        // Show AI & Media modal if the backend returns it
+        setSuggestions(res.suggestions);
+      } else {
+        // Fallback to the standard tick overlay
+        setSuccessMessage(res?.successMessage || "Mood Added Successfully!");
+        setShowOverlay(true);
+      }
     }
   };
 
@@ -236,24 +251,24 @@ const isFromBreathe = from === "breathe";
           contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24 }}
           keyboardShouldPersistTaps="handled"
         >
-         <Top
-          label="Select Your Mood"
-          onBack={() => {
-            if (isFromBreathe) {
-              router.push("/breathe"); 
-            } else {
-              router.back();
-            }
-          }}
-        />
+          <Top
+            label="Select Your Mood"
+            onBack={() => {
+              if (isFromBreathe) {
+                router.push("/breathe");
+              } else {
+                router.back();
+              }
+            }}
+          />
 
           {/* === MOOD SECTION === */}
           <View style={styles.section}>
-             <Text style={styles.headerText}>
-        {isFromBreathe
-          ? "Great job completing your breathing exercise! How do you feel now?"
-          : "How would you describe your overall mood today?"}
-      </Text>
+            <Text style={styles.headerText}>
+              {isFromBreathe
+                ? "Great job completing your breathing exercise! How do you feel now?"
+                : "How would you describe your overall mood today?"}
+            </Text>
             <FlatList
               scrollEnabled={false}
               data={moods}
@@ -273,15 +288,18 @@ const isFromBreathe = from === "breathe";
 
           {/* === FEELINGS SECTION === */}
           <View style={styles.section}>
-            <View style={{flexDirection:'row', alignItems:"center", gap: 10}}>
-
-            <Text style={styles.feelingHeaderText}>Additional Feelings</Text>
-            <Text style={{
-                    fontFamily: "KodchasanMedium",
-                    fontStyle: "italic",
-                    fontSize: 16,
-                    color: "#553434",
-                  }}>(optional)</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Text style={styles.feelingHeaderText}>Additional Feelings</Text>
+              <Text
+                style={{
+                  fontFamily: "KodchasanMedium",
+                  fontStyle: "italic",
+                  fontSize: 16,
+                  color: "#553434",
+                }}
+              >
+                (optional)
+              </Text>
             </View>
             <FlatList
               scrollEnabled={false}
@@ -337,7 +355,7 @@ const isFromBreathe = from === "breathe";
 
           <View style={{ marginTop: 30, marginBottom: 30 }}>
             <Button
-              label="Log Mood"
+              label={loading?"Logging Mood...":"Log Mood"}
               onPress={handleLogMood}
               imageSource={images.Plus}
             />
@@ -367,22 +385,145 @@ const isFromBreathe = from === "breathe";
         </Animated.View>
       )}
 
-      {/* === OVERLAY === */}
-      {showOverlay && (
-        <Overlay
-        title={successMessage}
-        description="Your mood has been recorded. Keep tracking your emotional wellness journey."
-        label="Continue"
-        onPress={() => {
-          if (isFromBreathe) {
-            router.push("/breathe");
-          } else {
-            router.back();
-          }
-        }}
-        imageSource={images.tick}
-        />
+      {/* === AI & MEDIA SUGGESTIONS MODAL === */}
+      {suggestions && (
+        <View style={[StyleSheet.absoluteFillObject, { zIndex: 1000 }]}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 }}>
+            <View style={{ position: 'relative' }}>
+              
+              <View style={[styles.inputBox, { borderRadius: 20, backgroundColor: "#fff", padding: 20, maxHeight: '95%' }]}>
+                
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 10 }}>
+                  
+                  {/* Empathy Message */}
+                  <Text style={[styles.headerText, { fontSize: 22, marginBottom: 8 }]}>We hear you.</Text>
+                  <Text style={{ fontFamily: "KodchasanMedium", fontSize: 16, color: "#553434", textAlign: 'center', marginBottom: 24 }}>
+                    {suggestions.empathyMessage}
+                  </Text>
 
+                  {/* Breathing Exercise */}
+                  {suggestions.breathingExercise && (
+                    <View style={{ backgroundColor: "#F5EFFF", padding: 16, borderRadius: 12, borderWidth: 3, borderColor: "#553434", marginBottom: 16 }}>
+                      <Text style={[styles.label, { fontSize: 18, marginBottom: 4 }]}>🧘‍♀️ {suggestions.breathingExercise.name}</Text>
+                      <Text style={{ fontFamily: "KodchasanMedium", fontStyle: "italic", fontSize: 14, color: "#553434", marginBottom: 12 }}>
+                        {suggestions.breathingExercise.description}
+                      </Text>
+                      {suggestions.breathingExercise.steps?.map((step: string, index: number) => (
+                        <Text key={index} style={{ fontFamily: "KodchasanRegular", fontSize: 14, color: "#553434", marginBottom: 6 }}>
+                          {index + 1}. {step}
+                        </Text>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Music Suggestion (Clickable) */}
+                  {suggestions.musicSuggestion && (
+                    <TouchableWithoutFeedback onPress={() => {
+                        const mediaId = suggestions.musicSuggestion?._id;
+                        if (mediaId) {
+                            setSuggestions(null); 
+                            router.push(`/media/${mediaId}`);
+                        }
+                    }}>
+                      <View style={{ backgroundColor: "#FFF3B0", padding: 16, borderRadius: 12, borderWidth: 3, borderColor: "#553434", marginBottom: 16 }}>
+                        <Text style={[styles.label, { fontSize: 18, marginBottom: 8 }]}>🎵 Up Next For You</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                          <Image 
+                            source={{ uri: suggestions.musicSuggestion.imageUrl }} 
+                            style={{ width: 60, height: 60, borderRadius: 8, borderWidth: 2, borderColor: "#553434" }} 
+                          />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontFamily: "KodchasanSemiBold", fontSize: 16, color: "#553434" }} numberOfLines={1}>
+                              {suggestions.musicSuggestion.title}
+                            </Text>
+                            <Text style={{ fontFamily: "KodchasanMedium", fontSize: 13, color: "#553434", opacity: 0.8 }}>
+                              By {suggestions.musicSuggestion.by}
+                            </Text>
+                          </View>
+                          
+                          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "#553434", justifyContent: 'center', alignItems: 'center' }}>
+                            <Text style={{ color: "#fff", fontSize: 16, marginLeft: 4 }}>▶</Text>
+                          </View>
+                        </View>
+                        <Text style={{ fontFamily: "KodchasanMedium", fontStyle: 'italic', fontSize: 13, color: "#553434", marginTop: 12 }}>
+                          {suggestions.musicSuggestion.description}
+                        </Text>
+                      </View>
+                    </TouchableWithoutFeedback>
+                  )}
+
+                  {/* Meditation Suggestion (Clickable) */}
+                  {suggestions.meditationSuggestion && (
+                    <TouchableWithoutFeedback onPress={() => {
+                         const mediaId = suggestions.meditationSuggestion?._id;
+                         if (mediaId) {
+                             setSuggestions(null); 
+                             router.push(`/media/${mediaId}`);
+                         }
+                    }}>
+                      <View style={{ backgroundColor: "#E8F3D6", padding: 16, borderRadius: 12, borderWidth: 3, borderColor: "#553434", marginBottom: 24 }}>
+                        <Text style={[styles.label, { fontSize: 18, marginBottom: 8 }]}>🧘‍♂️ Guided Meditation</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                          <Image 
+                            source={{ uri: suggestions.meditationSuggestion.imageUrl }} 
+                            style={{ width: 60, height: 60, borderRadius: 8, borderWidth: 2, borderColor: "#553434" }} 
+                          />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontFamily: "KodchasanSemiBold", fontSize: 16, color: "#553434" }} numberOfLines={1}>
+                              {suggestions.meditationSuggestion.title}
+                            </Text>
+                            <Text style={{ fontFamily: "KodchasanMedium", fontSize: 13, color: "#553434", opacity: 0.8 }}>
+                              By {suggestions.meditationSuggestion.by}
+                            </Text>
+                          </View>
+                         
+                          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "#553434", justifyContent: 'center', alignItems: 'center' }}>
+                            <Text style={{ color: "#fff", fontSize: 16, marginLeft: 4 }}>▶</Text>
+                          </View>
+                        </View>
+                        <Text style={{ fontFamily: "KodchasanMedium", fontStyle: 'italic', fontSize: 13, color: "#553434", marginTop: 12 }}>
+                          {suggestions.meditationSuggestion.description}
+                        </Text>
+                      </View>
+                    </TouchableWithoutFeedback>
+                  )}
+
+                  <View style={{ marginTop: 8 }}>
+                    <Button 
+                      label="Done" 
+                      onPress={() => {
+                        setSuggestions(null);
+                        if (isFromBreathe) {
+                          router.push("/breathe");
+                        } else {
+                          router.back();
+                        }
+                      }} 
+                    />
+                  </View>
+                  
+                </ScrollView>
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* === OVERLAY (FALLBACK) === */}
+      {showOverlay && !suggestions && (
+        <Overlay
+          title={successMessage}
+          description="Your mood has been recorded. Keep tracking your emotional wellness journey."
+          label="Continue"
+          onPress={() => {
+            if (isFromBreathe) {
+              router.push("/breathe");
+            } else {
+              router.back();
+            }
+          }}
+          imageSource={images.tick}
+        />
       )}
     </SafeAreaView>
   );
