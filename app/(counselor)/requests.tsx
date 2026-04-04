@@ -164,11 +164,7 @@ const Requests = () => {
     
     // The status as known by the parent's list
     const statusFromParent = item.status;
-
-    // --- CHANGE 2: Update the useEffect logic ---
     useEffect(() => {
-      // This effect syncs the parent's state (Brain 1) 
-      // with the socket's state (Brain 2)
       if (statusFromHook && statusFromHook !== statusFromParent) {
         handleStatusChange(item._id, statusFromHook);
       }
@@ -188,7 +184,6 @@ const Requests = () => {
     );
   };
 
-  // 🌀 Loading
   if (isCheckingAuth || isLoadingRequests) {
     return (
       <View style={styles.loadingContainer}>

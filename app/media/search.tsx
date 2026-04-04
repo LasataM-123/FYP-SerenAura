@@ -170,7 +170,7 @@ const SearchScreen = () => {
         onPress={() => {
           setHasSearched(true);
           setKeyword(item.content);
-          handleSearch("All", item.content, false);
+          handleSearch(undefined, item.content, false);
         }}
       >
         <View style={{ flexDirection: "row", gap: 4, alignItems: "center" }}>
@@ -192,7 +192,7 @@ const SearchScreen = () => {
           setHasSearched(true);
           setKeyword(item.content);
           setSuggestions([]);
-          handleSearch("All", item.content, true);
+          handleSearch(undefined, item.content, true);
         }}
       >
         <View style={{ flexDirection: "row", gap: 4, alignItems: "center" }}>
@@ -395,7 +395,6 @@ const styles = StyleSheet.create({
     position: "relative",
     zIndex: 1,
     fontSize: 14,
-
   },
   button: {
     backgroundColor: "#553434",
@@ -438,7 +437,8 @@ const styles = StyleSheet.create({
   noResults: {
     textAlign: "center",
     marginTop: 10,
-    color: "#7D7D7D",
+    color: "#7C6666",
+    fontSize: 14,
     fontFamily: "KodchasanRegular",
   },
 });
