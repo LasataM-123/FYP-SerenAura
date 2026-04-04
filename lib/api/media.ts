@@ -116,6 +116,10 @@ export type SearchResponse =
   | SearchMeditationResponse
   | SearchMusicResponse;
 
+/* ======================================================
+   API CALLS
+====================================================== */
+
 export async function getRecommendations(): Promise<RecommendationsResponse> {
   const accessToken = useAuthStore.getState().accessToken;
 
