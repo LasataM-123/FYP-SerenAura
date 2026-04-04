@@ -280,6 +280,17 @@ const searchContent = asyncHandler(async (req, res) => {
     const patient = await Patient.findById(req.user.id).select("isSubscribed");
     const isSubscribed = patient?.isSubscribed || false;
 
+    // Helper object for the keyword filter to keep code clean
+    const keywordFilter = regex
+      ? {
+          $or: [
+            { title: regex },
+            { moodCategory: regex },
+            { tags: { $in: [regex] } },
+          ],
+        }
+      : {};
+
     if (!tag || tag === "all") {
       const moodCategories = ["calm", "stress relief", "focus", "sleep", "anxiety"];
       const musicByCategory = {};
@@ -287,29 +298,14 @@ const searchContent = asyncHandler(async (req, res) => {
       for (const mood of moodCategories) {
         const filter = {
           moodCategory: mood,
-          ...(regex && {
-            $or: [
-              { title: regex },
-              { moodCategory: regex },
-              { tags: { $in: [regex] } },
-            ],
-          }),
+          ...keywordFilter,
         };
 
         const music = await Music.find(filter).limit(3);
         musicByCategory[mood] = attachLockStatus(music, isSubscribed);
       }
 
-      const meditations = await Meditation.find(regex
-        ? {
-            $or: [
-              { title: regex },
-              { moodCategory: regex },
-              { tags: { $in: [regex] } },
-            ],
-          }
-        : {}
-      ).limit(3);
+      const meditations = await Meditation.find(keywordFilter).limit(3);
 
       return res.status(200).json({
         success: true,
@@ -322,7 +318,7 @@ const searchContent = asyncHandler(async (req, res) => {
     }
 
     if (tag === "meditation") {
-      const meditations = await Meditation.find();
+      const meditations = await Meditation.find(keywordFilter);
       return res.status(200).json({
         success: true,
         type: "meditation",
@@ -330,7 +326,11 @@ const searchContent = asyncHandler(async (req, res) => {
       });
     }
 
-    const music = await Music.find({ moodCategory: tag });
+    const musicFilter = {
+      moodCategory: tag,
+      ...keywordFilter,
+    };
+    const music = await Music.find(musicFilter);
 
     return res.status(200).json({
       success: true,
