@@ -73,18 +73,20 @@ const DeleteAccountOverlay: React.FC<Props> = ({ onClose, onDeleteStart }) => {
     onClose?.(); 
   };
 
- const handleDelete = () => {
+const handleDelete = () => {
   if (!isMatch) return;
+  
+  // 1. Fire the API call
   if(role==="counselor"){
     deleteCounselor();
-  }  else if(role==="patient"){
+  } else if(role==="patient"){
     deletePatient();
   }
-  onDeleteStart?.();   
-  closeOverlay();
-  logout();
-  router.replace('/login')
 
+  // 2. Tell the parent to swap the overlays and start the timer
+  onDeleteStart?.();   
+  
+  // ❌ REMOVE closeOverlay(), logout(), and router.replace('/login') from here!
 };
 
 

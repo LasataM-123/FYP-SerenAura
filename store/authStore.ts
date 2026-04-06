@@ -117,7 +117,10 @@ export const useAuthStore = create<AuthState>()(
         });
       },
 
-      completeOnboarding: () => set({ hasCompletedOnboarding: true }),
+      completeOnboarding: () => set({ 
+      hasCompletedOnboarding: true, 
+      isLoggedIn: true 
+    }),
       loggedIn: () => set({ isLoggedIn: true }),
 
       // --- NEW INITIALIZATION LOGIC ---

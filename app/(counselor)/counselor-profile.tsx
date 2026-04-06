@@ -479,20 +479,24 @@ const Edit = async() =>{
       </ScrollView>
 
       {/* Delete Confirmation Overlay */}
-      {showOverlay && (
-        <DeleteAccountOverlay
-          onClose={() => setShowOverlay(false)}
-          onDeleteStart={() => {
-            setShowOverlay(false);
-            setShowDeleting(true);
-            setTimeout(() => {
-              setShowDeleting(false);
-              router.replace("/login");
-            }, 2000);
-          }}
-        />
-      )}
-      {showDeleting && <DeletingAccountOverlay />}
+       {showOverlay && (
+      <DeleteAccountOverlay
+        onClose={() => setShowOverlay(false)}
+        onDeleteStart={() => {
+          setShowOverlay(false);
+          
+          setShowDeleting(true);
+
+          setTimeout(() => {
+            setShowDeleting(false); 
+            logout();
+            router.replace("/login"); 
+          }, 2000);
+        }}
+      />
+    )}
+
+    {showDeleting && <DeletingAccountOverlay />}
 
       {/* Logout overlay */}
       {showLogoutOverlay && (
