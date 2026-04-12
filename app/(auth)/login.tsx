@@ -143,7 +143,7 @@ const Login = () => {
 
   // --- NORMAL LOGIN HANDLER ---
   const handleLogin = async () => {
-    Keyboard.dismiss(); // <--- ADDED THIS LINE
+    Keyboard.dismiss(); 
 
     try {
       // Handle Remember Me Logic BEFORE logging in

@@ -144,7 +144,7 @@ const PremiumScreen = () => {
     try {
       const res = await cancelSubscription();
       if (res.success || res.message) {
-         showToastMessage("Subscription Cancelled");
+         showToastMessage("✅ Subscription Cancelled");
          setShowCancelOverlay(false); // Close overlay after success
          setStatusLoading(true); // Trigger whole screen reload
          await fetchStatus(); 
@@ -163,7 +163,7 @@ const PremiumScreen = () => {
     try {
       const res = await resubscribeSubscription();
       if (res.success || res.message) {
-        showToastMessage("Successfully Resubscribed!");
+        showToastMessage("✅ Successfully Resubscribed!");
         setShowResubscribeOverlay(false); // Close overlay after success
         setStatusLoading(true); // Trigger whole screen reload
         await fetchStatus(); 

@@ -38,6 +38,7 @@ import {
   Camera,
   Pencil,
   Music,
+  Phone,
 } from "lucide-react-native";
 import { useBackend } from "@/lib/useBackend";
 import { editProfile, getProfile, ProfileResponse } from "@/lib/api/auth";
@@ -515,6 +516,7 @@ const Profile = () => {
           <Text style={[styles.sectionTitle, { marginTop: 26 }]}>Support</Text>
           <View style={styles.cardBoxPurple}>
             <SettingItem icon={CircleHelpIcon} text="Help & Support" onPress={() => {router.push('../settings/help')}} />
+              <SettingItem icon={Phone} text="Contact Us" onPress={() => {router.push('../settings/contact')}} />
             <SettingItem
               icon={Trash2}
               text="Delete Account"

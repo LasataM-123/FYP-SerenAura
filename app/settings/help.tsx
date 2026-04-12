@@ -220,7 +220,7 @@ const HelpSupport = () => {
               <AccordionItem
                 key={item._id}
                 question={item.question}
-                answer={item.answer}
+                answer={item.answer??""}
               />
             ))}
           </View>
