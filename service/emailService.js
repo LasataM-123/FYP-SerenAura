@@ -138,7 +138,7 @@ const sendSubscriptionExpiredEmail = async (userEmail, planType) => {
   }
 };
 
-const sendResubscribeEmail = async (email, subscriptionType, endDate) => {
+const sendResubscribeEmail = async (email, planType, endDate) => {
   try {
     const mailOptions = {
       from: `"SerenAura" <${process.env.EMAIL_USER}>`,
@@ -147,27 +147,33 @@ const sendResubscribeEmail = async (email, subscriptionType, endDate) => {
       html: `
         <div style="font-family: Arial, sans-serif; background-color: #f5f5f5; padding: 40px 0;">
           <div style="max-width: 500px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center;">
+            
             <h1 style="color: #553434; font-size: 28px; margin-bottom: 10px;">
               Welcome Back! 🎉
             </h1>
+
             <p style="color: #555; font-size: 16px; margin-bottom: 20px;">
-              Great news! You have successfully resubscribed to your <strong>${subscriptionType}</strong> plan on SerenAura.
+              You have successfully resubscribed to the <strong>${planType}</strong> plan on SerenAura.
             </p>
             
-            <div style="background-color: #f0f8ff; padding: 15px; border-radius: 8px; margin: 20px 0; color: #555; font-size: 15px;">
-              Your current billing cycle is valid until <strong>${endDate}</strong>.
+            <div style="background-color: #f0f8ff; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: left; color: #555; font-size: 15px; line-height: 1.6;">
+              <p style="margin: 0;"><strong>Status:</strong> Active ✅</p>
+              <p style="margin: 0;"><strong>Plan:</strong> ${planType}</p>
+              <p style="margin: 0;"><strong>Valid Until:</strong> ${endDate}</p>
             </div>
 
-            <p style="color: #555; font-size: 14px; line-height: 1.5;">
-              You won't experience any interruption in your premium benefits. Thank you for staying with us!
+            <p style="color: #555; font-size: 14px;">
+              Your premium access has been restored without any interruption. Enjoy all features again!
             </p>
             
             <p style="color: #999; font-size: 12px; margin-top: 30px;">
               Best regards,<br/><strong>SerenAura Team</strong>
             </p>
+
             <p style="color: #999; font-size: 12px; margin-top: 10px;">
               &copy; ${new Date().getFullYear()} SerenAura
             </p>
+
           </div>
         </div>
       `,
@@ -178,7 +184,7 @@ const sendResubscribeEmail = async (email, subscriptionType, endDate) => {
     return true;
   } catch (error) {
     console.error("Error sending resubscribe email:", error);
-    return false; 
+    return false;
   }
 };
 

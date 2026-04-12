@@ -356,8 +356,6 @@ const payCounselor = asyncHandler(async (req, res) => {
  * @access  Private (admin only)
  */
 const confirmPayout = asyncHandler(async (req, res) => {
-    // Keep this exactly the same! When eSewa redirects to success_url, 
-    // your frontend will pull these from the query params and send them here.
     const { counselorId, amount, chatsCount } = req.body;
 
     if (!counselorId || !amount || !chatsCount) {
