@@ -103,6 +103,7 @@ app.use('/api/messages', require('./routes/messageRoutes'));
 app.use('/api/faq', require('./routes/faqRoutes'));
 app.use('/api/admin',require('./routes/adminRoutes'));
 app.use('/api/subscription', require('./routes/subscriptionRoutes'));
+app.use('/api/reviews', require('./routes/reviewRoutes'));
 
 /* ---------------- NOTIFICATION SETTINGS ---------------- */
 

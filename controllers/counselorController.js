@@ -43,11 +43,11 @@ const deleteUploadedFile = async (file) => {
 const getCounselor = asyncHandler(async (req, res) => {
   try {
     const counselors = await Counselor.find().select(
-      "_id name profileUrl experience speciality"
+      "_id name profileUrl experience speciality rating" 
     );
 
     if (counselors.length === 0) {
-      return res.status(404).json({message: "No counselors found." });
+      return res.status(404).json({ message: "No counselors found." });
     }
 
     return res.status(200).json({
@@ -55,10 +55,9 @@ const getCounselor = asyncHandler(async (req, res) => {
       counselors,
     });
   } catch (e) {
-    return res.status(500).json({message: e.message });
+    return res.status(500).json({ message: e.message });
   }
 });
-
 
 /**
  * @route  GET /api/counselors/get/:id
@@ -73,17 +72,16 @@ const getCounselorById = asyncHandler(async (req, res) => {
       return res.status(400).json({ message: "Id is required." });
     }
 
-    // Validate ObjectId
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({message: "Invalid counselor ID format." });
+      return res.status(400).json({ message: "Invalid counselor ID format." });
     }
 
     const foundCounselor = await Counselor.findById(id).select(
-      "_id name profileUrl experience speciality"
+      "_id name profileUrl experience speciality rating"
     );
 
     if (!foundCounselor) {
-      return res.status(404).json({message: "Counselor not found." });
+      return res.status(404).json({ message: "Counselor not found." });
     }
 
     return res.status(200).json({
@@ -91,7 +89,7 @@ const getCounselorById = asyncHandler(async (req, res) => {
       counselor: foundCounselor,
     });
   } catch (e) {
-    return res.status(500).json({message: e.message });
+    return res.status(500).json({ message: e.message });
   }
 });
 

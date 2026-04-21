@@ -50,6 +50,14 @@ const counselorSchema = new mongoose.Schema({
     lastPaidAt: {
         type: Date,
         default: null
+    },
+    reviews: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Review'
+    }],
+    rating: {
+        type: Number,
+        default: 0 
     }
 
 
