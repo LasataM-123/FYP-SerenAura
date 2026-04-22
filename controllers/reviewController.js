@@ -73,26 +73,28 @@ const getReviewsByCounselorId = asyncHandler(async (req, res) => {
       return res.status(400).json({ message: "Invalid counselor ID format." });
     }
 
-    // Find reviews for this counselor and populate patient info
+    const counselor = await Counselor.findById(counselorId).select("rating");
+
+    if (!counselor) {
+      return res.status(404).json({ message: "Counselor not found." });
+    }
+
     const reviews = await Review.find({ counselorId })
       .populate({
-        path: 'patientId',
-        select: 'name profileUrl' // Only get the patient's name and image
+        path: "patientId",
+        select: "name profileUrl",
       })
-      .sort({ reviewDate: -1 }); // -1 sorts by newest first
-
-    if (!reviews || reviews.length === 0) {
-      return res.status(404).json({ message: "No reviews found for this counselor." });
-    }
+      .sort({ reviewDate: -1 });
 
     return res.status(200).json({
       success: true,
+      averageRating: counselor.rating || 0,
       count: reviews.length,
-      reviews,
+      reviews, 
     });
+
   } catch (e) {
     return res.status(500).json({ message: e.message });
   }
 });
-
 module.exports = {addReview, getReviewsByCounselorId }
