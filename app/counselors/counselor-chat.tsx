@@ -20,6 +20,7 @@ import { ChatMessage, useChatMessaging } from "@/lib/useChatMessaging";
 import { images } from "@/constants";
 import Overlay from "@/components/Overlay";
 import { router } from "expo-router";
+import { addReview } from "@/lib/api/review"; // ✅ ADDED
 
 const INPUT_HEIGHT = 56;
 const MIN_BOTTOM = 8;
@@ -39,10 +40,14 @@ const ChatScreen = () => {
   const bottomAnim = useRef(new Animated.Value(MIN_BOTTOM)).current;
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [showOverlay, setShowOverlay] = useState(false);
-  
+
+  // ✅ REVIEW STATES
+  const [showReviewOverlay, setShowReviewOverlay] = useState(false);
+  const [reviewText, setReviewText] = useState("");
+  const [rating, setRating] = useState(0);
+
   const { endChat } = useChatMessaging(chatId, userRole);
 
-  // ---------------- LOADING HANDLER ----------------
   useEffect(() => {
     if (messages.length > 0 || messages.length === 0) {
       const timeout = setTimeout(() => setLoading(false), 350);
@@ -50,7 +55,6 @@ const ChatScreen = () => {
     }
   }, [messages]);
 
-  // ---------------- Keyboard Handling (NO AUTOSCROLL HERE) ----------------
   useEffect(() => {
     const showEvent =
       Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -84,7 +88,6 @@ const ChatScreen = () => {
     };
   }, []);
 
-  // ---------------- AUTO SCROLL ON NEW MESSAGES (KEPT) ----------------
   useEffect(() => {
     if (flatListRef.current && messages.length > 0) {
       setTimeout(() => {
@@ -93,36 +96,70 @@ const ChatScreen = () => {
     }
   }, [messages]);
 
-  // ---------------- Send Message ----------------
   const handleSend = async () => {
     if (!input.trim() || !chatId) return;
 
-    // Save the current input value to send
     const messageToSend = input;
-    
-    // Clear the input field immediately for a snappy UI
-    setInput(""); 
+    setInput("");
 
     try {
       await sendMessage(messageToSend);
     } catch (err) {
       console.log("Send failed:", err);
-      // Optional: If it fails, you could put the text back into the input box
-      // setInput(messageToSend);
     }
   };
+
+  // ✅ MODIFIED ONLY THIS PART
   const handleEndChat = async () => {
     try {
       const response = await endChat();
       if (response.success) {
-        router.back();
+        setShowOverlay(false);
+
+        setTimeout(() => {
+          setShowReviewOverlay(true);
+        }, 1200);
       }
     } catch (err) {
       setShowOverlay(false);
     }
   };
 
-  // ---------------- Render Messages ----------------
+  // ✅ SUBMIT REVIEW
+  const handleSubmitReview = async () => {
+    if (rating === 0) return;
+
+    try {
+      await addReview({
+        chatId,
+        text: reviewText,
+        rating,
+      });
+
+      setShowReviewOverlay(false);
+      router.back();
+    } catch (err) {
+      console.log("Review failed:", err);
+    }
+  };
+
+  // ✅ STAR UI
+  const renderStars = () => (
+    <View style={{ flexDirection: "row", justifyContent: "center", marginBottom: 12 }}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <TouchableOpacity key={star} onPress={() => setRating(star)}>
+          <Text style={{
+            fontSize: 30,
+            marginHorizontal: 4,
+            color: star <= rating ? "#FFD700" : "#ccc"
+          }}>
+            ★
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+
   const renderMessage = ({ item, index }: { item: ChatMessage; index: number }) => {
     const isCounselor = item.senderRole === "counselor";
     const safeContent =
@@ -178,7 +215,6 @@ const ChatScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => { setShowOverlay(true); }}>
           <Image source={images.arrowBack} style={styles.backImage} />
@@ -187,28 +223,24 @@ const ChatScreen = () => {
         <View style={{ width: 24 }} />
       </View>
 
-      {/* LOADING INDICATOR */}
       {loading ? (
         <View style={styles.loadingWrapper}>
           <ActivityIndicator size="large" color="#553434" />
         </View>
       ) : (
-        <>
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(item) => item._id || Math.random().toString()}
-            renderItem={renderMessage}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="interactive"
-            contentContainerStyle={{
-              paddingBottom: INPUT_HEIGHT + MIN_BOTTOM + keyboardHeight + 30,
-            }}
-          />
-        </>
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          keyExtractor={(item) => item._id || Math.random().toString()}
+          renderItem={renderMessage}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          contentContainerStyle={{
+            paddingBottom: INPUT_HEIGHT + MIN_BOTTOM + keyboardHeight + 30,
+          }}
+        />
       )}
 
-      {/* Input Box */}
       <Animated.View style={[styles.inputWrapper, { bottom: bottomAnim }]}>
         <View style={styles.inputContainer}>
           <TextInput
@@ -240,6 +272,73 @@ const ChatScreen = () => {
           onOutline={() => { setShowOverlay(false); }}
         />
       )}
+
+      {/* ✅ REVIEW OVERLAY */}
+      {showReviewOverlay && (
+  <View style={styles.overlay}>
+    <View style={styles.reviewCard}>
+
+      <Text style={styles.reviewTitle}>Rate Your Counselor</Text>
+      <Text style={styles.reviewDesc}>
+        Your feedback helps improve the experience.
+      </Text>
+
+      {/* ⭐ Stars */}
+      <View style={{ flexDirection: "row", justifyContent: "center", marginBottom: 12 }}>
+        {[1,2,3,4,5].map((star) => (
+          <TouchableOpacity key={star} onPress={() => setRating(star)}>
+            <Text style={{
+              fontSize: 30,
+              marginHorizontal: 4,
+              color: star <= rating ? "#FFD700" : "#ccc"
+            }}>
+              ★
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* ✏️ Input */}
+      <TextInput
+        placeholder="Write your review..."
+        value={reviewText}
+        onChangeText={setReviewText}
+        multiline
+        style={{
+          borderWidth: 2,
+          borderColor: "#553434",
+          borderRadius: 10,
+          padding: 10,
+          minHeight: 80,
+          fontFamily: "KodchasanMedium",
+        }}
+      />
+
+      {/* Buttons */}
+      <TouchableOpacity
+        style={styles.submitBtn}
+        onPress={handleSubmitReview}
+      >
+        <Text style={{ color: "#553434", fontFamily: "KodchasanSemiBold" }}>
+          Submit Review
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.skipBtn}
+        onPress={() => {
+          setShowReviewOverlay(false);
+          router.back();
+        }}
+      >
+        <Text style={{ color: "#553434", fontFamily: "KodchasanSemiBold" }}>
+          Skip
+        </Text>
+      </TouchableOpacity>
+
+    </View>
+  </View>
+)}
     </SafeAreaView>
   );
 };
@@ -333,4 +432,57 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 20,
   },
+  overlay: {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: "rgba(0,0,0,0.5)",
+  justifyContent: "center",
+  alignItems: "center",
+  zIndex: 999,
+},
+
+reviewCard: {
+  width: "80%",
+  backgroundColor: "#fff",
+  borderRadius: 20,
+  padding: 16,
+  borderWidth: 4,
+  borderColor: "#553434",
+   boxShadow: "3px 3px 0px rgb(88, 49, 90)",
+},
+
+reviewTitle: {
+  fontSize: 16,
+  fontFamily: "KodchasanSemiBold",
+  color: "#553434",
+  textAlign: "center",
+},
+
+reviewDesc: {
+  fontSize: 14,
+  color: "#553434",
+  textAlign: "center",
+  fontFamily: "KodchasanLight",
+  marginBottom: 16,
+},
+
+submitBtn: {
+  marginTop: 12,
+  backgroundColor: "#96D1BD",
+  padding: 12,
+  borderRadius: 10,
+  alignItems: "center",
+      boxShadow: "3px 3px 0px rgb(88, 49, 90)",
+      borderBlockColor:"#553434",
+      borderWidth:3
+},
+
+skipBtn: {
+  marginTop: 10,
+  padding: 10,
+  alignItems: "center",
+},
 });

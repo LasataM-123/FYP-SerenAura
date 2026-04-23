@@ -19,6 +19,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { cancelRequest } from '@/lib/api/chat';
 
 const Chat = () => {
+  
   const [counselors, setCounselors] = useState<CounselorType[]>([]);
   const [loading, setLoading] = useState(true);
   const counselorName = useSessionStore((state) => state.counselorName);
@@ -48,10 +49,6 @@ const Chat = () => {
 
   const cancelChatRequest = async () => {
     const res = await cancel({ chatId });
-    if (res?.status === 'closed') {
-      clearSession();
-      setOverlayVisible(false);
-    }
   };
 
   useEffect(() => {

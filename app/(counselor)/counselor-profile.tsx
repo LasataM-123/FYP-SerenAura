@@ -39,6 +39,7 @@ import {
   Pencil,
   Contact,
   Phone,
+  Star,
 } from "lucide-react-native";
 import { useBackend } from "@/lib/useBackend";
 import { getProfile, ProfileResponse } from "@/lib/api/auth";
@@ -411,6 +412,13 @@ const Edit = async() =>{
           </View>
           <Text style={[styles.sectionTitle, { marginTop: 26 }]}>General Settings</Text>
           <View style={styles.cardBoxPeach}>
+             <SettingItem
+              icon={Star}
+              text="User Reviews"
+              onPress={() => {
+                router.push("../settings/review");
+              }}
+            />
             <SettingItem
               icon={LockKeyhole}
               text="Change Password"

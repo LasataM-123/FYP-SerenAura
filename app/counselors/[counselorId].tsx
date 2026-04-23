@@ -326,10 +326,18 @@ const IndividualCounselor = () => {
             <View style={styles.shadowLayer} />
             <View style={styles.card}>
               <View style={styles.infoSection}>
-                <View style={styles.infoRow}>
-                  <UserRound size={18} color={BORDER_COLOR} />
-                  <Text style={styles.infoText}>{data?.counselor.name}</Text>
-                </View>
+               <View style={[styles.infoRow, { justifyContent: 'space-between' }]}>
+  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+    <UserRound size={18} color={BORDER_COLOR} />
+    <Text style={styles.infoText} numberOfLines={1}>{data?.counselor.name}</Text>
+  </View>
+  
+  <View style={styles.inlineRating}>
+    <Text style={styles.inlineRatingText}>
+      ★ {data?.counselor?.rating ? data.counselor.rating.toFixed(1) : "0.0"}
+    </Text>
+  </View>
+</View>
                 <View style={styles.infoRow}>
                   <Stethoscope size={18} color={BORDER_COLOR} />
                   <Text style={styles.infoText}>{data?.counselor.speciality}</Text>
@@ -577,4 +585,36 @@ const styles = StyleSheet.create({
     color: '#553434',
     fontSize: 16,
   },
+  ratingBadge: {
+  position: "absolute",
+  top: 10,
+  right: 10,
+  backgroundColor: "#fff",
+  borderWidth: 2,
+  borderColor: "#F5A623",
+  paddingHorizontal: 8,
+  paddingVertical: 4,
+  borderRadius: 12,
+  zIndex: 10,
+},
+
+ratingBadgeText: {
+  fontSize: 8,
+  fontFamily: "KodchasanSemiBold",
+  color: "#F5A623",
+},
+inlineRating: {
+  backgroundColor: "#fff",
+  borderWidth: 2,
+  borderColor: "#F5A623",
+  paddingHorizontal: 5,
+  paddingVertical: 1,
+  borderRadius: 8,
+  marginLeft: 4,
+},
+inlineRatingText: {
+  fontSize: 10,
+  fontFamily: "KodchasanSemiBold",
+  color: "#F5A623",
+},
 });

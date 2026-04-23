@@ -8,6 +8,7 @@ export type CounselorType = {
   profileUrl: string;
   experience:number;
   speciality: string;
+  rating:number;
 }
 
 export type GetCounselorResponse = {

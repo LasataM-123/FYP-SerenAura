@@ -24,6 +24,7 @@ const CounselorCard: React.FC<CounselorType> = ({
   profileUrl,
   experience,
   speciality,
+  rating
 }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const counselorId = _id;
@@ -48,6 +49,11 @@ const CounselorCard: React.FC<CounselorType> = ({
             <View style={styles.imageShadow} />
             <Image source={{ uri: profileUrl }} style={styles.profileImage} resizeMode='cover' />
           </View>
+          <View style={styles.ratingBadge}>
+  <Text style={styles.ratingBadgeText}>
+    ★ {rating ? rating.toFixed(1) : "0.0"}
+  </Text>
+</View>
 
           {/* Info section */}
           <View style={styles.infoSection}>
@@ -155,4 +161,22 @@ infoText: {
     bottom: 12,
     right: 12,
   },
+  ratingBadge: {
+  position: "absolute",
+  top: 10,
+  right: 10,
+  backgroundColor: "#fff",
+  borderWidth: 2,
+  borderColor: "#F5A623",
+  paddingHorizontal: 5,
+  paddingVertical: 1,
+  borderRadius: 8,
+  zIndex: 10,
+},
+
+ratingBadgeText: {
+  fontSize: 10,
+  fontFamily: "KodchasanSemiBold",
+  color: "#F5A623",
+},
 });
