@@ -1,6 +1,7 @@
 const Message = require("../models/messageModel");
 const Chat = require("../models/chatModel");
 const asyncHandler = require("express-async-handler");
+const { sendNotification } = require('../service/notificationService');
 
 /**
  * @route   GET /api/messages/:chatId
